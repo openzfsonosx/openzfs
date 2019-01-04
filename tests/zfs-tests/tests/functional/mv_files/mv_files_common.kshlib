@@ -152,9 +152,13 @@ function generate_files
 #
 function mv_files
 {
-
-        find $1 -type f -print | xargs -i \
-                mv {} $2 > /dev/null 2>&1
+	if is_freebsd; then
+		find $1 -type f -print | xargs -I "{}" \
+			mv {} $2 > /dev/null 2>&1
+	else
+		find $1 -type f -print | xargs -i \
+			mv {} $2 > /dev/null 2>&1
+	fi
 }
 
 #

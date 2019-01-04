@@ -218,7 +218,8 @@ zfs_mod_supported_feature(const char *name)
 	 * query the running module, via sysfs, to determine which
 	 * features are supported.
 	 */
-#if defined(_KERNEL) || defined(LIB_ZPOOL_BUILD)
+	/* XXX */
+#if defined(_KERNEL) || defined(LIB_ZPOOL_BUILD) || defined(__FreeBSD__)
 	return (B_TRUE);
 #else
 	return (zfs_mod_supported(ZFS_SYSFS_POOL_FEATURES, name));
@@ -553,6 +554,15 @@ zpool_feature_init(void)
 	    "com.datto:resilver_defer", "resilver_defer",
 	    "Support for deferring new resilvers when one is already running.",
 	    ZFEATURE_FLAG_READONLY_COMPAT, ZFEATURE_TYPE_BOOLEAN, NULL);
+
+	/*
+	 * FreeBSD never actually plumbed the platform specific pieces
+	 * required for this, but the feature was marked enabled.
+	 * We skimp and just mark it enabled.
+	 */
+	zfeature_register(SPA_FEATURE_MULTI_VDEV_CRASH_DUMP,
+	    "com.joyent:multi_vdev_crash_dump", "multi_vdev_crash_dump",
+	    "Crash dumps to multiple vdev pools.", B_FALSE, B_FALSE, NULL);
 }
 
 #if defined(_KERNEL)

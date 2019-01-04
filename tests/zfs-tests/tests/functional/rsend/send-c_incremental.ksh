@@ -38,6 +38,9 @@ typeset opt=$(random_get "-i" "-I")
 typeset final dstlist list vol
 
 log_must eval "zfs send -R $POOL@final > $BACKDIR/final"
+if is_freebsd; then
+	sleep 5
+fi
 log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/final"
 
 function do_checks

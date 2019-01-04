@@ -46,6 +46,10 @@ function cleanup
 	datasetexists $FS && log_must zfs destroy -r $FS
 }
 
+if ! is_linux ; then
+	log_unsupported "procfs is only used on Linux"
+fi
+
 typeset -r ZFS_DBGMSG=/proc/spl/kstat/zfs/dbgmsg
 typeset -r FS=$TESTPOOL/fs
 typeset msgs1 msgs2

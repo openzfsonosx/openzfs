@@ -63,10 +63,16 @@ function verify_assertion #slices
 	typeset targets=$1
 
 	for t in $targets; do
-		echo "y" | newfs -v $t > /dev/null 2>&1
-		(( $? !=0 )) || \
-			log_fail "newfs over active pool " \
-			"unexpected return code of 0"
+		if is_freebsd; then
+			newfs $t
+			(( $? != 0)) || log_fail "newfs over active pool " \
+				"unexpected return code of 0"
+		else
+			echo "y" | newfs -v $t > /dev/null 2>&1
+			(( $? != 0 )) || \
+				log_fail "newfs over active pool " \
+				"unexpected return code of 0"
+		fi
 	done
 
 	return 0

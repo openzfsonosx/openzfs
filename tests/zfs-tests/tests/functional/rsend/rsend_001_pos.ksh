@@ -64,6 +64,9 @@ log_must cleanup_pool $POOL2
 # Verify all the filesystem and sub-fs can be backup and restored.
 #
 log_must eval "zfs send -R $POOL/$FS@final > $BACKDIR/fs-final-R"
+if is_freebsd; then
+	sleep 10
+fi
 log_must eval "zfs receive -d $POOL2 < $BACKDIR/fs-final-R"
 
 dstds=$(get_dst_ds $POOL/$FS $POOL2)

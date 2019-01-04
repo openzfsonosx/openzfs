@@ -31,5 +31,11 @@
 #if !defined(READ_ONCE)
 #define	READ_ONCE(x)		ACCESS_ONCE(x)
 #endif
-
+#if !defined(__debug)
+#ifdef ZFS_DEBUG
+#define	__debug
+#else
+#define	__debug	__attribute__((__unused__))
+#endif /* ZFS_DEBUG */
+#endif /* !defined(__debug) */
 #endif	/* _ZFS_COMPILER_COMPAT_H */

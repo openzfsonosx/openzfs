@@ -151,6 +151,13 @@ function log_program_construct_args
 	#
 	test -s /dev/stdin && cat > $tmpin
 
+	# test -s /dev/stdin doesn't work on FreeBSD
+	if is_freebsd; then
+		if [ "$1" = "-" ] ; then
+			cat > $tmpin
+		fi
+	fi
+
 	#
 	# If $tmpin has contents it means that we consumed a HERE
 	# doc and $1 currently holds "-" (a dash). If there is no

@@ -757,6 +757,22 @@ zfs_open(libzfs_handle_t *hdl, const char *path, int types)
 		zfs_close(pzhp);
 	}
 
+	if (zhp == NULL) {
+		char *at = strchr(path, '@');
+
+		if (at != NULL)
+			*at = '\0';
+		errno = 0;
+		if ((zhp = make_dataset_handle(hdl, path)) == NULL) {
+			(void) zfs_standard_error(hdl, errno, errbuf);
+			return (NULL);
+		}
+		if (at != NULL)
+			*at = '@';
+		(void) strlcpy(zhp->zfs_name, path, sizeof (zhp->zfs_name));
+		zhp->zfs_type = ZFS_TYPE_SNAPSHOT;
+	}
+
 	if (!(types & zhp->zfs_type)) {
 		(void) zfs_error(hdl, EZFS_BADTYPE, errbuf);
 		zfs_close(zhp);
@@ -2024,6 +2040,7 @@ zfs_prop_set_list(zfs_handle_t *zhp, nvlist_t *props)
 			 */
 			(void) get_stats(zhp);
 
+#ifndef __FreeBSD__
 			/*
 			 * Remount the filesystem to propagate the change
 			 * if one of the options handled by the generic
@@ -2032,6 +2049,7 @@ zfs_prop_set_list(zfs_handle_t *zhp, nvlist_t *props)
 			if (zfs_is_namespace_prop(prop) &&
 			    zfs_is_mounted(zhp, NULL))
 				ret = zfs_mount(zhp, MNTOPT_REMOUNT, 0);
+#endif
 		}
 	}
 

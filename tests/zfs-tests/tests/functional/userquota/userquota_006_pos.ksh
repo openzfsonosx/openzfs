@@ -65,11 +65,17 @@ for user in "${no_users[@]}"; do
 	log_must eval "zfs get userquota@$user $snap_fs >/dev/null 2>&1"
 done
 
-set -A no_groups "aidsf@dfsd@" "123223-dsfds#sdfsd" "mss_#ss" "1234"
-for group in "${no_groups[@]}"; do
-	log_mustnot eval "groupdel $group > /dev/null 2>&1"
-	log_must eval "zfs get groupquota@$group $QFS >/dev/null 2>&1"
-	log_must eval "zfs get groupquota@$group $snap_fs >/dev/null 2>&1"
-done
+if ! is_freebsd; then
+	set -A no_groups "aidsf@dfsd@" "123223-dsfds#sdfsd" "mss_#ss" "1234"
+	for group in "${no_groups[@]}"; do
+		log_mustnot eval "groupdel $group > /dev/null 2>&1"
+		log_must eval "zfs get groupquota@$group $QFS >/dev/null 2>&1"
+		log_must eval "zfs get groupquota@$group $snap_fs >/dev/null 2>&1"
+	done
+fi
 
-log_pass "Check the invalid parameter of zfs get user|group quota pass as expect"
+if ! is_freebsd; then
+	log_pass "Check the invalid parameter of zfs get user|group quota pass as expect"
+else
+	log_pass "Check the invalid parameter of zfs get user quota pass as expect"
+fi

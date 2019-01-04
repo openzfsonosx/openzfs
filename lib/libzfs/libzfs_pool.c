@@ -2631,13 +2631,19 @@ zpool_vdev_is_interior(const char *name)
 }
 
 nvlist_t *
-zpool_find_vdev(zpool_handle_t *zhp, const char *path, boolean_t *avail_spare,
+zpool_find_vdev(zpool_handle_t *zhp, const char *ipath, boolean_t *avail_spare,
     boolean_t *l2cache, boolean_t *log)
 {
 	char *end;
+	const char *path;
 	nvlist_t *nvroot, *search, *ret;
 	uint64_t guid;
+	int firstpass;
+	char buf[MAXPATHLEN+16];
 
+	firstpass = 1;
+	path = ipath;
+	retry:
 	verify(nvlist_alloc(&search, NV_UNIQUE_NAME, KM_SLEEP) == 0);
 
 	guid = strtoull(path, &end, 0);
@@ -2658,7 +2664,14 @@ zpool_find_vdev(zpool_handle_t *zhp, const char *path, boolean_t *avail_spare,
 		*log = B_FALSE;
 	ret = vdev_to_nvlist_iter(nvroot, search, avail_spare, l2cache, log);
 	nvlist_free(search);
-
+	if (ret == NULL && firstpass) {
+		sprintf(buf, "/dev/%s", path);
+		path = strdup(buf);
+		firstpass = 0;
+		goto retry;
+	}
+	if (path != ipath)
+		free((void *)path);
 	return (ret);
 }
 

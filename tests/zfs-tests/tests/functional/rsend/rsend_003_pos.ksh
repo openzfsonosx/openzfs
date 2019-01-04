@@ -51,6 +51,9 @@ log_onexit cleanup_pool $POOL2
 # Duplicate POOL2
 #
 log_must eval "zfs send -R $POOL@final > $BACKDIR/pool-R"
+if is_freebsd; then
+	sleep 5
+fi
 log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/pool-R"
 
 if is_global_zone ; then

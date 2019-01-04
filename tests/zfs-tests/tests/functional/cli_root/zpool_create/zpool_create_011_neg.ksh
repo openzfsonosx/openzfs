@@ -78,7 +78,7 @@ raidz2=$mirror2
 diff_size_dev="${disk}${SLICE_PREFIX}${SLICE6} ${disk}${SLICE_PREFIX}${SLICE7}"
 vfstab_dev=$(find_vfstab_dev)
 
-if is_linux; then
+if is_linux || is_freebsd; then
 	partition_disk $SIZE $disk 7
 	cyl=$(get_endslice $disk $SLICE5)
 	log_must set_partition $SLICE6 "$cyl" $SIZE1 $disk

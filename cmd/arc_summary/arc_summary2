@@ -68,6 +68,43 @@ if sys.platform.startswith('freebsd'):
     def load_tunables():
         return dict((ctl.name, ctl.value) for ctl in sysctl.filter('vfs.zfs'))
 
+else:
+
+    def load_kstats(namespace):
+        """Collect information on a specific subsystem of the ARC"""
+
+        kstat = 'kstat.zfs.misc.%s.%%s' % namespace
+        path = '/proc/spl/kstat/zfs/%s' % namespace
+        with open(path) as f:
+            entries = [line.strip().split() for line in f][2:] # Skip header
+        return [(kstat % name, D(value)) for name, _, value in entries]
+
+    def load_tunables():
+        basepath = '/sys/module/zfs/parameters'
+        tunables = {}
+        for name in os.listdir(basepath):
+            if not name:
+                continue
+            path = '%s/%s' % (basepath, name)
+            with open(path) as f:
+                value = f.read()
+            tunables[name] = value.strip()
+        return tunables
+
+
+if sys.platform.startswith('freebsd'):
+    # Requires py27-sysctl on FreeBSD
+    import sysctl
+
+    def load_kstats(namespace):
+        """Collect information on a specific subsystem of the ARC"""
+
+        base = 'kstat.zfs.misc.%s.' % namespace
+        return [(kstat.name, D(kstat.value)) for kstat in sysctl.filter(base)]
+
+    def load_tunables():
+        return dict((ctl.name, ctl.value) for ctl in sysctl.filter('vfs.zfs'))
+
 elif sys.platform.startswith('linux'):
 
     def load_kstats(namespace):

@@ -66,8 +66,12 @@ NUM_WRITES=40
 
 log_must zfs set volsize=128m $TESTPOOL/$TESTVOL
 
-echo "y" | newfs -v ${ZVOL_RDEVDIR}/$TESTPOOL/$TESTVOL >/dev/null 2>&1
-(( $? != 0 )) && log_fail "Unable to newfs(1M) $TESTPOOL/$TESTVOL"
+if is_freebsd; then
+	log_must newfs ${ZVOL_RDEVDIR}/$TESTPOOL/$TESTVOL
+else
+	echo "y" | newfs -v ${ZVOL_RDEVDIR}/$TESTPOOL/$TESTVOL >/dev/null 2>&1
+	(( $? != 0 )) && log_fail "Unable to newfs(1M) $TESTPOOL/$TESTVOL"
+fi
 
 log_must mount ${ZVOL_DEVDIR}/$TESTPOOL/$TESTVOL $TESTDIR
 
@@ -84,7 +88,7 @@ while (( 1 )); do
 	(( fn = fn + 1 ))
 done
 
-if is_linux; then
+if is_linux || is_freebsd ; then
 	log_must sync
 else
 	log_must lockfs -f $TESTDIR

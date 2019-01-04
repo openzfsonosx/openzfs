@@ -53,6 +53,9 @@ for opt in "-p" "-R"; do
 	done
 
 	log_must eval "zfs send -c $opt $POOL@final > $BACKDIR/pool-final$opt"
+	if is_freebsd; then
+		sleep 5
+	fi
 	log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/pool-final$opt"
 
 	for ds in ${datasets[@]}; do

@@ -96,6 +96,10 @@ function check_all
 	fi
 }
 
+if ! is_linux ; then
+	log_unsupported "procfs is only used on Linux"
+fi
+
 log_onexit cleanup
 
 log_assert "Testing /proc/spl/kstat/zfs/<pool>/state kstat"

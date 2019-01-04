@@ -31,6 +31,11 @@
 # 7. Verify labels 0 and 1 have unique Uberblocks, but 2 and 3 have none
 #
 
+if is_freebsd ; then
+	# FreeBSD won't allow writing to an in-use device without this set
+	log_must sysctl kern.geom.debugflags=16
+fi
+
 log_assert "Verify zdb produces unique dumps of uberblocks"
 log_onexit cleanup
 
@@ -45,7 +50,11 @@ function cleanup
 verify_runnable "global"
 verify_disk_count "$DISKS" 2
 set -A DISK $DISKS
-WHOLE_DISK=${DISK[0]}
+if is_freebsd ; then
+	WHOLE_DISK=/dev/${DISK[0]}
+else
+	WHOLE_DISK=${DISK[0]}
+fi
 
 default_mirror_setup_noexit $DISKS
 DEVS=$(get_pool_devices ${TESTPOOL} ${DEV_RDSKDIR})
@@ -57,10 +66,16 @@ log_must zpool export $TESTPOOL
 
 log_must dd if=$DEV_RDSKDIR/${DISK[0]} of=$DEV_RDSKDIR/${DISK[1]} bs=1K count=256 conv=notrunc
 
-ubs=$(zdb -lu ${DISK[1]} | grep -e LABEL -e Uberblock -e 'labels = ')
+if is_freebsd; then
+	DISK1="/dev/${DISK[1]}"
+else
+	DISK1="${DISK[1]}"
+fi
+
+ubs=$(zdb -lu ${DISK1} | grep -e LABEL -e Uberblock -e 'labels = ')
 log_note "vdev 1: ubs $ubs"
 
-ub_dump_counts=$(zdb -lu ${DISK[1]} | \
+ub_dump_counts=$(zdb -lu ${DISK1} | \
 	awk '	/LABEL/	{label=$NF; blocks[label]=0};
 		/Uberblock/ {blocks[label]++};
 		END {print blocks[0],blocks[1],blocks[2],blocks[3]}')

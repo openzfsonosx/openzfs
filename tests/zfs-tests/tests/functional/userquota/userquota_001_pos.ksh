@@ -62,6 +62,12 @@ sync_pool
 log_mustnot user_run $QUSER1 mkfile 1 $OFILE
 cleanup_quota
 
+if is_freebsd; then
+	# We stop here on FreeBSD, groupquota not implemented
+	log_pass "Write operation overwrite userquota size, it as expect"
+	exit 0
+fi
+
 log_note "Check the groupquota@$QGROUP"
 log_must zfs set groupquota@$QGROUP=$GQUOTA_SIZE $QFS
 mkmount_writable $QFS

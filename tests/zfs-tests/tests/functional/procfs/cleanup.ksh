@@ -26,4 +26,8 @@
 
 . $STF_SUITE/include/libtest.shlib
 
+if ! is_linux ; then
+	log_unsupported "procfs is only used on Linux"
+fi
+
 default_cleanup

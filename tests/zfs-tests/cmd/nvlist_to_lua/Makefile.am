@@ -7,4 +7,8 @@ pkgexec_PROGRAMS = nvlist_to_lua
 nvlist_to_lua_SOURCES = nvlist_to_lua.c
 nvlist_to_lua_LDADD = \
 	$(top_builddir)/lib/libnvpair/libnvpair.la \
-	$(top_builddir)/lib/libzfs_core/libzfs_core.la
+	$(top_builddir)/lib/libzfs_core/libzfs_core.la \
+	$(top_builddir)/lib/libzfs/libzfs.la
+if BUILD_FREEBSD
+nvlist_to_lua_LDADD += -L/usr/local/lib -lintl -lgeom
+endif

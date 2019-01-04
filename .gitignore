@@ -64,6 +64,12 @@ cscope.*
 *.log
 venv
 
+*.so
+*.so.debug
+*.so.full
+*.tmp
+*.log
+
 #
 # Module leftovers
 #
@@ -75,3 +81,9 @@ venv
 /module/unicode/zunicode.mod
 /module/zcommon/zcommon.mod
 /module/zfs/zfs.mod
+
+module/export_syms
+module/machine
+module/x86
+module/zfs.ko.debug
+module/zfs.ko.full

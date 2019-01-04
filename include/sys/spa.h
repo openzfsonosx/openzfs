@@ -794,6 +794,10 @@ extern int bpobj_enqueue_free_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx);
 #define	SPA_REMOVE_UNSPARE	0x01
 #define	SPA_REMOVE_DONE		0x02
 
+extern int spa_config_parse(spa_t *spa, vdev_t **vdp, nvlist_t *nv,
+    vdev_t *parent, uint_t id, int atype);
+
+
 /* device manipulation */
 extern int spa_vdev_add(spa_t *spa, nvlist_t *nvroot);
 extern int spa_vdev_attach(spa_t *spa, uint64_t guid, nvlist_t *nvroot,
@@ -1182,6 +1186,7 @@ extern void spa_wake_waiters(spa_t *spa);
 int param_set_deadman_ziotime(const char *val, zfs_kernel_param_t *kp);
 int param_set_deadman_synctime(const char *val, zfs_kernel_param_t *kp);
 int param_set_slop_shift(const char *buf, zfs_kernel_param_t *kp);
+int param_set_deadman_failmode(const char *val, zfs_kernel_param_t *kp);
 
 #ifdef ZFS_DEBUG
 #define	dprintf_bp(bp, fmt, ...) do {				\

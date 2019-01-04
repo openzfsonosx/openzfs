@@ -83,7 +83,11 @@ if ! cat /etc/group | awk -F: '{print $1}' | \
 	grep -w 'everyone' > /dev/null 2>&1
 then
 	group_added="TRUE"
-	log_must groupadd everyone
+	if is_freebsd; then
+		log_must /usr/sbin/pw groupadd -n everyone
+	else
+		log_must groupadd everyone
+	fi
 fi
 
 for dtst in $DATASETS ; do
@@ -92,7 +96,11 @@ for dtst in $DATASETS ; do
 done
 log_must restore_root_datasets
 if [[ $group_added == "TRUE" ]]; then
-	log_must groupdel everyone
+	if is_freebsd; then
+		log_must /usr/sbin/pw groupdel -n everyone
+	else
+		log_must groupdel everyone
+	fi
 fi
 
 log_pass "everyone is always interpreted as keyword passed."

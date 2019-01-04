@@ -30,6 +30,9 @@
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/xattr/xattr_common.kshlib
 
+del_user $ZFS_USER
+del_group $ZFS_GROUP
+
 USES_NIS=$(cat $TEST_BASE_DIR/zfs-xattr-test-nis.txt)
 rm $TEST_BASE_DIR/zfs-xattr-test-nis.txt
 

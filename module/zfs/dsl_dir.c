@@ -743,6 +743,7 @@ dsl_enforce_ds_ss_limits(dsl_dir_t *dd, zfs_prop_t prop, cred_t *cr)
 	uint64_t obj;
 	dsl_dataset_t *ds;
 	uint64_t zoned;
+	const char *zonedstr;
 
 	ASSERT(prop == ZFS_PROP_FILESYSTEM_LIMIT ||
 	    prop == ZFS_PROP_SNAPSHOT_LIMIT);
@@ -763,7 +764,8 @@ dsl_enforce_ds_ss_limits(dsl_dir_t *dd, zfs_prop_t prop, cred_t *cr)
 	if (dsl_dataset_hold_obj(dd->dd_pool, obj, FTAG, &ds) != 0)
 		return (ENFORCE_ALWAYS);
 
-	if (dsl_prop_get_ds(ds, "zoned", 8, 1, &zoned, NULL) || zoned) {
+	zonedstr = zfs_prop_to_name(ZFS_PROP_ZONED);
+	if (dsl_prop_get_ds(ds, zonedstr, 8, 1, &zoned, NULL) || zoned) {
 		/* Only root can access zoned fs's from the GZ */
 		enforce = ENFORCE_ALWAYS;
 	} else {
@@ -2107,6 +2109,9 @@ dsl_dir_rename_sync(void *arg, dmu_tx_t *tx)
 	VERIFY0(zap_add(mos, dsl_dir_phys(newparent)->dd_child_dir_zapobj,
 	    dd->dd_myname, 8, 1, &dd->dd_object, tx));
 
+#if defined(__FreeBSD__) && defined(_KERNEL)
+	zfsvfs_update_fromname(ddra->ddra_oldname, ddra->ddra_newname);
+#endif
 	zvol_rename_minors(dp->dp_spa, ddra->ddra_oldname,
 	    ddra->ddra_newname, B_TRUE);
 

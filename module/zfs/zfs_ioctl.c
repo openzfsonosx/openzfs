@@ -217,6 +217,27 @@
 #include <sys/lua/lauxlib.h>
 #include <sys/zfs_ioctl_impl.h>
 
+#ifndef __linux__
+#define	z_sb z_vfs
+#define	deactivate_super vfs_unbusy
+#define	group_leader p_pid
+#define	KMALLOC_MAX_SIZE MAXPHYS
+#define	VOP_SEEK(...) (0)
+#include <sys/buf.h>
+#endif
+volatile int geom_inhibited;
+
+#ifdef __GNUC__
+#define	_CC_UNUSED_ __attribute__((unused))
+#else
+#define	_CC_UNUSED_ __unused
+#endif
+
+/*
+ * Limit maximum nvlist size.  We don't want users passing in insane values
+ * for zc->zc_nvlist_src_size, since we will need to allocate that much memory.
+ */
+#define	MAX_NVLIST_SRC_SIZE	KMALLOC_MAX_SIZE
 kmutex_t zfsdev_state_lock;
 zfsdev_state_t *zfsdev_state_list;
 
@@ -1405,6 +1426,17 @@ getzfsvfs(const char *dsname, zfsvfs_t **zfvp)
 
 	error = getzfsvfs_impl(os, zfvp);
 	dmu_objset_rele(os, FTAG);
+#ifdef __FreeBSD__
+	if (error)
+		return (error);
+
+	error = vfs_busy((*zfvp)->z_vfs, 0);
+	vfs_rel((*zfvp)->z_vfs);
+	if (error != 0) {
+		*zfvp = NULL;
+		error = SET_ERROR(ESRCH);
+	}
+#endif
 	return (error);
 }
 
@@ -3325,6 +3357,16 @@ zfs_ioc_create(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 			}
 		}
 	}
+#if defined(__FreeBSD__) && defined(_KERNEL)
+	if (error == 0 && type == DMU_OST_ZVOL) {
+		spa_t *spa;
+
+		if (spa_open(fsname, &spa, FTAG) == 0) {
+			zvol_create_minors(spa, fsname, B_TRUE);
+			spa_close(spa, FTAG);
+		}
+	}
+#endif
 	return (error);
 }
 
@@ -3373,6 +3415,16 @@ zfs_ioc_clone(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 		if (error != 0)
 			(void) dsl_destroy_head(fsname);
 	}
+#if defined(__FreeBSD__) && defined(_KERNEL)
+	if (error == 0) {
+		spa_t *spa;
+
+		if (spa_open(fsname, &spa, FTAG) == 0) {
+			zvol_create_minors(spa, fsname, B_FALSE);
+			spa_close(spa, FTAG);
+		}
+	}
+#endif
 	return (error);
 }
 
@@ -4103,7 +4155,7 @@ static int
 zfs_ioc_rollback(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 {
 	zfsvfs_t *zfsvfs;
-	zvol_state_handle_t *zv;
+	zvol_state_handle_t *zv _CC_UNUSED_;
 	char *target = NULL;
 	int error;
 
@@ -4205,6 +4257,7 @@ zfs_ioc_rename(zfs_cmd_t *zc)
 	objset_t *os;
 	dmu_objset_type_t ost;
 	boolean_t recursive = zc->zc_cookie & 1;
+	boolean_t nounmount = !!(zc->zc_cookie & 2);
 	char *at;
 	int err;
 
@@ -4230,7 +4283,7 @@ zfs_ioc_rename(zfs_cmd_t *zc)
 		if (strncmp(zc->zc_name, zc->zc_value, at - zc->zc_name + 1))
 			return (SET_ERROR(EXDEV));
 		*at = '\0';
-		if (ost == DMU_OST_ZFS) {
+		if (ost == DMU_OST_ZFS && !nounmount) {
 			error = dmu_objset_find(zc->zc_name,
 			    recursive_unmount, at + 1,
 			    recursive ? DS_FIND_CHILDREN : 0);
@@ -4479,7 +4532,10 @@ zfs_check_settable(const char *dsname, nvpair_t *pair, cred_t *cr)
 			    intval & ZIO_CHECKSUM_MASK);
 			if (feature == SPA_FEATURE_NONE)
 				break;
-
+#ifdef __FreeBSD__
+			if (feature == SPA_FEATURE_EDONR)
+				return (SET_ERROR(ENOTSUP));
+#endif
 			if ((err = spa_open(dsname, &spa, FTAG)) != 0)
 				return (err);
 
@@ -4730,6 +4786,7 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 	error = dmu_recv_begin(tofs, tosnap, begin_record, force,
 	    resumable, localprops, hidden_args, origin, &drc, input_fp,
 	    &off);
+
 	if (error != 0)
 		goto out;
 	tofs_was_redacted = dsl_get_redacted(drc.drc_ds);
@@ -4837,7 +4894,7 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 
 	if (error == 0) {
 		zfsvfs_t *zfsvfs = NULL;
-		zvol_state_handle_t *zv = NULL;
+		zvol_state_handle_t *zv _CC_UNUSED_ = NULL;
 
 		if (getzfsvfs(tofs, &zfsvfs) == 0) {
 			/* online recv */
@@ -5005,6 +5062,7 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 	}
 out:
 	zfs_file_put(input_fd);
+	atomic_dec_32(&geom_inhibited);
 	nvlist_free(origrecvd);
 	nvlist_free(origprops);
 
@@ -6265,7 +6323,6 @@ static const zfs_ioc_key_t zfs_keys_send_new[] = {
 	{"redactbook",		DATA_TYPE_STRING,	ZK_OPTIONAL},
 };
 
-/* ARGSUSED */
 static int
 zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 {
@@ -7059,6 +7116,7 @@ zfs_ioctl_init(void)
 
 	zfs_ioctl_init_os();
 }
+
 
 /*
  * Verify that for non-legacy ioctls the input nvlist

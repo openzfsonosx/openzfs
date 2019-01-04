@@ -80,6 +80,10 @@ function do_test
 	} <$TXG_HIST
 }
 
+if ! is_linux ; then
+	log_unsupported "procfs is only used on Linux"
+fi
+
 typeset -r TXG_HIST=/proc/spl/kstat/zfs/$TESTPOOL/txgs
 typeset MAX_ENTRIES_PARAM=/sys/module/zfs/parameters/zfs_txg_history
 typeset default_max_entries

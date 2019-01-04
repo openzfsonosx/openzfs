@@ -4,6 +4,7 @@ dnl #
 AC_DEFUN([ZFS_AC_CONFIG_KERNEL], [
 	dnl # Setup the kernel build environment.
 	ZFS_AC_KERNEL
+	AM_COND_IF([BUILD_LINUX], [
 	ZFS_AC_QAT
 
 	dnl # Sanity checks for module building and CONFIG_* defines
@@ -25,6 +26,7 @@ AC_DEFUN([ZFS_AC_CONFIG_KERNEL], [
 	])
 
 	AC_SUBST(KERNEL_MAKE)
+	])
 ])
 
 dnl #
@@ -254,9 +256,21 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 		[Path to kernel build objects]),
 		[kernelbuild="$withval"])
 
+	AC_ARG_WITH([freebsd],
+		AS_HELP_STRING([--with-freebsd=PATH],
+		[Path to FreeBSD source]),
+		[kernelsrc="$withval/sys"])
+
+	AC_ARG_WITH(freebsd-obj,
+		AS_HELP_STRING([--with-freebsd-obj=PATH],
+		[Path to FreeBSD build objects]),
+		[kernelbuild="$withval/$kernelsrc"])
+
 	AC_MSG_CHECKING([kernel source directory])
 	AS_IF([test -z "$kernelsrc"], [
-		AS_IF([test -e "/lib/modules/$(uname -r)/source"], [
+		AS_IF([test -z "$BUILD_FREEBSD_TRUE"], [
+			sourcelink="/usr/src/sys"
+		], [test -e "/lib/modules/$(uname -r)/source"], [
 			headersdir="/lib/modules/$(uname -r)/source"
 			sourcelink=$(readlink -f "$headersdir")
 		], [test -e "/lib/modules/$(uname -r)/build"], [
@@ -285,12 +299,15 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 		AC_MSG_ERROR([
 	*** Please make sure the kernel devel package for your distribution
 	*** is installed and then try again.  If that fails, you can specify the
-	*** location of the kernel source with the '--with-linux=PATH' option.])
+	*** location of the kernel source with the '--with-linux=PATH' option.
+	*** If you are configuring for FreeBSD, use '--with-freebsd=PATH'.])
 	])
 
 	AC_MSG_CHECKING([kernel build directory])
 	AS_IF([test -z "$kernelbuild"], [
-		AS_IF([test x$withlinux != xyes -a -e "/lib/modules/$(uname -r)/build"], [
+		AS_IF([test -z "$BUILD_FREEBSD_TRUE"], [
+			kernelbuild="/usr/obj/${kernelsrc}"
+		], [test x$withlinux != xyes -a -e "/lib/modules/$(uname -r)/build"], [
 			kernelbuild=`readlink -f /lib/modules/$(uname -r)/build`
 		], [test -d ${kernelsrc}-obj/${target_cpu}/${target_cpu}], [
 			kernelbuild=${kernelsrc}-obj/${target_cpu}/${target_cpu}
@@ -304,24 +321,33 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 	])
 	AC_MSG_RESULT([$kernelbuild])
 
-	AC_MSG_CHECKING([kernel source version])
-	utsrelease1=$kernelbuild/include/linux/version.h
-	utsrelease2=$kernelbuild/include/linux/utsrelease.h
-	utsrelease3=$kernelbuild/include/generated/utsrelease.h
-	AS_IF([test -r $utsrelease1 && fgrep -q UTS_RELEASE $utsrelease1], [
-		utsrelease=linux/version.h
-	], [test -r $utsrelease2 && fgrep -q UTS_RELEASE $utsrelease2], [
-		utsrelease=linux/utsrelease.h
-	], [test -r $utsrelease3 && fgrep -q UTS_RELEASE $utsrelease3], [
-		utsrelease=generated/utsrelease.h
+	AS_IF([test -z "$BUILD_FREEBSD_TRUE"], [
+		AC_MSG_CHECKING([kernel source version on FreeBSD])
+		AS_IF([test -r $kernelsrc/sys/param.h], [
+			kernverfile=sys/param.h
+		])
+		kernverinc=$kernelsrc
+		kernvervar=__FreeBSD_version
+	], [
+		AC_MSG_CHECKING([kernel source version on Linux])
+		utsrelease1=$kernelbuild/include/linux/version.h
+		utsrelease2=$kernelbuild/include/linux/utsrelease.h
+		utsrelease3=$kernelbuild/include/generated/utsrelease.h
+		AS_IF([test -r $utsrelease1 && fgrep -q UTS_RELEASE $utsrelease1], [
+			kernverfile=linux/version.h
+		], [test -r $utsrelease2 && fgrep -q UTS_RELEASE $utsrelease2], [
+			kernverfile=linux/utsrelease.h
+		], [test -r $utsrelease3 && fgrep -q UTS_RELEASE $utsrelease3], [
+			kernverfile=generated/utsrelease.h
+		])
+		kernvervar=UTS_RELEASE
+		kernverinc=$kernelbuild/include
 	])
-
-	AS_IF([test "$utsrelease"], [
-		kernsrcver=`(echo "#include <$utsrelease>";
-		             echo "kernsrcver=UTS_RELEASE") |
-		             ${CPP} -I $kernelbuild/include - |
-		             grep "^kernsrcver=" | cut -d \" -f 2`
-
+	AS_IF([test -n "$kernverfile"], [
+		kernsrcver=`(echo "#include <$kernverfile>";
+			     echo "kernsrcver=$kernvervar") |
+			     ${CPP} -I $kernverinc - |
+			     grep "^kernsrcver=" | cut -d \" -f 2`
 		AS_IF([test -z "$kernsrcver"], [
 			AC_MSG_RESULT([Not found])
 			AC_MSG_ERROR([

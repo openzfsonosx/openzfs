@@ -39,6 +39,11 @@
 #
 function create_dev_file
 {
+	if is_freebsd; then
+		create_dev_file_freebsd "$1" "$2"
+		return $?
+	fi
+
 	typeset filetype=$1
 	typeset filename=$2
 
@@ -115,6 +120,80 @@ function create_dev_file
 			else
 				log_must mknod $filename c $(getmajor mm) 2
 			fi
+			;;
+		*)
+			log_fail "'$filetype' is wrong."
+			;;
+	esac
+
+	return 0
+}
+
+# FreeBSD specific function to create dev files
+function create_dev_file_freebsd
+{
+	typeset filetype=$1
+	typeset filename=$2
+
+	case $filetype in
+		b)
+			devtype=$(df -T / | grep -v "Type" | awk '{print $2}')
+			case $devtype in
+				zfs)
+					rootpool=$(df / | grep -v "Filesystem" | \
+						awk '{print $2}')
+					rootpool=${rootpool#\(}
+					rootpool=${rootpool%%/*}
+
+					devstr=$(get_disklist $rootpool)
+					devstr=$(echo "$devstr" | \
+						awk '{print $1}')
+					[[ -z $devstr ]] && \
+						log_fail "Can not get block device file."
+					devstr=/dev/${devstr}
+					;;
+				ufs)
+			#
+			# Get the existing block device file in current system.
+			# And bring out the first one.
+			#
+					devstr=$(df -t ufs | \
+						grep "^/dev/" | \
+						head -n 1 | \
+						awk '{print $1}')
+					devstr=$(echo "$devstr" | \
+						awk '{print $1}')
+					[[ -z $devstr ]] && \
+						log_fail "Can not get block device file."
+					;;
+				*)
+					log_unsupported "Unsupported fstype " \
+						"for / ($devtype)," \
+						"only ufs|zfs is supported."
+					;;
+			esac
+
+			#
+			# Get the device file information. i.e:
+			# /dev/c0t0d0s0:      block special (28/768)
+			#
+			devstr=$(file $devstr)
+
+			#
+			# Bring out major and minor number.
+			#
+			major=${devstr##*\(}
+			major=${major%%/*}
+			minor=${devstr##*/}
+			minor=${minor%\)}
+
+			log_must mknod $filename b $major $minor
+			;;
+		c)
+			#
+			# Create device file '/dev/null'
+			#
+			log_must mknod $filename c 13 2
 			;;
 		*)
 			log_fail "'$filetype' is wrong."

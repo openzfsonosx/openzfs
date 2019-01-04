@@ -52,7 +52,7 @@ AC_DEFUN([ZFS_AC_CONFIG_ALWAYS_CC_FRAME_LARGER_THAN], [
 	AC_MSG_CHECKING([whether $CC supports -Wframe-larger-than=<size>])
 
 	saved_flags="$CFLAGS"
-	CFLAGS="$CFLAGS -Wframe-larger-than=4096"
+	CFLAGS="$CFLAGS -Werror -Wframe-larger-than=4096"
 
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])], [
 		FRAME_LARGER_THAN="-Wframe-larger-than=4096"
@@ -73,7 +73,7 @@ AC_DEFUN([ZFS_AC_CONFIG_ALWAYS_CC_NO_FORMAT_TRUNCATION], [
 	AC_MSG_CHECKING([whether $CC supports -Wno-format-truncation])
 
 	saved_flags="$CFLAGS"
-	CFLAGS="$CFLAGS -Wno-format-truncation"
+	CFLAGS="$CFLAGS -Werror -Wno-format-truncation"
 
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])], [
 		NO_FORMAT_TRUNCATION=-Wno-format-truncation
@@ -85,6 +85,27 @@ AC_DEFUN([ZFS_AC_CONFIG_ALWAYS_CC_NO_FORMAT_TRUNCATION], [
 
 	CFLAGS="$saved_flags"
 	AC_SUBST([NO_FORMAT_TRUNCATION])
+])
+
+dnl #
+dnl # Check if gcc supports -Wno-format-truncation option.
+dnl #
+AC_DEFUN([ZFS_AC_CONFIG_ALWAYS_CC_NO_FORMAT_ZERO_LENGTH], [
+	AC_MSG_CHECKING([whether $CC supports -Wno-format-zero-length])
+
+	saved_flags="$CFLAGS"
+	CFLAGS="$CFLAGS -Werror -Wno-format-zero-length"
+
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])], [
+		NO_FORMAT_ZERO_LENGTH=-Wno-format-zero-length
+		AC_MSG_RESULT([yes])
+	], [
+		NO_FORMAT_ZERO_LENGTH=
+		AC_MSG_RESULT([no])
+	])
+
+	CFLAGS="$saved_flags"
+	AC_SUBST([NO_FORMAT_ZERO_LENGTH])
 ])
 
 
@@ -100,7 +121,7 @@ AC_DEFUN([ZFS_AC_CONFIG_ALWAYS_CC_NO_BOOL_COMPARE], [
 	AC_MSG_CHECKING([whether $CC supports -Wno-bool-compare])
 
 	saved_flags="$CFLAGS"
-	CFLAGS="$CFLAGS -Wbool-compare"
+	CFLAGS="$CFLAGS -Werror -Wbool-compare"
 
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])], [
 		NO_BOOL_COMPARE=-Wno-bool-compare
@@ -126,7 +147,7 @@ AC_DEFUN([ZFS_AC_CONFIG_ALWAYS_CC_NO_UNUSED_BUT_SET_VARIABLE], [
 	AC_MSG_CHECKING([whether $CC supports -Wno-unused-but-set-variable])
 
 	saved_flags="$CFLAGS"
-	CFLAGS="$CFLAGS -Wunused-but-set-variable"
+	CFLAGS="$CFLAGS -Werror -Wunused-but-set-variable"
 
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])], [
 		NO_UNUSED_BUT_SET_VARIABLE=-Wno-unused-but-set-variable

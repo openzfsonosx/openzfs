@@ -38,11 +38,17 @@ function cleanup_quota
 {
 	if datasetexists $QFS; then
 		log_must zfs set userquota@$QUSER1=none $QFS
-		log_must zfs set userobjquota@$QUSER1=none $QFS
+		if ! is_freebsd; then
+			log_must zfs set userobjquota@$QUSER1=none $QFS
+		fi
 		log_must zfs set userquota@$QUSER2=none $QFS
-		log_must zfs set userobjquota@$QUSER2=none $QFS
+		if ! is_freebsd; then
+			log_must zfs set userobjquota@$QUSER2=none $QFS
+		fi
 		log_must zfs set groupquota@$QGROUP=none $QFS
-		log_must zfs set groupobjquota@$QGROUP=none $QFS
+		if ! is_freebsd; then
+			log_must zfs set groupobjquota@$QGROUP=none $QFS
+		fi
 		recovery_writable $QFS
 	fi
 

@@ -36,6 +36,9 @@ log_onexit cleanup_pool $POOL2
 log_must zpool export $POOL
 log_must zpool import -o readonly=on $POOL
 log_must eval "zfs send -R $POOL@final > $BACKDIR/pool-final-R"
+if is_freebsd; then
+	sleep 5
+fi
 log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/pool-final-R"
 
 dstds=$(get_dst_ds $POOL $POOL2)
@@ -45,6 +48,9 @@ log_must cmp_ds_cont $POOL $dstds
 log_must cleanup_pool $POOL2
 
 log_must eval "zfs send -R $POOL/$FS@final > $BACKDIR/fs-final-R"
+if is_freebsd; then
+	sleep 5
+fi
 log_must eval "zfs receive -d $POOL2 < $BACKDIR/fs-final-R"
 log_must_busy zpool export $POOL
 log_must zpool import $POOL

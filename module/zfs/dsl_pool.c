@@ -220,8 +220,13 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 	mutex_init(&dp->dp_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&dp->dp_spaceavail_cv, NULL, CV_DEFAULT, NULL);
 
+#ifdef __linux__
 	dp->dp_iput_taskq = taskq_create("z_iput", max_ncpus, defclsyspri,
 	    max_ncpus * 8, INT_MAX, TASKQ_PREPOPULATE | TASKQ_DYNAMIC);
+#else
+	dp->dp_iput_taskq = taskq_create("zfs_vn_rele_taskq", 1, minclsyspri,
+	    1, 4, 0);
+#endif
 	dp->dp_unlinked_drain_taskq = taskq_create("z_unlinked_drain",
 	    max_ncpus, defclsyspri, max_ncpus, INT_MAX,
 	    TASKQ_PREPOPULATE | TASKQ_DYNAMIC);

@@ -106,6 +106,7 @@ commitcheck:
 cstyle:
 	@find ${top_srcdir} -name build -prune -o -name '*.[hc]' \
 		! -name 'zfs_config.*' ! -name '*.mod.c' -type f \
+		! -name '*_if.h' ! -path "*/os/freebsd/*" \
 		-exec ${top_srcdir}/scripts/cstyle.pl -cpP {} \+
 
 filter_executable = -exec test -x '{}' \; -print

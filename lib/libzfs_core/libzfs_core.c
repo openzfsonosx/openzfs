@@ -418,7 +418,9 @@ lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist)
 	if (defer)
 		fnvlist_add_boolean(args, "defer");
 
-	error = lzc_ioctl(ZFS_IOC_DESTROY_SNAPS, pool, args, errlist);
+	do {
+		error = lzc_ioctl(ZFS_IOC_DESTROY_SNAPS, pool, args, errlist);
+	} while (error == EINTR);
 	nvlist_free(args);
 
 	return (error);

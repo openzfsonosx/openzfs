@@ -2,6 +2,8 @@
 *.ko.unsigned
 *.ko.out
 *.ko.out.sig
+*.ko.debug
+*.ko.full
 *.dwo
 .*.cmd
 .*.d
@@ -10,5 +12,6 @@
 /.tmp_versions
 /Module.markers
 /Module.symvers
+/vnode_if*
 
 !Makefile.in

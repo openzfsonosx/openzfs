@@ -66,6 +66,10 @@ done
 
 log_must restore_root_datasets
 
+if is_freebsd; then
+	log_must add_group $STAFF_GROUP
+fi
+
 log_must zfs create $childfs
 for dtst in $DATASETS ; do
 	log_must zfs allow -l -g $STAFF_GROUP $perms $dtst

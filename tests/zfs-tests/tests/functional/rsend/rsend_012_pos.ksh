@@ -132,7 +132,9 @@ for fs in "$POOL" "$POOL/pclone" "$POOL/$FS" "$POOL/$FS/fs1" \
 	rand_set_prop $fs dnodesize "legacy" "auto" "1k" "2k" "4k" "8k" "16k"
 	rand_set_prop $fs setuid "on" "off"
 	rand_set_prop $fs snapdir "hidden" "visible"
-	rand_set_prop $fs xattr "on" "off"
+	if ! is_freebsd; then
+		rand_set_prop $fs xattr "on" "off"
+	fi
 	rand_set_prop $fs user:prop "aaa" "bbb" "23421" "()-+?"
 done
 
@@ -155,6 +157,9 @@ rand_set_prop $POOL sync "standard" "always" "disabled"
 # Duplicate POOL2 for testing
 #
 log_must eval "zfs send -R $POOL@final > $BACKDIR/pool-final-R"
+if is_freebsd; then
+	sleep 5
+fi
 log_must eval "zfs receive -d -F $POOL2 < $BACKDIR/pool-final-R"
 
 #

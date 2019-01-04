@@ -64,6 +64,9 @@ cleanup
 # Duplicate POOL2 for testing
 #
 log_must eval "zfs send -R $POOL@final > $BACKDIR/pool-final-R"
+if is_freebsd; then
+	sleep 5
+fi
 log_must eval "zfs receive -dF $POOL2 < $BACKDIR/pool-final-R"
 
 log_must_busy zfs destroy -Rf $POOL/$FS

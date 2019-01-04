@@ -2953,9 +2953,10 @@ spa_activity_check_required(spa_t *spa, uberblock_t *ub, nvlist_t *label,
 		return (B_FALSE);
 
 	/*
-	 * Skip the activity check when the MMP feature is disabled.
+	 * Skip the activity check when the MMP feature is not present or is
+	 * disabled.
 	 */
-	if (ub->ub_mmp_magic == MMP_MAGIC && ub->ub_mmp_delay == 0)
+	if (ub->ub_mmp_magic != MMP_MAGIC || ub->ub_mmp_delay == 0)
 		return (B_FALSE);
 
 	/*

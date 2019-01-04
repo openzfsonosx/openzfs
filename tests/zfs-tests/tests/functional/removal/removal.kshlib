@@ -97,7 +97,12 @@ function random_write # file write_size
 {
 	typeset file=$1
 	typeset block_size=$2
-	typeset file_size=$(stat -c%s $file 2>/dev/null)
+	if is_freebsd; then
+		typeset file_size=$(stat -f "%z" $file 2>/dev/null)
+	else
+		typeset file_size=$(stat -c%s $file 2>/dev/null)
+	fi
+
 	typeset nblocks=$((file_size / block_size))
 
 	[[ -w $file ]] || return 1
