@@ -246,6 +246,9 @@ dnl #
 dnl # Detect the kernel to be built against
 dnl #
 AC_DEFUN([ZFS_AC_KERNEL], [
+
+	ZFS_AC_KERNEL_SRC_MACOS_HEADERS
+
 	AC_ARG_WITH([linux],
 		AS_HELP_STRING([--with-linux=PATH],
 		[Path to kernel source]),
@@ -264,6 +267,16 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 	AC_ARG_WITH(freebsd-obj,
 		AS_HELP_STRING([--with-freebsd-obj=PATH],
 		[Path to FreeBSD build objects]),
+		[kernelbuild="$withval/$kernelsrc"])
+
+	AC_ARG_WITH([macos],
+		AS_HELP_STRING([--with-macos=PATH],
+		[Path to macOS source]),
+		[kernelsrc="$withval/sys"])
+
+	AC_ARG_WITH(macos-obj,
+		AS_HELP_STRING([--with-macos-obj=PATH],
+		[Path to macOS build objects]),
 		[kernelbuild="$withval/$kernelsrc"])
 
 	AC_MSG_CHECKING([kernel source directory])
@@ -300,7 +313,8 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 	*** Please make sure the kernel devel package for your distribution
 	*** is installed and then try again.  If that fails, you can specify the
 	*** location of the kernel source with the '--with-linux=PATH' option.
-	*** If you are configuring for FreeBSD, use '--with-freebsd=PATH'.])
+	*** If you are configuring for FreeBSD, use '--with-freebsd=PATH'.
+	*** If you are configuring for macOS, use '--with-macos=PATH'.])
 	])
 
 	AC_MSG_CHECKING([kernel build directory])
@@ -328,7 +342,10 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 		])
 		kernverinc=$kernelsrc
 		kernvervar=__FreeBSD_version
-	], [
+		kernsrcver=__FreeBSD_version
+	])
+
+	AS_IF([test -z $kernsrcver], [
 		AC_MSG_CHECKING([kernel source version on Linux])
 		utsrelease1=$kernelbuild/include/linux/version.h
 		utsrelease2=$kernelbuild/include/linux/utsrelease.h
@@ -342,32 +359,34 @@ AC_DEFUN([ZFS_AC_KERNEL], [
 		])
 		kernvervar=UTS_RELEASE
 		kernverinc=$kernelbuild/include
-	])
-	AS_IF([test -n "$kernverfile"], [
-		kernsrcver=`(echo "#include <$kernverfile>";
-			     echo "kernsrcver=$kernvervar") |
-			     ${CPP} -I $kernverinc - |
-			     grep "^kernsrcver=" | cut -d \" -f 2`
-		AS_IF([test -z "$kernsrcver"], [
-			AC_MSG_RESULT([Not found])
-			AC_MSG_ERROR([
-	*** Cannot determine kernel version.
-			])
-		])
-	], [
-		AC_MSG_RESULT([Not found])
-		if test "x$enable_linux_builtin" != xyes; then
-			AC_MSG_ERROR([
-	*** Cannot find UTS_RELEASE definition.
-			])
-		else
-			AC_MSG_ERROR([
-	*** Cannot find UTS_RELEASE definition.
-	*** Please run 'make prepare' inside the kernel source tree.])
-		fi
-	])
 
-	AC_MSG_RESULT([$kernsrcver])
+		AS_IF([test -n "$kernverfile"], [
+			kernsrcver=`(echo "#include <$kernverfile>";
+				     echo "kernsrcver=$kernvervar") |
+				     ${CPP} -I $kernverinc - |
+				     grep "^kernsrcver=" | cut -d \" -f 2`
+			AS_IF([test -z "$kernsrcver"], [
+				AC_MSG_RESULT([Not found])
+				AC_MSG_ERROR([
+		*** Cannot determine kernel version.
+				])
+			])
+		], [
+			AC_MSG_RESULT([Not found])
+			if test "x$enable_linux_builtin" != xyes; then
+				AC_MSG_ERROR([
+		*** Cannot find UTS_RELEASE definition.
+				])
+			else
+				AC_MSG_ERROR([
+		*** Cannot find UTS_RELEASE definition.
+		*** Please run 'make prepare' inside the kernel source tree.])
+			fi
+		])
+
+		AC_MSG_RESULT([$kernsrcver])
+
+	])
 
 	AS_VERSION_COMPARE([$kernsrcver], [$ZFS_META_KVER_MIN], [
 		 AC_MSG_ERROR([
