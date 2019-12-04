@@ -1,0 +1,11 @@
+version: 1.0.{build}
+branches:
+  only:
+  - macos
+image: macOS
+build_script:
+- sh: >-
+    pwd
+    ls -l 
+    sh autoconf.sh
+    ./configure
