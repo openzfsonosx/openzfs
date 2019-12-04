@@ -74,7 +74,7 @@ clean-FreeBSD:
 clean-macOS:
 	flags="$$(echo $$MAKEFLAGS | tr ' ' '\n'|grep '^-j')"; \
 	env MAKEFLAGS="" SYSDIR=@LINUX@ \
-		make $${flags} -C @abs_top_srcdir@/os/macos/ clean
+		make $${flags} -C os/macos/ clean
 
 clean: clean-@ac_system@
 

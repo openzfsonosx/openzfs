@@ -1,7 +1,5 @@
 
-#SUBDIRS = KernelExports
-
-spl_CPPFLAGS= \
+libspl_la_CPPFLAGS= \
 	-Wall \
 	-nostdinc \
 	-mkernel \
@@ -17,7 +15,7 @@ spl_CPPFLAGS= \
 	-I@KERNEL_HEADERS@/Headers \
 	-I@KERNEL_HEADERS@/PrivateHeaders
 
-spl_LDFLAGS= \
+libspl_la_LDFLAGS= \
 	-Xlinker \
 	-kext \
 	-nostdlib \
@@ -25,14 +23,18 @@ spl_LDFLAGS= \
 	-lkmod \
 	-lcc_kext
 
-noinst_PROGRAMS = spl
+libspl_la_LIBS = -lnone
 
-spl_SOURCES = 	\
+# If we don't set this to nothing, it adds "-lz -liconv"
+LIBS = 
+
+noinst_LTLIBRARIES = libspl.la
+
+libspl_la_SOURCES = 	\
 	spl-atomic.c \
 	spl-condvar.c \
 	spl-cred.c \
 	spl-ddi.c \
-	spl-debug.c \
 	spl-err.c \
 	spl-kmem.c \
 	spl-kobj.c \

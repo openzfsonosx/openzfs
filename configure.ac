@@ -123,6 +123,7 @@ AC_CONFIG_FILES([
 	include/os/linux/zfs/sys/Makefile
 	include/os/macos/Makefile
 	include/os/macos/spl/Makefile
+	include/os/macos/spl/rpc/Makefile
 	include/os/macos/spl/sys/Makefile
 	include/sys/Makefile
 	include/sys/crypto/Makefile
@@ -174,7 +175,9 @@ AC_CONFIG_FILES([
 	module/os/linux/spl/Makefile
 	module/os/linux/zfs/Makefile
 	module/os/macos/Makefile
+	module/os/macos/kernel/Makefile
 	module/os/macos/spl/Makefile
+	module/os/macos/zfs/Makefile
 	module/spl/Makefile
 	module/unicode/Makefile
 	module/zcommon/Makefile

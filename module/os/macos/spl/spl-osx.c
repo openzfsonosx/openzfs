@@ -25,7 +25,7 @@
  *
  */
 
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/kmem.h>
 
 #include <sys/systm.h>
@@ -48,6 +48,8 @@
  */
 #define	_task_user_
 #include <IOKit/IOLib.h>
+
+#include <zfs_config.h>
 
 struct utsname utsname = { { 0 } };
 

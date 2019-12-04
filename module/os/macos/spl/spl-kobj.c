@@ -27,7 +27,7 @@
  */
 
 #include <sys/kobj.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/vnode.h>
 #include <sys/malloc.h>
 #include <libkern/libkern.h>

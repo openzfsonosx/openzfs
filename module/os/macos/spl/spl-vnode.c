@@ -27,7 +27,7 @@
  */
 
 #include <sys/vnode.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/malloc.h>
 #include <sys/list.h>
 #include <sys/file.h>

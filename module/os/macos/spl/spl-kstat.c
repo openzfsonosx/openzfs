@@ -31,7 +31,7 @@
  */
 
 #include <sys/kstat.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/thread.h>
 #include <sys/cmn_err.h>
 #include <sys/time.h>

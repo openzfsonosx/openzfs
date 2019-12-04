@@ -499,10 +499,6 @@
 #include <sys/debug.h>
 #include <sys/vmsystm.h>	/* For throttlefree */
 #include <sys/sysmacros.h>
-#include <sys/cpuvar.h>
-#include <sys/cpupart.h>
-#include <sys/sdt.h>
-#include <sys/sysdc.h>
 #include <sys/note.h>
 
 static kmem_cache_t *taskq_ent_cache, *taskq_cache;

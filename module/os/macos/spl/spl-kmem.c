@@ -29,7 +29,7 @@
  *
  */
 
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/cdefs.h>
 #include <sys/cmn_err.h>
 #include <sys/param.h>
@@ -45,6 +45,8 @@
 #include <kern/sched_prim.h>
 #include <sys/callb.h>
 #include <stdbool.h>
+
+#include <zfs_config.h>
 
 // ===============================================================
 // Options

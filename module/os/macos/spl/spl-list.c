@@ -30,7 +30,7 @@
 #include <sys/list.h>
 #include <sys/types.h>
 #include <sys/sysmacros.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 
 
 #define	list_insert_after_node(list, node, object) {	\

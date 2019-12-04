@@ -30,7 +30,7 @@
 #include <mach/thread_act.h>
 #include <sys/kmem.h>
 #include <sys/tsd.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/vnode.h>
 #include <sys/callb.h>
 #include <sys/systm.h>

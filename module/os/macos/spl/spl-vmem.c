@@ -216,7 +216,6 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/atomic.h>
-#include <sys/bitmap.h>
 #include <sys/sysmacros.h>
 #include <sys/cmn_err.h>
 #include <sys/debug.h>

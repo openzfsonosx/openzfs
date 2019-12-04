@@ -55,8 +55,6 @@
 #ifndef _SPL_DEBUG_H
 #define _SPL_DEBUG_H
 
-#include <spl-debug.h>
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -188,6 +186,10 @@ extern int assfail(const char *str, const char *file, unsigned int line);
 
 #endif /* NDEBUG */
 
+
+void spl_backtrace(char *thesignal);
+int getpcstack(unsigned long *pcstack, int pcstack_limit);
+void print_symbol(unsigned long symbol);
 
 
 /*

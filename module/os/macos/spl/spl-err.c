@@ -27,8 +27,7 @@
 
 #include <sys/sysmacros.h>
 #include <sys/cmn_err.h>
-#include <spl-debug.h>
-
+#include <sys/debug.h>
 
 void
 vcmn_err(int ce, const char *fmt, va_list ap)

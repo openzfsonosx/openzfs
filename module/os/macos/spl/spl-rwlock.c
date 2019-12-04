@@ -36,6 +36,7 @@
 #include <kern/thread.h>
 #include <string.h>
 #include <sys/thread.h>
+#include <sys/debug.h>
 
 
 static lck_attr_t       *zfs_rwlock_attr = NULL;

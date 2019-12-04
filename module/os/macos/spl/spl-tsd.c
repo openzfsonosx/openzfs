@@ -56,7 +56,7 @@
 #include <sys/thread.h>
 #include <sys/tsd.h>
 #include <sys/avl.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 
 /* Initial size of array, and realloc growth size */
 #define TSD_ALLOC_SIZE 5

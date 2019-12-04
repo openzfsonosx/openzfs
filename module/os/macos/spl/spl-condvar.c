@@ -26,7 +26,6 @@
  */
 
 #include <sys/condvar.h>
-#include <spl-debug.h>
 #include <sys/errno.h>
 #include <sys/callb.h>
 

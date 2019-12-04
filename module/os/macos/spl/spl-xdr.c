@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
-#include <spl-debug.h>
+#include <sys/debug.h>
 #include <sys/byteorder.h>
 
 

@@ -27,11 +27,10 @@
  */
 
 #include <sys/mutex.h>
-
+#include <sys/atomic.h>
 #include <mach/mach_types.h>
 #include <mach/kern_return.h>
 #include <kern/thread.h>
-#include <sys/mutex.h>
 #include <string.h>
 #include <sys/debug.h>
 #include <kern/debug.h>

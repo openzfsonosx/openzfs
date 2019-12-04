@@ -70,13 +70,30 @@ AC_DEFUN([ZFS_AC_KERNEL_SRC_MACOS_HEADERS], [
 		AC_MSG_RESULT([$kernsrcver])
 		])
 
+		AC_MSG_CHECKING([mach_kernel])
+		AS_IF([test -z "$machkernel"], [
+			AS_IF([test -e "/System/Library/Kernels/kernel"], [
+				machkernel="/System/Library/Kernels/kernel" ] )
+			AS_IF([test -e "/mach_kernel"], [
+				machkernel="/mach_kernel" ] )
+			AS_IF([test ! -f "$machkernel"], [
+				AC_MSG_ERROR([
+        *** mach_kernel file not found. For 10.9 and prior, this should be
+        *** '/mach_kernel' and for 10.10 and following, this should be
+        *** '/System/Library/Kernels/kernel'])
+			])
+		])
+		AC_MSG_RESULT($machkernel)
+
+
 dnl More Generic names:
+	MACH_KERNEL=${machkernel}
 	KERNEL_HEADERS=${kernelsrc}
 	KERNEL_VERSION=${kernsrcver}
 	AC_SUBST(KERNEL_HEADERS)
 	AC_SUBST(KERNEL_MODPREFIX)
 	AC_SUBST(KERNEL_VERSION)
-
+	AC_SUBST(MACH_KERNEL)
 	])
 ])
 
