@@ -5,5 +5,7 @@ branches:
 image: macOS
 build_script:
 - sh: >-
+    pwd
+    ls -l 
     sh autoconf.sh
     ./configure
