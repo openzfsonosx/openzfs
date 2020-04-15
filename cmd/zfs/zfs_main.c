@@ -766,11 +766,11 @@ zfs_mount_and_share(libzfs_handle_t *hdl, const char *dataset, zfs_type_t type)
 		} else if (zfs_mount(zhp, NULL, 0) != 0) {
 			(void) fprintf(stderr, gettext("filesystem "
 			    "successfully created, but not mounted\n"));
-			ret = 1;
+			ret = 0;
 		} else if (zfs_share(zhp) != 0) {
 			(void) fprintf(stderr, gettext("filesystem "
 			    "successfully created, but not shared\n"));
-			ret = 1;
+			ret = 0;
 		}
 	}
 
