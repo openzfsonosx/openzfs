@@ -1,1 +1,1 @@
-SUBDIRS = sys
+SUBDIRS = ia32 sys

@@ -19,28 +19,5 @@
  *
  * CDDL HEADER END
  */
-/*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
 
-#ifndef _SYS_ASM_LINKAGE_H
-#define	_SYS_ASM_LINKAGE_H
-
-#if defined(__i386) || defined(__amd64)
-
-#include <ia32/sys/asm_linkage.h>	/* XX64	x86/sys/asm_linkage.h */
-
-#endif
-
-#if defined(_KERNEL) && defined(HAVE_KERNEL_OBJTOOL)
-
-#include <asm/frame.h>
-
-#else /* userspace */
-#define	FRAME_BEGIN
-#define	FRAME_END
-#endif
-
-
-#endif	/* _SYS_ASM_LINKAGE_H */
+#include <machine/asmacros.h>
