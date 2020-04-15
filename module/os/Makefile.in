@@ -1,1 +1,1 @@
-subdirs-m = linux
+subdirs-m = linux macos

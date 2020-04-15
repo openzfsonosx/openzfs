@@ -45,6 +45,11 @@ modules-FreeBSD:
 	flags="$$(echo $$MAKEFLAGS | awk -v RS=' ' /^-j/)"; \
 	env MAKEFLAGS="" make $${flags} -f Makefile.bsd
 
+modules-macOS:
+	flags="$$(echo $$MAKEFLAGS | tr ' ' '\n'|grep '^-j')"; \
+	env MAKEFLAGS="" \
+		make $${flags} -C os/macos/
+
 modules-unknown:
 	@true
 
@@ -63,6 +68,11 @@ clean-Linux:
 clean-FreeBSD:
 	flags="$$(echo $$MAKEFLAGS | awk -v RS=' ' /^-j/)"; \
 	env MAKEFLAGS="" make $${flags} -f Makefile.bsd clean
+
+clean-macOS:
+	flags="$$(echo $$MAKEFLAGS | tr ' ' '\n'|grep '^-j')"; \
+	env MAKEFLAGS="" SYSDIR=@LINUX@ \
+		make $${flags} -C os/macos/ clean
 
 clean: clean-@ac_system@
 
