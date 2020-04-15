@@ -43,6 +43,13 @@ USER_C += \
 	os/linux/libzfs_util_os.c
 endif
 
+if BUILD_MACOS
+USER_C += \
+	os/macos/libzfs_mount_os.c \
+	os/macos/libzfs_pool_os.c \
+	os/macos/libzfs_util_os.c
+endif
+
 KERNEL_C = \
 	algs/sha2/sha2.c \
 	cityhash.c \
@@ -87,6 +94,10 @@ libzfs_la_LIBADD += -lutil -lgeom
 endif
 
 libzfs_la_LDFLAGS += -version-info 4:0:0
+
+if BUILD_MACOS
+libzfs_la_LDFLAGS += -framework IOKit -lssl
+endif
 
 # Licensing data
 EXTRA_DIST = THIRDPARTYLICENSE.openssl THIRDPARTYLICENSE.openssl.descrip
