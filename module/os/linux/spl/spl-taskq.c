@@ -1199,6 +1199,15 @@ taskq_destroy(taskq_t *tq)
 }
 EXPORT_SYMBOL(taskq_destroy);
 
+int EMPTY_TASKQ(taskq_t *tq)
+{
+#ifdef _KERNEL
+	return (tq->tq_lowest_id == tq->tq_next_id);
+#else
+	return (tq->tq_task.tqent_next == &tq->tq_task || tq->tq_active == 0);
+#endif
+}
+EXPORT_SYMBOL(EMPTY_TASKQ);
 
 static unsigned int spl_taskq_kick = 0;
 
