@@ -6,6 +6,7 @@ image: macOS
 build_script:
 - sh: >-
     pwd
-    ls -l 
+    ls -l
     sh autoconf.sh
-    ./configure
+	./configure CPPFLAGS="-I/usr/local/opt/gettext/include -I/usr/local/opt/openssl@1.1/include" LDFLAGS="-L/usr/local/opt/gettext/lib/ -L/usr/local/opt/openssl@1.1/lib"
+	make
