@@ -88,4 +88,6 @@ nodist_libicp_la_SOURCES = \
 	$(KERNEL_C) \
 	$(KERNEL_ASM)
 
+if !BUILD_MACOS
 libicp_la_LIBADD = -lrt
+endif

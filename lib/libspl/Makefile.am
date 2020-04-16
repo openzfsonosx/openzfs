@@ -57,6 +57,8 @@ nodist_libspl_la_SOURCES = \
 	$(USER_C) \
 	$(USER_ASM)
 
+if !BUILD_MACOS
 libspl_la_LIBADD = -lrt $(LIBTIRPC_LIBS)
+endif
 
 EXTRA_DIST = $(USER_C)
