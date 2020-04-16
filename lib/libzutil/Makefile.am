@@ -28,6 +28,13 @@ USER_C += \
 	os/freebsd/zutil_compat.c
 endif
 
+if BUILD_MACOS
+USER_C += \
+	os/macos/zutil_device_path_os.c \
+	os/macos/zutil_import_os.c \
+	os/macos/zutil_compat.c
+endif
+
 nodist_libzutil_la_SOURCES = $(USER_C)
 
 libzutil_la_LIBADD = \
