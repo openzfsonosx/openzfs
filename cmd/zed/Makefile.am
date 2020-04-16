@@ -40,5 +40,7 @@ zed_LDADD = \
 	$(top_builddir)/lib/libuutil/libuutil.la \
 	$(top_builddir)/lib/libzfs/libzfs.la
 
+if !BUILD_MACOS
 zed_LDADD += -lrt
+endif
 zed_LDFLAGS = -pthread
