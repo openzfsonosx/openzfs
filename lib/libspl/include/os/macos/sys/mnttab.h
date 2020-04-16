@@ -32,6 +32,8 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #ifdef MNTTAB
 #undef MNTTAB
@@ -39,7 +41,7 @@
 
 #include <paths.h>
 #include <sys/mount.h>
-#define	MNTTAB		_PATH_DEVZERO
+#define	MNTTAB		_PATH_DEVNULL
 #define	MS_NOMNTTAB		0x0
 #define	MS_RDONLY		0x1
 #define	umount2(p, f)	unmount(p, f)
@@ -70,6 +72,8 @@ extern int openat64(int, const char *, int, ...);
 extern int getmntany(FILE *fd, struct mnttab *mgetp, struct mnttab *mrefp);
 extern int getmntent(FILE *fp, struct mnttab *mp);
 extern char *hasmntopt(struct mnttab *mnt, char *opt);
+extern int getextmntent(const char *path, struct extmnttab *entry,
+	struct stat64 *statbuf);
 
 extern void statfs2mnttab(struct statfs *sfs, struct mnttab *mp);
 

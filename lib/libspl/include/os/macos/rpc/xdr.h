@@ -18,29 +18,21 @@
  * information: Portions Copyright [yyyy] [name of copyright owner]
  *
  * CDDL HEADER END
- */
-/*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ *
+ * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ *
+ *	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T
+ *	  All Rights Reserved
+ *
+ * Portions of this source code were derived from Berkeley 4.3 BSD
+ * under license from the Regents of the University of California.
  */
 
-#ifndef _LIBSPL_SYS_FILE_H
-#define	_LIBSPL_SYS_FILE_H
+#ifndef LIBSPL_MACOS_RPC_XDR_H
+#define	LIBSPL_MACOS_RPC_XDR_H
 
-#include_next <sys/file.h>
+#include <rpc/types.h>
+#include_next <rpc/xdr.h>
 
-#define	FCREAT	O_CREAT
-#define	FTRUNC	O_TRUNC
-#define FOFFMAX 0
-#define	FSYNC	O_SYNC
-#define	FDSYNC	O_DSYNC
-#define FRSYNC  O_RSYNC
-#define	FEXCL	O_EXCL
-
-#define	IO_DIRECT	0
-
-#define	FNODSYNC	0x10000	/* fsync pseudo flag */
-#define	FNOFOLLOW	0x20000	/* don't follow symlinks */
-#define	FIGNORECASE	0x80000	/* request case-insensitive lookups */
-
-#endif
+#endif /* LIBSPL_MACOS_RPC_XDR_H */

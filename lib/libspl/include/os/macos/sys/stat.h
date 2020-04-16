@@ -31,34 +31,14 @@
 #include <sys/disk.h>
 #include <sys/mount.h> /* for BLKGETSIZE64 */
 
-#define	stat64	stat
-
 #define	MAXOFFSET_T	OFF_MAX
 
 #ifndef _KERNEL
 #include <sys/disk.h>
 #endif
 
-/*
- * Emulate Solaris' behavior of returning the block device size in fstat64().
- */
 static inline int
-fstat64_blk(int fd, struct stat64 *st)
-{
-	if (fstat64(fd, st) == -1)
-		return (-1);
-
-	/* In Linux we need to use an ioctl to get the size of a block device */
-	if (S_ISBLK(st->st_mode)) {
-		if (ioctl(fd, BLKGETSIZE64, &st->st_size) != 0)
-			return (-1);
-	}
-
-	return (0);
-}
-
-static inline int
-fstat64_blk(int fd, struct stat64 *st)
+fstat_blk(int fd, struct stat *st)
 {
 	if (fstat(fd, st) == -1)
 		return -1;
@@ -80,5 +60,17 @@ fstat64_blk(int fd, struct stat64 *st)
 
 	return (0);
 }
+
+
+/*
+ * Deal with Linux use of 64 for everything.
+ * OsX has moved past it, dropped all 32 versions, and
+ * standard form is 64 bit.
+ */
+
+#define	stat64		stat
+#define	fstat64		fstat
+#define	fstat64_blk	fstat_blk
+#define	statfs64	statfs
 
 #endif /* _LIBSPL_SYS_STAT_H */

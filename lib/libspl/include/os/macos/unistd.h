@@ -19,28 +19,23 @@
  *
  * CDDL HEADER END
  */
-/*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
- */
+#ifndef _LIBSPL_UNISTD_H
+#define	_LIBSPL_UNISTD_H
 
-#ifndef _LIBSPL_SYS_FILE_H
-#define	_LIBSPL_SYS_FILE_H
+#include_next <unistd.h>
 
-#include_next <sys/file.h>
+#define	O_LARGEFILE	0
+#define	O_RSYNC	0
 
-#define	FCREAT	O_CREAT
-#define	FTRUNC	O_TRUNC
-#define FOFFMAX 0
-#define	FSYNC	O_SYNC
-#define	FDSYNC	O_DSYNC
-#define FRSYNC  O_RSYNC
-#define	FEXCL	O_EXCL
+/* Handle Linux use of 64 names */
 
-#define	IO_DIRECT	0
-
-#define	FNODSYNC	0x10000	/* fsync pseudo flag */
-#define	FNOFOLLOW	0x20000	/* don't follow symlinks */
-#define	FIGNORECASE	0x80000	/* request case-insensitive lookups */
+#define	open64		open
+#define	pread64		pread
+#define	pwrite64	pwrite
+#define	ftruncate64	ftruncate
+#define	lseek64		lseek
 
 #endif
+
+
+

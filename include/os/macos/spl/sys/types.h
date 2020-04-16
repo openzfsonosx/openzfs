@@ -88,8 +88,6 @@ typedef unsigned int umode_t ;
 typedef   uint32_t        dev32_t;
 typedef uint_t				minor_t;
 
-#define EBADE EBADMACHO
-
 #include  <sys/fcntl.h>
 #define FCREAT          O_CREAT
 #define FTRUNC          O_TRUNC

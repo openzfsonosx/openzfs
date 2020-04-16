@@ -6,6 +6,7 @@ KERNEL_H = \
 	$(top_srcdir)/include/os/macos/spl/sys/condvar.h \
 	$(top_srcdir)/include/os/macos/spl/sys/cred.h \
 	$(top_srcdir)/include/os/macos/spl/sys/debug.h \
+	$(top_srcdir)/include/os/macos/spl/sys/errno.h \
 	$(top_srcdir)/include/os/macos/spl/sys/fcntl.h \
 	$(top_srcdir)/include/os/macos/spl/sys/file.h \
 	$(top_srcdir)/include/os/macos/spl/sys/inttypes.h \

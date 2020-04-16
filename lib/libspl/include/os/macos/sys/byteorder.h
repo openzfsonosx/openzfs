@@ -41,6 +41,7 @@
 #define	_SYS_BYTEORDER_H
 
 #include <sys/cdefs.h>
+#include <_types.h>
 
 /*
  * Define the order of 32-bit words in 64-bit words.
