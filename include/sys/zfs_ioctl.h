@@ -494,6 +494,10 @@ typedef struct zfs_cmd {
 	uint64_t	zc_createtxg;
 	zfs_stat_t	zc_stat;
 	uint64_t	zc_zoneid;
+#ifdef __APPLE__
+	int			zc_ioc_error;	/* ioctl error value */
+	uint64_t	zc_dev;			/* OSX doesn't have ddi_driver_major */
+#endif
 } zfs_cmd_t;
 
 typedef struct zfs_useracct {
