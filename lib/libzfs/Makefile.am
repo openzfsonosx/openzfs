@@ -44,6 +44,13 @@ USER_C += \
 	os/linux/libzfs_util_os.c
 endif
 
+if BUILD_MACOS
+USER_C += \
+	os/macos/libzfs_mount_os.c \
+	os/macos/libzfs_pool_os.c \
+	os/macos/libzfs_util_os.c
+endif
+
 KERNEL_C = \
 	algs/sha2/sha2.c \
 	cityhash.c \

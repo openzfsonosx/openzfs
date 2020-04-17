@@ -51,6 +51,13 @@ USER_C += \
 
 endif
 
+if BUILD_MACOS
+USER_C += \
+	os/macos/getexecname.c \
+	os/macos/gethostid.c \
+	os/macos/getmntany.c
+endif
+
 USER_ASM = atomic.S
 
 nodist_libspl_la_SOURCES = \

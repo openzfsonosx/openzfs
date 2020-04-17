@@ -19,6 +19,10 @@ if BUILD_LINUX
 zpool_SOURCES += os/linux/zpool_vdev_os.c
 endif
 
+if BUILD_MACOS
+zpool_SOURCES += os/macos/zpool_vdev_os.c
+endif
+
 zpool_LDADD = \
 	$(top_builddir)/lib/libnvpair/libnvpair.la \
 	$(top_builddir)/lib/libuutil/libuutil.la \
