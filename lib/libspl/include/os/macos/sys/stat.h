@@ -69,6 +69,7 @@ fstat_blk(int fd, struct stat *st)
  */
 
 #define	stat64		stat
+#define	lstat64		lstat
 #define	fstat64		fstat
 #define	fstat64_blk	fstat_blk
 #define	statfs64	statfs

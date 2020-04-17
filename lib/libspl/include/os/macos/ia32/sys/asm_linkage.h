@@ -37,11 +37,6 @@ extern "C" {
  * make annoying differences in assembler syntax go away
  */
 
-#undef x
-
-/* Define away ".align 16" to ".align 4,0x90 # 16" */
-#define align align  4, 0x90 #
-
 /*
  * D16 and A16 are used to insert instructions prefixes; the
  * macros help the assembler code be slightly more portable.
@@ -200,6 +195,7 @@ sym1	= sym2
 #define	ENTRY(x) \
 	.text; \
 	.align	ASM_ENTRY_ALIGN; \
+	.globl	_##x; \
 	.globl	_##x; \
 	.globl	x; \
 _##x:	; \

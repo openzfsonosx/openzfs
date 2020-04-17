@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,37 +18,20 @@
  *
  * CDDL HEADER END
  */
-#ifndef _LIBSPL_UNISTD_H
-#define	_LIBSPL_UNISTD_H
+/*
+ * Copyright (c) 2020, Jorgen Lundman <lundman@lundman.net>
+ */
 
-#include_next <unistd.h>
-#include <fcntl.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 
-#define	O_LARGEFILE	0
-#define	O_RSYNC	0
-
-#ifndef O_DIRECT
-#define O_DIRECT 0
-#endif
-
-/* Handle Linux use of 64 names */
-
-#define	open64		open
-#define	pread64		pread
-#define	pwrite64	pwrite
-#define	ftruncate64	ftruncate
-#define	lseek64		lseek
-
-
-static inline int
-fdatasync(int fd)
+unsigned long
+get_system_hostid(void)
 {
-	if (fcntl(fd, F_FULLFSYNC) == -1)
-		return -1;
-	return 0;
+    size_t len;
+	uint32_t myhostid = 0;
+	len = sizeof(myhostid);
+    sysctlbyname("kern.hostid", &myhostid, &len, NULL, 0);
+	return (myhostid);
 }
-
-#endif
-
-
-

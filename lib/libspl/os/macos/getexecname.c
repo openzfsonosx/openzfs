@@ -19,37 +19,13 @@
  *
  * CDDL HEADER END
  */
-#ifndef _LIBSPL_UNISTD_H
-#define	_LIBSPL_UNISTD_H
 
-#include_next <unistd.h>
-#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
 
-#define	O_LARGEFILE	0
-#define	O_RSYNC	0
-
-#ifndef O_DIRECT
-#define O_DIRECT 0
-#endif
-
-/* Handle Linux use of 64 names */
-
-#define	open64		open
-#define	pread64		pread
-#define	pwrite64	pwrite
-#define	ftruncate64	ftruncate
-#define	lseek64		lseek
-
-
-static inline int
-fdatasync(int fd)
+const char *
+getexecname(void)
 {
-	if (fcntl(fd, F_FULLFSYNC) == -1)
-		return -1;
-	return 0;
+	return getprogname();
 }
-
-#endif
-
-
-
