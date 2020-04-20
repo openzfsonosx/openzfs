@@ -10,6 +10,7 @@ zfs_CPPFLAGS = \
 	-nostdinc \
 	-mkernel \
 	-fno-builtin-printf \
+	-D__KERNEL__ \
 	-D_KERNEL \
 	-DKERNEL \
 	-DKERNEL_PRIVATE \
@@ -17,12 +18,13 @@ zfs_CPPFLAGS = \
 	-DAPPLE \
 	-DNeXT \
 	-I$(top_srcdir)/include/os/macos/spl \
+	-I$(top_srcdir)/include/os/macos/zfs \
 	-I$(top_srcdir)/module/icp/include \
 	-I$(top_srcdir)/include \
 	-I@KERNEL_HEADERS@/Headers \
 	-I@KERNEL_HEADERS@/PrivateHeaders
 
-zfs_CFLAGS = -DDUMMY
+zfs_CFLAGS =
 zfs_CXXFLAGS =
 
 zfs_LDFLAGS = \
@@ -46,8 +48,251 @@ noinst_PROGRAMS = zfs
 
 zfs_kext_SOURCE =
 
-zfs_SOURCES = test.c \
-	../../../avl/avl.c
+if TARGET_CPU_X86_64
+zfs_ASM_SOURCES_C = \
+        ../icp/asm-x86_64/aes/aeskey.c \
+        ../icp/algs/modes/gcm_pclmulqdq.c \
+        ../zcommon/zfs_fletcher_intel.c \
+        ../zcommon/zfs_fletcher_sse.c \
+        ../zcommon/zfs_fletcher_avx512.c \
+        vdev_raidz_math_sse2.c \
+        vdev_raidz_math_ssse3.c \
+        vdev_raidz_math_avx2.c \
+        vdev_raidz_math_avx512f.c \
+        vdev_raidz_math_avx512bw.c
+zfs_ASM_SOURCES_AS = \
+        ../icp/asm-x86_64/aes/aes_amd64.S \
+        ../icp/asm-x86_64/aes/aes_aesni.S \
+        ../icp/asm-x86_64/modes/gcm_pclmulqdq.S \
+        ../icp/asm-x86_64/sha2/sha256_impl.S \
+        ../icp/asm-x86_64/sha2/sha512_impl.S
+else
+zfs_ASM_SOURCES_C =
+zfs_ASM_SOURCES_AS =
+endif
+
+zfs_SOURCES = \
+	abd.c \
+	../../../zfs/aggsum.c \
+	../../../zfs/arc.c \
+	../../../zfs/blkptr.c \
+	../../../zfs/bplist.c \
+	../../../zfs/bpobj.c \
+	../../../zfs/bptree.c \
+	../../../zfs/bqueue.c \
+	../../../zcommon/cityhash.c \
+	../../../zfs/dbuf.c \
+	../../../zfs/dbuf_stats.c \
+	../../../zfs/ddt.c \
+	../../../zfs/ddt_zap.c \
+	../../../zfs/dmu.c \
+	../../../zfs/dmu_diff.c \
+	../../../zfs/dmu_object.c \
+	../../../zfs/dmu_objset.c \
+	../../../zfs/dmu_recv.c \
+	../../../zfs/dmu_redact.c \
+	../../../zfs/dmu_send.c \
+	../../../zfs/dmu_traverse.c \
+	../../../zfs/dmu_tx.c \
+	../../../zfs/dmu_zfetch.c \
+	../../../zfs/dnode.c \
+	../../../zfs/dnode_sync.c \
+	../../../zfs/dsl_bookmark.c \
+	../../../zfs/dsl_crypt.c \
+	../../../zfs/dsl_dataset.c \
+	../../../zfs/dsl_deadlist.c \
+	../../../zfs/dsl_deleg.c \
+	../../../zfs/dsl_destroy.c \
+	../../../zfs/dsl_dir.c \
+	../../../zfs/dsl_pool.c \
+	../../../zfs/dsl_prop.c \
+	../../../zfs/dsl_scan.c \
+	../../../zfs/dsl_synctask.c \
+	../../../zfs/dsl_userhold.c \
+	../../../zfs/edonr_zfs.c \
+	../../../zfs/fm.c \
+	gfs.c \
+	../../../zfs/gzip.c \
+	../../../zfs/hkdf.c \
+	../../../zfs/ldi_osx.c \
+	../../../zfs/ldi_vnode.c \
+	../../../zfs/ldi_iokit.cpp \
+	../../../zfs/lz4.c \
+	../../../zfs/lzjb.c \
+	../../../zfs/metaslab.c \
+	../../../zfs/mmp.c \
+	../../../zfs/multilist.c \
+	../../../zfs/objlist.c \
+	../../../zfs/pathname.c \
+	../../../zfs/range_tree.c \
+	../../../zfs/refcount.c \
+	../../../zfs/rrwlock.c \
+	../../../zfs/sa.c \
+	../../../zfs/sha256.c \
+	../../../zfs/skein_zfs.c \
+	../../../zfs/spa.c \
+	../../../zfs/spa_boot.c \
+	../../../zfs/spa_checkpoint.c \
+	../../../zfs/spa_config.c \
+	../../../zfs/spa_errlog.c \
+	../../../zfs/spa_history.c \
+	../../../zfs/spa_log_spacemap.c \
+	../../../zfs/spa_misc.c \
+	spa_stats.c \
+	../../../zfs/space_map.c \
+	../../../zfs/space_reftree.c \
+	../../../zfs/txg.c \
+	../../../zfs/uberblock.c \
+	../../../zfs/unique.c \
+	../../../zfs/vdev.c \
+	../../../zfs/vdev_cache.c \
+	../../../zfs/vdev_disk.c \
+	../../../zfs/vdev_file.c \
+	../../../zfs/vdev_indirect.c \
+	../../../zfs/vdev_indirect_births.c \
+	../../../zfs/vdev_indirect_mapping.c \
+	../../../zfs/vdev_initialize.c \
+	../../../zfs/vdev_label.c \
+	../../../zfs/vdev_mirror.c \
+	../../../zfs/vdev_missing.c \
+	../../../zfs/vdev_queue.c \
+	../../../zfs/vdev_raidz.c \
+	../../../zfs/vdev_raidz_math.c \
+	../../../zfs/vdev_raidz_math_scalar.c \
+	../../../zfs/vdev_removal.c \
+	../../../zfs/vdev_root.c \
+	../../../zfs/vdev_trim.c \
+	../../../zfs/zap.c \
+	../../../zfs/zap_leaf.c \
+	../../../zfs/zap_micro.c \
+	../../../zfs/zcp.c \
+	../../../zfs/zcp_get.c \
+	../../../zfs/zcp_global.c \
+	../../../zfs/zcp_iter.c \
+	../../../zfs/zcp_set.c \
+	../../../zfs/zcp_synctask.c \
+	../../../zfs/zfeature.c \
+	zfeature_common.c \
+	zfs_acl.c \
+	zfs_boot.cpp \
+	../../../zfs/zfs_aggsum.c \
+	../../../zfs/zfs_byteswap.c \
+	zfs_ctldir.c \
+	zfs_debug.c \
+	zfs_dir.c \
+	../../../zfs/zfs_fm.c \
+	../../../zfs/zfs_fuid.c \
+	../../../zfs/zfs_ioctl.c \
+	zfs_kstat_osx.c \
+	../../../zfs/zfs_log.c \
+	../../../zfs/zfs_onexit.c \
+	zfs_osx.cpp \
+	../../../zfs/zfs_quota.c \
+	../../../zfs/zfs_ratelimit.c \
+	../../../zfs/zfs_replay.c \
+	../../../zfs/zfs_rlock.c \
+	../../../zfs/zfs_sa.c \
+	zfs_vfsops.c \
+	zfs_vnops.c \
+	zfs_vnops_osx.c \
+	zfs_vnops_osx_lib.c \
+	zfs_znode.c \
+	../../../zfs/zil.c \
+	../../../zfs/zio.c \
+	../../../zfs/zio_checksum.c \
+	zio_crypt.c \
+	../../../zfs/zio_compress.c \
+	../../../zfs/zio_inject.c \
+	../../../zfs/zle.c \
+	../../../zfs/zrlock.c \
+	../../../zfs/zthr.c \
+	../../../zfs/zvol.c \
+	zvolIO.cpp \
+	ZFSDatasetProxy.cpp \
+	ZFSDatasetScheme.cpp \
+	ZFSDataset.cpp \
+	ZFSPool.cpp \
+        ../nvpair/fnvpair.c \
+        ../nvpair/nvpair.c \
+        ../nvpair/nvpair_alloc_fixed.c \
+        ../nvpair/nvpair_alloc_spl.c \
+        ../unicode/u8_textprep.c \
+        ../unicode/uconv.c \
+        ../zcommon/zfs_comutil.c \
+        ../zcommon/zfs_deleg.c \
+        ../zcommon/zfs_fletcher.c \
+        ../zcommon/zfs_fletcher_superscalar.c \
+        ../zcommon/zfs_fletcher_superscalar4.c \
+        ../zcommon/zfs_namecheck.c \
+        ../zcommon/zfs_prop.c \
+        ../zcommon/zpool_prop.c \
+        ../zcommon/zprop_common.c \
+        ../icp/illumos-crypto.c \
+        ../icp/api/kcf_cipher.c \
+        ../icp/api/kcf_digest.c \
+        ../icp/api/kcf_mac.c \
+        ../icp/api/kcf_miscapi.c \
+        ../icp/api/kcf_ctxops.c \
+        ../icp/core/kcf_callprov.c \
+        ../icp/core/kcf_prov_tabs.c \
+        ../icp/core/kcf_sched.c \
+        ../icp/core/kcf_mech_tabs.c \
+        ../icp/core/kcf_prov_lib.c \
+        ../icp/spi/kcf_spi.c \
+        ../icp/io/aes.c \
+        ../icp/io/sha2_mod.c \
+        ../icp/io/sha1_mod.c \
+        ../icp/os/modhash.c \
+        ../icp/os/bitmap_arch.c \
+        ../icp/os/modconf.c \
+        ../icp/algs/edonr/edonr.c \
+        ../icp/algs/modes/cbc.c \
+        ../icp/algs/modes/ccm.c \
+        ../icp/algs/modes/ctr.c \
+        ../icp/algs/modes/ecb.c \
+        ../icp/algs/modes/gcm_generic.c \
+        ../icp/algs/modes/gcm.c \
+        ../icp/algs/modes/modes.c \
+        ../icp/algs/sha1/sha1.c \
+        ../icp/algs/sha2/sha2.c \
+        ../icp/algs/skein/skein.c \
+        ../icp/algs/skein/skein_block.c \
+        ../icp/algs/skein/skein_iv.c \
+        ../icp/algs/aes/aes_impl_aesni.c \
+        ../icp/algs/aes/aes_impl_generic.c \
+        ../icp/algs/aes/aes_impl_x86-64.c \
+        ../icp/algs/aes/aes_impl.c \
+        ../icp/algs/aes/aes_modes.c \
+        ../lua/lapi.c \
+        ../lua/lauxlib.c \
+        ../lua/lbaselib.c \
+        ../lua/lbitlib.c \
+        ../lua/lcode.c \
+        ../lua/lcompat.c \
+        ../lua/lcorolib.c \
+        ../lua/lctype.c \
+        ../lua/ldebug.c \
+        ../lua/ldo.c \
+        ../lua/ldump.c \
+        ../lua/lfunc.c \
+        ../lua/lgc.c \
+        ../lua/llex.c \
+        ../lua/lmem.c \
+        ../lua/lobject.c \
+        ../lua/lopcodes.c \
+        ../lua/lparser.c \
+        ../lua/lstate.c \
+        ../lua/lstring.c \
+        ../lua/lstrlib.c \
+        ../lua/ltable.c \
+        ../lua/ltablib.c \
+        ../lua/ltm.c \
+        ../lua/lundump.c \
+        ../lua/lvm.c \
+        ../lua/lzio.c \
+        ../lua/setjmp/setjmp.S \
+        $(zfs_ASM_SOURCES_C) \
+        $(zfs_ASM_SOURCES_AS)
 
 KERNEL_MODDIR=  $(DESTDIR)@KERNEL_MODPREFIX@/zfs.kext
 

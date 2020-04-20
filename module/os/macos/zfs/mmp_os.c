@@ -18,25 +18,29 @@
  *
  * CDDL HEADER END
  */
+/*
+ * Copyright (c) 2017 by Lawrence Livermore National Security, LLC.
+ */
 
-#ifndef _SPL_MOD_H
-#define	_SPL_MOD_H
+#include <sys/zfs_context.h>
+#include <sys/mmp.h>
 
-#define	ZFS_MODULE_DESCRIPTION(s)
-#define	ZFS_MODULE_AUTHOR(s)
-#define	ZFS_MODULE_LICENSE(s)
-#define	ZFS_MODULE_VERSION(s)
+static int
+param_set_multihost_interval(const char *val, zfs_kernel_param_t *kp)
+{
+	int ret;
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
+	ret = param_set_ulong(val, kp);
+	if (ret < 0)
+		return (ret);
 
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
+	if (spa_mode_global != SPA_MODE_UNINIT)
+		mmp_signal_all_threads();
 
-#define module_init(fn)
-#define module_exit(fn)
+	return (ret);
+}
 
-#define	ZFS_MODULE_PARAM_ARGS	void
-
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-
-#endif /* SPL_MOD_H */
+module_param_call(zfs_multihost_interval, param_set_multihost_interval,
+    param_get_ulong, &zfs_multihost_interval, 0644);
+MODULE_PARM_DESC(zfs_multihost_interval,
+	"Milliseconds between mmp writes to each leaf");

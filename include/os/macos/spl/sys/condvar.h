@@ -67,6 +67,9 @@ clock_t cv_timedwait_hires(kcondvar_t *cvp, kmutex_t *mp,
 #define cv_reltimedwait(cvp, mp, tim, type) \
 	cv_timedwait_hires((cvp), (mp), TICK_TO_NSEC((tim)), 0, 0)
 
+#define	cv_timedwait_sig_hires(cvp, mp, tim, res, flag) \
+	cv_timedwait_hires(cvp, mp, tim, res, (flag)|PCATCH)
+
 #define cv_init spl_cv_init
 #define cv_destroy spl_cv_destroy
 #define cv_broadcast spl_cv_broadcast

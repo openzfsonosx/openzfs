@@ -19,24 +19,38 @@
  * CDDL HEADER END
  */
 
-#ifndef _SPL_MOD_H
-#define	_SPL_MOD_H
+/*
+ *
+ * Copyright (C) 2020 Jorgen Lundman <lundman@lundman.net>
+ *
+ */
 
-#define	ZFS_MODULE_DESCRIPTION(s)
-#define	ZFS_MODULE_AUTHOR(s)
-#define	ZFS_MODULE_LICENSE(s)
-#define	ZFS_MODULE_VERSION(s)
+#ifndef _SPL_SYS_SIGNAL_H
+#define _SPL_SYS_SIGNAL_H
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
+#include <sys/vm.h>
+#include_next <sys/signal.h>
+#include <kern/thread.h>
 
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
+#define	FORREAL			0		/* Usual side-effects */
+#define	JUSTLOOKING		1		/* Don't stop the process */
 
-#define module_init(fn)
-#define module_exit(fn)
+struct proc;
 
-#define	ZFS_MODULE_PARAM_ARGS	void
+extern int thread_issignal(struct proc *, thread_t, sigset_t);
 
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
+#define threadmask (sigmask(SIGILL)|sigmask(SIGTRAP)|\
+		sigmask(SIGIOT)|sigmask(SIGEMT)|\
+		sigmask(SIGFPE)|sigmask(SIGBUS)|\
+		sigmask(SIGSEGV)|sigmask(SIGSYS)|\
+		sigmask(SIGPIPE)|sigmask(SIGKILL)|\
+		sigmask(SIGTERM)|sigmask(SIGINT))
 
-#endif /* SPL_MOD_H */
+static __inline__ int
+issig(int why)
+{
+	return (thread_issignal(current_proc(), current_thread(),
+	    threadmask));
+}
+
+#endif /* SPL_SYS_SIGNAL_H */

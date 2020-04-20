@@ -2,8 +2,9 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License (the "License").
- * You may not use this file except in compliance with the License.
+ * Common Development and Distribution License, Version 1.0 only
+ * (the "License").  You may not use this file except in compliance
+ * with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -18,25 +19,9 @@
  *
  * CDDL HEADER END
  */
+#ifndef _SPL_TRACE_H
+#define _SPL_TRACE_H
 
-#ifndef _SPL_MOD_H
-#define	_SPL_MOD_H
 
-#define	ZFS_MODULE_DESCRIPTION(s)
-#define	ZFS_MODULE_AUTHOR(s)
-#define	ZFS_MODULE_LICENSE(s)
-#define	ZFS_MODULE_VERSION(s)
+#endif
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
-
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
-
-#define module_init(fn)
-#define module_exit(fn)
-
-#define	ZFS_MODULE_PARAM_ARGS	void
-
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-
-#endif /* SPL_MOD_H */

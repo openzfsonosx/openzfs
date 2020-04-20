@@ -45,6 +45,9 @@ typedef void (task_func_t)(void *);
 
 struct proc;
 
+/* New ZFS expects to find taskq_ent_t as well */
+#include <sys/taskq_impl.h>
+
 /*
  * Public flags for taskq_create(): bit range 0-15
  */
@@ -90,7 +93,7 @@ extern void taskq_wait_id(taskq_t *, taskqid_t);
 extern void	taskq_suspend(taskq_t *);
 extern int	taskq_suspended(taskq_t *);
 extern void	taskq_resume(taskq_t *);
-extern int	taskq_member(taskq_t *, struct kthread *);
+extern int	taskq_member(taskq_t *, kthread_t *);
 extern boolean_t taskq_empty(taskq_t *tq);
 
 #define taskq_wait_outstanding(T, D) taskq_wait((T))

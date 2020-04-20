@@ -2,8 +2,9 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License (the "License").
- * You may not use this file except in compliance with the License.
+ * Common Development and Distribution License, Version 1.0 only
+ * (the "License").  You may not use this file except in compliance
+ * with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -18,25 +19,21 @@
  *
  * CDDL HEADER END
  */
+#ifndef _SPL_PROCFS_LIST_H
+#define _SPL_PROCFS_LIST_H
 
-#ifndef _SPL_MOD_H
-#define	_SPL_MOD_H
+typedef struct procfs_list {
+	void			*pl_private;
+	kmutex_t		pl_lock;
+	list_t			pl_list;
+	uint64_t		pl_next_id;
+	size_t			pl_node_offset;
+} procfs_list_t;
 
-#define	ZFS_MODULE_DESCRIPTION(s)
-#define	ZFS_MODULE_AUTHOR(s)
-#define	ZFS_MODULE_LICENSE(s)
-#define	ZFS_MODULE_VERSION(s)
+typedef struct procfs_list_node {
+	list_node_t		pln_link;
+	uint64_t		pln_id;
+} procfs_list_node_t;
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
+#endif
 
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
-
-#define module_init(fn)
-#define module_exit(fn)
-
-#define	ZFS_MODULE_PARAM_ARGS	void
-
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-
-#endif /* SPL_MOD_H */

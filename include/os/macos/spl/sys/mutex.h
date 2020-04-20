@@ -48,6 +48,8 @@ typedef enum {
     MUTEX_DEFAULT = 6       /* kernel default mutex */
 } kmutex_type_t;
 
+#define	MUTEX_NOLOCKDEP		0
+
 // Alas lck_mtx_t; is opaque and not available at compile time, in the xnu
 // sources it has not changed for many versions.
 typedef struct {
@@ -107,6 +109,8 @@ void spl_mutex_enter(kmutex_t *mp, char *file, int line);
 #define mutex_enter spl_mutex_enter
 void spl_mutex_enter(kmutex_t *mp);
 #endif
+
+#define	mutex_enter_nested(A,B)	spl_mutex_enter(A)
 
 #define	mutex_destroy spl_mutex_destroy
 #define	mutex_exit spl_mutex_exit

@@ -1395,7 +1395,6 @@ taskq_empty(taskq_t *tq)
 {
 	boolean_t rv;
 
-	ASSERT3P(tq, !=, curthread->t_taskq);
 	mutex_enter(&tq->tq_lock);
 	rv = (tq->tq_task.tqent_next == &tq->tq_task) && (tq->tq_active == 0);
 	mutex_exit(&tq->tq_lock);
@@ -1507,7 +1506,7 @@ taskq_resume(taskq_t *tq)
 }
 
 int
-taskq_member(taskq_t *tq, struct kthread *thread)
+taskq_member(taskq_t *tq, kthread_t *thread)
 {
 #ifdef __APPLE__
 	int i;

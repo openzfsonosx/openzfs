@@ -25,6 +25,7 @@ KERNEL_H = \
 	$(top_srcdir)/include/os/macos/spl/sys/processor.h \
 	$(top_srcdir)/include/os/macos/spl/sys/rwlock.h \
 	$(top_srcdir)/include/os/macos/spl/sys/seg_kmem.h \
+	$(top_srcdir)/include/os/macos/spl/sys/signal.h \
 	$(top_srcdir)/include/os/macos/spl/sys/stropts.h \
 	$(top_srcdir)/include/os/macos/spl/sys/sunddi.h \
 	$(top_srcdir)/include/os/macos/spl/sys/sysmacros.h \

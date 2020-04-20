@@ -70,22 +70,22 @@ typedef unsigned long			uintptr_t;
 
 enum { B_FALSE=0, B_TRUE=1 };
 typedef short				pri_t;
-typedef unsigned long			ulong_t;
-typedef unsigned long long		u_longlong_t;
-typedef unsigned long long		rlim64_t;
-typedef unsigned long long		loff_t;
+typedef unsigned long		ulong_t;
+typedef unsigned long long	u_longlong_t;
+typedef unsigned long long	rlim64_t;
+typedef unsigned long long	loff_t;
 typedef long long			longlong_t;
-typedef unsigned char			uchar_t;
-typedef unsigned int			uint_t;
-typedef unsigned short			ushort_t;
+typedef unsigned char		uchar_t;
+typedef unsigned int		uint_t;
+typedef unsigned short		ushort_t;
 typedef void *spinlock_t;
 typedef long long			offset_t;
-typedef struct timespec			timestruc_t; /* definition per SVr4 */
-typedef struct timespec			timespec_t;
+typedef struct timespec		timestruc_t; /* definition per SVr4 */
+typedef struct timespec		timespec_t;
 typedef ulong_t				pgcnt_t;
 typedef unsigned int umode_t ;
-#define   NODEV32 (dev32_t)(-1)
-typedef   uint32_t        dev32_t;
+#define	NODEV32				(dev32_t)(-1)
+typedef	uint32_t			dev32_t;
 typedef uint_t				minor_t;
 
 #include  <sys/fcntl.h>
@@ -120,5 +120,7 @@ typedef uint_t				minor_t;
 
 #define container_of(ptr, type, member) ((type *)(                      \
       (char *)(member_type(type, member) *){ ptr } - offsetof(type, member)))
+
+typedef struct timespec inode_timespec_t;
 
 #endif	/* _SPL_TYPES_H */

@@ -128,16 +128,6 @@ extern uint64_t		real_total_memory;
 static const char *KMEM_VA_PREFIX = "kmem_va";
 static const char *KMEM_MAGAZINE_PREFIX = "kmem_magazine_";
 
-static char kext_version[64] = SPL_META_VERSION "-" SPL_META_RELEASE SPL_DEBUG_STR;
-
-struct sysctl_oid_list sysctl__spl_children;
-SYSCTL_DECL(_spl);
-SYSCTL_NODE(, OID_AUTO, spl, CTLFLAG_RD, 0, "");
-SYSCTL_STRING(_spl, OID_AUTO, kext_version,
-			  CTLFLAG_RD | CTLFLAG_LOCKED,
-			  kext_version, 0, "SPL KEXT Version");
-
-
 // ===============================================================
 // Illumos Variables
 // ===============================================================
@@ -4954,9 +4944,6 @@ spl_kmem_init(uint64_t xtotal_memory)
 
 	printf("SPL: KMEM starting. Total memory %llu\n", xtotal_memory);
 
-	sysctl_register_oid(&sysctl__spl);
-	sysctl_register_oid(&sysctl__spl_kext_version);
-
 	// Initialise the kstat lock
 	mutex_init(&kmem_cache_lock, "kmem_cache_lock", MUTEX_DEFAULT, NULL); // XNU
 	mutex_init(&kmem_flags_lock, "kmem_flags_lock", MUTEX_DEFAULT, NULL); // XNU
@@ -5126,8 +5113,6 @@ spl_kmem_init(uint64_t xtotal_memory)
 void
 spl_kmem_fini(void)
 {
-	sysctl_unregister_oid(&sysctl__spl_kext_version);
-	sysctl_unregister_oid(&sysctl__spl);
 
 	kmem_cache_applyall(kmem_cache_magazine_disable, NULL, TQ_SLEEP);
 

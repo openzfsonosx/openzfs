@@ -19,24 +19,12 @@
  * CDDL HEADER END
  */
 
-#ifndef _SPL_MOD_H
-#define	_SPL_MOD_H
+#ifndef _SPL_TYPES32_H
+#define	_SPL_TYPES32_H
 
-#define	ZFS_MODULE_DESCRIPTION(s)
-#define	ZFS_MODULE_AUTHOR(s)
-#define	ZFS_MODULE_LICENSE(s)
-#define	ZFS_MODULE_VERSION(s)
+typedef	uint32_t	caddr32_t;
+typedef	int32_t		daddr32_t;
+typedef	int32_t		time32_t;
+typedef	uint32_t	size32_t;
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
-
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
-
-#define module_init(fn)
-#define module_exit(fn)
-
-#define	ZFS_MODULE_PARAM_ARGS	void
-
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-
-#endif /* SPL_MOD_H */
+#endif /* SPL_TYPE32_H */
