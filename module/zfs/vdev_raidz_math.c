@@ -638,6 +638,7 @@ zfs_vdev_raidz_impl_set(const char *val, zfs_kernel_param_t *kp)
 	return (vdev_raidz_impl_set(val));
 }
 
+#if defined(__linux__) || defined(__FreeBSD__)
 static int
 zfs_vdev_raidz_impl_get(char *buffer, zfs_kernel_param_t *kp)
 {
@@ -661,6 +662,7 @@ zfs_vdev_raidz_impl_get(char *buffer, zfs_kernel_param_t *kp)
 
 	return (cnt);
 }
+#endif
 
 module_param_call(zfs_vdev_raidz_impl, zfs_vdev_raidz_impl_set,
     zfs_vdev_raidz_impl_get, NULL, 0644);

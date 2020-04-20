@@ -853,9 +853,9 @@ static void addquoted (lua_State *L, luaL_Buffer *b, int arg) {
     else if (*s == '\0' || iscntrl(uchar(*s))) {
       char buff[10];
       if (!isdigit(uchar(*(s+1))))
-        sprintf(buff, "\\%d", (int)uchar(*s));
+		  snprintf(buff, sizeof(buff), "\\%d", (int)uchar(*s));
       else
-        sprintf(buff, "\\%03d", (int)uchar(*s));
+        snprintf(buff, sizeof(buff), "\\%03d", (int)uchar(*s));
       luaL_addstring(b, buff);
     }
     else
@@ -894,7 +894,7 @@ static void addlenmod (char *form, const char *lenmod) {
   size_t l = strlen(form);
   size_t lm = strlen(lenmod);
   char spec = form[l - 1];
-  strcpy(form + l - 1, lenmod);
+  strlcpy(form + l - 1, lenmod, MAX_FORMAT);
   form[l + lm - 1] = spec;
   form[l + lm] = '\0';
 }

@@ -843,7 +843,8 @@ gcm_impl_init(void)
 		    sizeof (gcm_fastest_impl));
 	}
 
-	strcpy(gcm_fastest_impl.name, "fastest");
+	strlcpy(gcm_fastest_impl.name, "fastest",
+		sizeof(gcm_fastest_impl.name));
 
 #ifdef CAN_USE_GCM_ASM
 	/*
@@ -955,6 +956,8 @@ gcm_impl_set(const char *val)
 	return (err);
 }
 
+#ifndef __APPLE__
+
 #if defined(_KERNEL)
 
 static int
@@ -963,6 +966,7 @@ icp_gcm_impl_set(const char *val, zfs_kernel_param_t *kp)
 	return (gcm_impl_set(val));
 }
 
+#if defined(__linux__) || defined(__FreeBSD__)
 static int
 icp_gcm_impl_get(char *buffer, zfs_kernel_param_t *kp)
 {
@@ -992,6 +996,8 @@ icp_gcm_impl_get(char *buffer, zfs_kernel_param_t *kp)
 
 	return (cnt);
 }
+#endif
+#endif
 
 module_param_call(icp_gcm_impl, icp_gcm_impl_set, icp_gcm_impl_get,
     NULL, 0644);

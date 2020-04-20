@@ -330,7 +330,7 @@ aes_impl_init(void)
 	    sizeof (aes_fastest_impl));
 #endif
 
-	strcpy(aes_fastest_impl.name, "fastest");
+	strlcpy(aes_fastest_impl.name, "fastest", sizeof(aes_fastest_impl.name));
 
 	/* Finish initialization */
 	atomic_swap_32(&icp_aes_impl, user_sel_impl);
@@ -405,6 +405,7 @@ aes_impl_set(const char *val)
 	return (err);
 }
 
+#ifndef __APPLE__
 #if defined(_KERNEL)
 
 static int
@@ -413,6 +414,7 @@ icp_aes_impl_set(const char *val, zfs_kernel_param_t *kp)
 	return (aes_impl_set(val));
 }
 
+#if defined(__linux__) || defined(__FreeBSD__)
 static int
 icp_aes_impl_get(char *buffer, zfs_kernel_param_t *kp)
 {
@@ -436,6 +438,8 @@ icp_aes_impl_get(char *buffer, zfs_kernel_param_t *kp)
 
 	return (cnt);
 }
+#endif
+#endif
 
 module_param_call(icp_aes_impl, icp_aes_impl_set, icp_aes_impl_get,
     NULL, 0644);

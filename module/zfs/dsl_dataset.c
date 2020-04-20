@@ -906,7 +906,7 @@ void
 dsl_dataset_name(dsl_dataset_t *ds, char *name)
 {
 	if (ds == NULL) {
-		(void) strcpy(name, "mos");
+		(void) strlcpy(name, "mos", MAXNAMELEN);
 	} else {
 		dsl_dir_name(ds->ds_dir, name);
 		VERIFY0(dsl_dataset_get_snapname(ds));
@@ -2429,7 +2429,8 @@ get_receive_resume_stats_impl(dsl_dataset_t *ds)
 
 		str = kmem_alloc(compressed_size * 2 + 1, KM_SLEEP);
 		for (int i = 0; i < compressed_size; i++) {
-			(void) sprintf(str + i * 2, "%02x", compressed[i]);
+			(void) snprintf(str + i * 2, compressed_size * 2 + 1,
+		    "%02x", compressed[i]);
 		}
 		str[compressed_size * 2] = '\0';
 		char *propval = kmem_asprintf("%u-%llx-%llx-%s",
@@ -3911,7 +3912,8 @@ dsl_dataset_promote(const char *name, char *conflsnap)
 	 */
 	snap_pair = nvlist_next_nvpair(ddpa.err_ds, NULL);
 	if (snap_pair != NULL && conflsnap != NULL)
-		(void) strcpy(conflsnap, nvpair_name(snap_pair));
+		(void) strlcpy(conflsnap, nvpair_name(snap_pair),
+		    ZFS_MAX_DATASET_NAME_LEN);
 
 	fnvlist_free(ddpa.err_ds);
 	return (error);
