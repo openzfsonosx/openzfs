@@ -135,6 +135,8 @@ AC_CONFIG_FILES([
 	include/os/macos/spl/Makefile
 	include/os/macos/spl/rpc/Makefile
 	include/os/macos/spl/sys/Makefile
+	include/os/macos/zfs/Makefile
+	include/os/macos/zfs/sys/Makefile
 	include/sys/Makefile
 	include/sys/crypto/Makefile
 	include/sys/fm/Makefile

@@ -42,12 +42,17 @@
 
 #ifdef _KERNEL
 #include <sys/vdev.h>
+#include <sys/vdev_disk_os.h>
 
 typedef struct vdev_disk {
+	/* Common members */
 	ddi_devid_t		vd_devid;
 	char			*vd_minor;
-	struct block_device	*vd_bdev;
-	krwlock_t		vd_lock;
+	/*
+	 * Platform specific field, defined by each platform and only
+	 * accessable from platform specific code.
+	 */
+	VDEV_DISK_OS_FIELDS
 } vdev_disk_t;
 
 #endif /* _KERNEL */
