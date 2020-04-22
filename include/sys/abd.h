@@ -75,8 +75,9 @@ typedef struct abd {
 	} abd_u;
 } abd_t;
 
-typedef int abd_iter_func_t(void *buf, size_t len, void *private);
-typedef int abd_iter_func2_t(void *bufa, void *bufb, size_t len, void *private);
+typedef int abd_iter_func_t(void *buf, size_t len, void *_private);
+typedef int abd_iter_func2_t(void *bufa, void *bufb, size_t len,
+    void *_private);
 
 extern int zfs_abd_scatter_enabled;
 
