@@ -421,6 +421,10 @@ struct spa {
 	int		spa_waiters;		/* number of waiting threads */
 	boolean_t	spa_waiters_cancel;	/* waiters should return */
 
+#ifdef __APPLE__
+	spa_iokit_t	*spa_iokit_proxy;	/* IOKit pool proxy */
+#endif
+
 	/*
 	 * spa_refcount & spa_config_lock must be the last elements
 	 * because zfs_refcount_t changes size based on compilation options.
