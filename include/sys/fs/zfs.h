@@ -1214,7 +1214,7 @@ typedef enum zfs_ioc {
 	/*
 	 * Core features - 81/128 numbers reserved.
 	 */
-#ifdef __FreeBSD__
+#if defined (__FreeBSD__) || defined(__APPLE__)
 	ZFS_IOC_FIRST =	0,
 #else
 	ZFS_IOC_FIRST =	('Z' << 8),
