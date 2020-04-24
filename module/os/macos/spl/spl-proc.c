@@ -23,4 +23,3 @@
 #include <sys/kstat.h>
 #include <sys/debug.h>
 
-struct proc *p0 = { 0 };              /* process 0 */

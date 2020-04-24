@@ -25,6 +25,11 @@
 #include <sys/types.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBSD.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/storage/IOBlockStorageDevice.h>
+#include <IOKit/storage/IOBlockStorageDriver.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 #include <sys/zfs_ioctl.h>
 #include <sys/zfs_znode.h>
@@ -35,11 +40,6 @@
 #include <sys/ZFSPool.h>
 #include <sys/zvolIO.h>
 
-#include <IOKit/IOKitKeys.h>
-#include <IOKit/storage/IOBlockStorageDevice.h>
-#include <IOKit/storage/IOBlockStorageDriver.h>
-#include <IOKit/storage/IOMedia.h>
-#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 /*
  * ZVOL Device
@@ -81,7 +81,7 @@ net_lundman_zfs_zvol_device::init(zvol_state_t *c_zv,
 	zvol_iokit_t *iokitdev;
 
 	dprintf("zvolIO_device:init\n");
-
+#if 0
 	if (!c_zv || c_zv->zv_iokitdev != NULL) {
 		dprintf("zvol %s invalid c_zv\n", __func__);
 		return (false);
@@ -111,7 +111,7 @@ net_lundman_zfs_zvol_device::init(zvol_state_t *c_zv,
 	if (strlen(zv->zv_name) != 0) {
 		setName(zv->zv_name);
 	}
-
+#endif
 	return (true);
 }
 
@@ -382,7 +382,7 @@ net_lundman_zfs_zvol_device::renameDevice(void)
 	deviceDict = 0;
 
 	/* Apply the name from the full dataset path */
-	setName(zv->zv_name);
+//	setName(zv->zv_name);
 
 	return (0);
 }
@@ -466,7 +466,7 @@ net_lundman_zfs_zvol_device::getBSDName(void)
 
 	IOLog("zvol: bsd name is '%s'\n",
 	    bsdnameosstr->getCStringNoCopy());
-
+#if 0
 	if (!zv)
 		return (-1);
 
@@ -477,7 +477,7 @@ net_lundman_zfs_zvol_device::getBSDName(void)
 	/*
 	 * IOLog("name assigned '%s'\n", zv->zv_bsdname);
 	 */
-
+#endif
 	return (0);
 }
 
@@ -502,7 +502,7 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 		mutex_enter(&spa_namespace_lock);
 		locked = 1;
 	}
-
+#if 0
 	if (access & kIOStorageAccessReaderWriter) {
 		zv->zv_openflags = FWRITE | ZVOL_EXCL;
 	} else {
@@ -527,6 +527,7 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 	if (ret == false) {
 		super::handleClose(client, options);
 	}
+#endif
 	return (ret);
 }
 
@@ -546,7 +547,7 @@ net_lundman_zfs_zvol_device::handleClose(IOService *client,
 		locked = 1;
 	}
 
-	zvol_close_impl(zv, zv->zv_openflags, 0, NULL);
+//	zvol_close_impl(zv, zv->zv_openflags, 0, NULL);
 
 	if (locked)
 		mutex_exit(&spa_namespace_lock);
@@ -573,7 +574,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 	struct iomem iomem;
 	iomem.buf = NULL;
 #endif
-
+#if 0
 	// Return errors for incoming I/O if we have been terminated.
 	if (isInactive() == true) {
 		dprintf("asyncReadWrite notActive fail\n");
@@ -675,6 +676,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 	// Call the completion function.
 	(completion->action)(completion->target, completion->parameter,
 	    kIOReturnSuccess, actualByteCount);
+#endif
 	return (kIOReturnSuccess);
 }
 
@@ -691,11 +693,12 @@ net_lundman_zfs_zvol_device::doDiscard(UInt64 block, UInt64 nblks)
 	bytes =	nblks * ZVOL_BSIZE;
 	dprintf("calling zvol_unmap with offset, bytes (%llu, %llu)\n",
 	    off, bytes);
-
+#if 0
 	if (zvol_unmap(zv, off, bytes) == 0)
 		return (kIOReturnSuccess);
 	else
 		return (kIOReturnError);
+#endif
 }
 
 
@@ -858,7 +861,7 @@ char *
 net_lundman_zfs_zvol_device::getRevisionString(void)
 {
 	dprintf("getRevision\n");
-	return ((char *)ZFS_META_VERSION);
+//	return ((char *)ZFS_META_VERSION);
 }
 
 char *
@@ -990,7 +993,7 @@ zvolRegisterDevice(zvol_state_t *zv)
 	OSString *nameStr = 0, *bsdName = 0;
 	uint64_t timeout = (5ULL * kSecondScale);
 	bool ret = false;
-
+#if 0
 	if (!zv || !zv->zv_iokitdev || zv->zv_name[0] == 0) {
 		dprintf("%s missing zv, iokitdev, or name\n", __func__);
 		return (EINVAL);
@@ -1066,7 +1069,7 @@ zvolRegisterDevice(zvol_state_t *zv)
 
 	/* Release retain held by waitForMatchingService */
 	service->release();
-
+#endif
 	return (ret);
 }
 
@@ -1125,7 +1128,7 @@ zvolRenameDevice(zvol_state_t *zv)
 		dprintf("%s missing argument\n", __func__);
 		return (EINVAL);
 	}
-
+#if 0
 	if ((zvol = zv->zv_iokitdev->dev) == NULL) {
 		dprintf("%s couldn't get zvol device\n", __func__);
 		return (EINVAL);
@@ -1149,7 +1152,7 @@ zvolRenameDevice(zvol_state_t *zv)
 		dprintf("%s media reset failed\n", __func__);
 		return (ENXIO);
 	}
-
+#endif
 	return (0);
 }
 
@@ -1162,6 +1165,7 @@ zvolSetVolsize(zvol_state_t *zv)
 
 	dprintf("%s\n", __func__);
 
+#if 0
 	if (!zv || !zv->zv_iokitdev) {
 		dprintf("%s invalid zvol\n", __func__);
 		return (EINVAL);
@@ -1172,7 +1176,7 @@ zvolSetVolsize(zvol_state_t *zv)
 		dprintf("%s couldn't cast IOKit handle\n", __func__);
 		return (ENXIO);
 	}
-
+#endif
 	/*
 	 * XXX This works fine, even if volume is mounted,
 	 * but only tested expanding the zvol and only with

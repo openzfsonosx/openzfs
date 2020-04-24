@@ -36,6 +36,8 @@ typedef struct ucred cred_t;
 
 #define kcred   (cred_t *)NOCRED
 #define CRED()          (cred_t *)kauth_cred_get()
+#define	KUID_TO_SUID(x)		(x)
+#define	KGID_TO_SGID(x)		(x)
 
 #include <AvailabilityMacros.h>
 

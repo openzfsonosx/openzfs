@@ -38,7 +38,6 @@
 #include <sys/cmn_err.h>
 #include <sys/errno.h>
 #include <sys/unistd.h>
-#include <sys/sdt.h>
 #include <sys/fs/zfs.h>
 #include <sys/policy.h>
 #include <sys/zfs_znode.h>
@@ -51,6 +50,7 @@
 #include <sys/dnode.h>
 #include <sys/zap.h>
 #include <sys/sa.h>
+#include <sys/zfs_quota.h>
 //#include <acl/acl_common.h>
 
 #define	ALLOW	ACE_ACCESS_ALLOWED_ACE_TYPE
@@ -94,6 +94,8 @@
     ZFS_ACL_OBJ_ACE)
 
 #define	ALL_MODE_EXECS (S_IXUSR | S_IXGRP | S_IXOTH)
+
+#define	IDMAP_WK_CREATOR_OWNER_UID		2147483648U
 
 static uint16_t
 zfs_ace_v0_get_type(void *acep)
@@ -1075,7 +1077,7 @@ zfs_mode_compute(uint64_t fmode, zfs_acl_t *aclp,
  * Read an external acl object.  If the intent is to modify, always
  * create a new acl and leave any cached acl in place.
  */
-static int
+int
 zfs_acl_node_read(znode_t *zp, boolean_t have_lock, zfs_acl_t **aclpp,
     boolean_t will_modify)
 {
@@ -1359,7 +1361,7 @@ zfs_aclset_common(znode_t *zp, zfs_acl_t *aclp, cred_t *cr, dmu_tx_t *tx)
 	if (ace_trivial_common(aclp, 0, zfs_ace_walk) == 0)
 		zp->z_pflags |= ZFS_ACL_TRIVIAL;
 
-	zfs_tstamp_update_setup(zp, STATE_CHANGED, NULL, ctime, B_TRUE);
+	zfs_tstamp_update_setup(zp, STATE_CHANGED, NULL, ctime);
 	return (sa_bulk_update(zp->z_sa_hdl, bulk, count, tx));
 }
 
@@ -1810,19 +1812,22 @@ zfs_acl_ids_free(zfs_acl_ids_t *acl_ids)
 }
 
 boolean_t
-zfs_acl_ids_overquota(zfsvfs_t *zfsvfs, zfs_acl_ids_t *acl_ids)
+zfs_acl_ids_overquota(zfsvfs_t *zv, zfs_acl_ids_t *acl_ids, uint64_t projid)
 {
-	return (zfs_fuid_overquota(zfsvfs, B_FALSE, acl_ids->z_fuid) ||
-	    zfs_fuid_overquota(zfsvfs, B_TRUE, acl_ids->z_fgid));
+	return (zfs_id_overquota(zv, DMU_USERUSED_OBJECT, acl_ids->z_fuid) ||
+	    zfs_id_overquota(zv, DMU_GROUPUSED_OBJECT, acl_ids->z_fgid) ||
+	    (projid != ZFS_DEFAULT_PROJID && projid != ZFS_INVALID_PROJID &&
+        zfs_id_overquota(zv, DMU_PROJECTUSED_OBJECT, projid)));
 }
 
 /*
  * Retrieve a file's ACL
  */
 int
-zfs_getacl(znode_t *zp, struct kauth_acl **aclpp, boolean_t skipaclcheck,
+zfs_getacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclcheck,
            cred_t *cr)
 {
+	struct kauth_acl **aclpp = (struct kauth_acl **)vsecp;
     zfs_acl_t       *aclp;
     kauth_acl_t  k_acl;
     u_int32_t  ace_flags = 0;

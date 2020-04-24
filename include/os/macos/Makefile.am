@@ -1,1 +1,1 @@
-SUBDIRS = spl
+SUBDIRS = spl zfs

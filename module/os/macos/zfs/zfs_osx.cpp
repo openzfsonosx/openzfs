@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright (c) 2013-2017, Jorgen Lundman.  All rights reserved.
+ * Copyright (c) 2013-2020, Jorgen Lundman.  All rights reserved.
  */
 
 #include <sys/types.h>
@@ -33,10 +33,8 @@
 
 #include <sys/zvolIO.h>
 
-#ifdef ZFS_BOOT
 #include <sys/zfs_boot.h>
 #include <sys/spa_impl.h>
-#endif
 
 #include <sys/ldi_osx.h>
 
@@ -44,20 +42,9 @@
 #include <sys/taskq.h>
 
 #include <libkern/version.h>
-
 #include <libkern/sysctl.h>
 
-
-extern "C" {
-	extern kern_return_t _start(kmod_info_t *ki, void *data);
-	extern kern_return_t _stop(kmod_info_t *ki, void *data);
-
-	__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(net.lundman.zfs, "1.0.0", _start, _stop)
-	kmod_start_func_t *_realmain = 0;
-	kmod_stop_func_t  *_antimain = 0;
-	int _kext_apple_cc = __APPLE_CC__ ;
-	extern uint64_t spl_initialised;
-};
+#include <zfs_gitrev.h>
 
 // Define the superclass.
 #define super IOService
@@ -80,14 +67,14 @@ extern SInt32 zfs_active_fs_count;
 #define	ZFS_DEBUG_STR	""
 #endif
 
-static char kext_version[64] = ZFS_META_VERSION "-" ZFS_META_RELEASE ZFS_DEBUG_STR;
+static char spl_gitrev[64] = ZFS_META_GITREV;
 
 //struct sysctl_oid_list sysctl__zfs_children;
 SYSCTL_DECL(_zfs);
 SYSCTL_NODE( , OID_AUTO, zfs, CTLFLAG_RD, 0, "");
 SYSCTL_STRING(_zfs, OID_AUTO, kext_version,
 			  CTLFLAG_RD | CTLFLAG_LOCKED,
-			  kext_version, 0, "ZFS KEXT Version");
+			  spl_gitrev, 0, "ZFS KEXT Version");
 
 #ifdef __APPLE__
 extern int
@@ -318,10 +305,6 @@ net_lundman_zfs_zvol::start (IOService *provider)
 
 static void zfs_start_continue(void *this_arg)
 {
-	while(spl_initialised == 0) {
-		printf("ZFS: waiting for SPL init\n");
-		delay(hz >> 1);
-	}
 
     sysctl_register_oid(&sysctl__zfs);
     sysctl_register_oid(&sysctl__zfs_kext_version);
@@ -340,7 +323,7 @@ static void zfs_start_continue(void *this_arg)
 	/*
 	 * Initialize /dev/zfs, this calls spa_init->dmu_init->arc_init-> etc
 	 */
-	zfs_ioctl_osx_init();
+	//zfs_ioctl_osx_init();
 
 	///sysctl_register_oid(&sysctl__debug_maczfs);
 	//sysctl_register_oid(&sysctl__debug_maczfs_stalk);
@@ -375,7 +358,7 @@ net_lundman_zfs_zvol::stop (IOService *provider)
 
     system_taskq_fini();
 
-    zfs_ioctl_osx_fini();
+    //zfs_ioctl_osx_fini();
     zfs_vfsops_fini();
 
 	ldi_fini();

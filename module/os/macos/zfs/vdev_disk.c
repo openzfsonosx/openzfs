@@ -34,12 +34,8 @@
 #include <sys/abd.h>
 #include <sys/fs/zfs.h>
 #include <sys/zio.h>
-#ifdef __APPLE__
-/* XXX If renamed to sunldi.h, no ifdef required */
 #include <sys/ldi_osx.h>
-#else
-#include <sys/sunldi.h>
-#endif
+#include <sys/disk.h>
 
 /*
  * Virtual device vector for disks.
@@ -678,7 +674,7 @@ vdev_disk_ldi_physio(ldi_handle_t vd_lh, caddr_t data,
 	ASSERT(flags & B_READ || flags & B_WRITE);
 
 	bp = getrbuf(KM_SLEEP);
-	bp->b_flags = flags | B_BUSY | B_NOCACHE | B_FAILFAST;
+	bp->b_flags = flags | B_BUSY | B_NOCACHE;
 	bp->b_bcount = size;
 	bp->b_un.b_addr = (void *)data;
 	bp->b_lblkno = lbtodb(offset);
@@ -874,8 +870,6 @@ vdev_disk_io_start(zio_t *zio)
 
 	bioinit(bp);
 	bp->b_flags = B_BUSY | flags;
-	if (!(zio->io_flags & (ZIO_FLAG_IO_RETRY | ZIO_FLAG_TRYHARD)))
-		bp->b_flags |= B_FAILFAST;
 	bp->b_bcount = zio->io_size;
 
 	if (zio->io_type == ZIO_TYPE_READ) {
@@ -973,9 +967,6 @@ vdev_disk_hold(vdev_t *vd)
 	if (vd->vdev_tsd != NULL)
 		return;
 
-	/* XXX: Implement me as a vnode lookup for the device */
-	vd->vdev_name_vp = NULL;
-	vd->vdev_devid_vp = NULL;
 }
 
 static void

@@ -25,13 +25,6 @@
 #include_next <unistd.h>
 #include <fcntl.h>
 
-#define	O_LARGEFILE	0
-#define	O_RSYNC	0
-
-#ifndef O_DIRECT
-#define O_DIRECT 0
-#endif
-
 /* Handle Linux use of 64 names */
 
 #define	open64		open

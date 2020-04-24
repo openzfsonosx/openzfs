@@ -70,7 +70,9 @@ enum vcexcl	{ NONEXCL, EXCL };
 #define B_INVAL		0x01
 #define B_TRUNC		0x02
 
-#define   DNLC_NO_VNODE (struct vnode *)(-1)
+#define	DNLC_NO_VNODE	(struct vnode *)(-1)
+
+#define	CREATE_XATTR_DIR	0x04	/* Create extended attr dir */
 
 
 #define IS_DEVVP(vp)    \

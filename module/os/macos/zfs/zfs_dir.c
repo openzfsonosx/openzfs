@@ -56,8 +56,8 @@
 #include <sys/zfs_fuid.h>
 #include <sys/sa.h>
 #include <sys/zfs_sa.h>
-#include <sys/dnlc.h>
-#include <sys/extdirent.h>
+//#include <sys/dnlc.h>
+//#include <sys/extdirent.h>
 
 /*
  * zfs_match_find() is used by zfs_dirent_lock() to peform zap lookups
@@ -392,11 +392,12 @@ zfs_dirent_unlock(zfs_dirlock_t *dl)
  *	special pseudo-directory.
  */
 int
-zfs_dirlook(znode_t *dzp, char *name, vnode_t **vpp, int flags,
+zfs_dirlook(znode_t *dzp, const char *name, znode_t **zpp, int flags,
     int *deflg, pathname_t *rpnp)
 {
 	zfs_dirlock_t *dl;
 	znode_t *zp;
+	struct vnode *vp;
 	int error = 0;
 	uint64_t parent;
 	int unlinked;
@@ -408,8 +409,8 @@ zfs_dirlook(znode_t *dzp, char *name, vnode_t **vpp, int flags,
 		if (unlinked)
 			return (ENOENT);
 
-		*vpp = ZTOV(dzp);
-		VN_HOLD(*vpp);
+		*zpp = dzp;
+		VN_HOLD(ZTOV(*zpp));
 	} else if (name[0] == '.' && name[1] == '.' && name[2] == 0) {
 		zfsvfs_t *zfsvfs = dzp->z_zfsvfs;
 		/*
@@ -422,8 +423,9 @@ zfs_dirlook(znode_t *dzp, char *name, vnode_t **vpp, int flags,
 		if (parent == dzp->z_id && zfsvfs->z_parent != zfsvfs) {
             printf("zfs_dir calling zfsctl\n");
 			error = zfsctl_root_lookup(zfsvfs->z_parent->z_ctldir,
-			    "snapshot", vpp, NULL, 0, NULL, kcred,
+			    "snapshot", &vp, NULL, 0, NULL, kcred,
 			    NULL, NULL, NULL);
+			*zpp = VTOZ(vp);
 			return (error);
 		}
 
@@ -436,10 +438,11 @@ zfs_dirlook(znode_t *dzp, char *name, vnode_t **vpp, int flags,
 		rw_enter(&dzp->z_parent_lock, RW_READER);
 		error = zfs_zget(zfsvfs, parent, &zp);
 		if (error == 0)
-			*vpp = ZTOV(zp);
+			*zpp = zp;
 		rw_exit(&dzp->z_parent_lock);
 	} else if (zfs_has_ctldir(dzp) && strcmp(name, ZFS_CTLDIR_NAME) == 0) {
-		*vpp = zfsctl_root(dzp);
+		vp = zfsctl_root(dzp);
+		*zpp = VTOZ(vp);
 	} else {
 		int zf;
 
@@ -447,9 +450,9 @@ zfs_dirlook(znode_t *dzp, char *name, vnode_t **vpp, int flags,
 		if (flags & FIGNORECASE)
 			zf |= ZCILOOK;
 
-		error = zfs_dirent_lock(&dl, dzp, name, &zp, zf, deflg, rpnp);
+		error = zfs_dirent_lock(&dl, dzp, (char *)name, &zp, zf, deflg, rpnp);
 		if (error == 0) {
-			*vpp = ZTOV(zp);
+			*zpp = zp;
 			zfs_dirent_unlock(dl);
 			dzp->z_zn_prefetch = B_TRUE; /* enable prefetching */
 		}
@@ -631,9 +634,9 @@ zfs_purgedir(znode_t *dzp)
 	for (zap_cursor_init(&zc, zfsvfs->z_os, dzp->z_id);
 	    (error = zap_cursor_retrieve(&zc, &zap)) == 0;
 	    zap_cursor_advance(&zc)) {
-		error = zfs_zget_ext(zfsvfs,
-							 ZFS_DIRENT_OBJ(zap.za_first_integer), &xzp,
-							 ZGET_FLAG_ASYNC);
+		error = zfs_zget(zfsvfs,
+			ZFS_DIRENT_OBJ(zap.za_first_integer), &xzp);
+
 		if (error) {
 #ifdef __APPLE__
 			if (error == EIO) {
@@ -751,8 +754,7 @@ zfs_rmnode(znode_t *zp)
 	error = sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zfsvfs),
 		&xattr_obj, sizeof (xattr_obj));
 	if (error == 0 && xattr_obj) {
-		error = zfs_zget_ext(zfsvfs, xattr_obj, &xzp,
-		    ZGET_FLAG_ASYNC);
+		error = zfs_zget(zfsvfs, xattr_obj, &xzp);
 		ASSERT(error == 0);
 	}
 
@@ -865,7 +867,7 @@ zfs_link_create(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag)
 		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_CTIME(zfsvfs), NULL,
 		    ctime, sizeof (ctime));
 		zfs_tstamp_update_setup(zp, STATE_CHANGED, mtime,
-		    ctime, B_TRUE);
+		    ctime);
 	}
 
 #ifdef __APPLE__
@@ -903,7 +905,7 @@ zfs_link_create(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag)
 	    ctime, sizeof (ctime));
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs), NULL,
 	    &dzp->z_pflags, sizeof (dzp->z_pflags));
-	zfs_tstamp_update_setup(dzp, CONTENT_MODIFIED, mtime, ctime, B_TRUE);
+	zfs_tstamp_update_setup(dzp, CONTENT_MODIFIED, mtime, ctime);
 	error = sa_bulk_update(dzp->z_sa_hdl, bulk, count, tx);
 	ASSERT(error == 0);
 	mutex_exit(&dzp->z_lock);
@@ -1044,8 +1046,7 @@ zfs_link_destroy(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag,
 			    NULL, &ctime, sizeof (ctime));
 			SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs),
 			    NULL, &zp->z_pflags, sizeof (zp->z_pflags));
-			zfs_tstamp_update_setup(zp, STATE_CHANGED, mtime, ctime,
-			    B_TRUE);
+			zfs_tstamp_update_setup(zp, STATE_CHANGED, mtime, ctime);
 		}
 		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_LINKS(zfsvfs),
 		    NULL, &zp->z_links, sizeof (zp->z_links));
@@ -1073,7 +1074,7 @@ zfs_link_destroy(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag,
 	    NULL, mtime, sizeof (mtime));
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs),
 	    NULL, &dzp->z_pflags, sizeof (dzp->z_pflags));
-	zfs_tstamp_update_setup(dzp, CONTENT_MODIFIED, mtime, ctime, B_TRUE);
+	zfs_tstamp_update_setup(dzp, CONTENT_MODIFIED, mtime, ctime);
 	error = sa_bulk_update(dzp->z_sa_hdl, bulk, count, tx);
 	ASSERT(error == 0);
 	mutex_exit(&dzp->z_lock);
@@ -1098,7 +1099,7 @@ zfs_dirempty(znode_t *dzp)
 }
 
 int
-zfs_make_xattrdir(znode_t *zp, vattr_t *vap, vnode_t **xvpp, cred_t *cr)
+zfs_make_xattrdir(znode_t *zp, vattr_t *vap, znode_t **xzpp, cred_t *cr)
 {
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	znode_t *xzp;
@@ -1110,7 +1111,7 @@ zfs_make_xattrdir(znode_t *zp, vattr_t *vap, vnode_t **xvpp, cred_t *cr)
 	uint64_t parent;
 #endif
 
-	*xvpp = NULL;
+	*xzpp = NULL;
 
 	/*
 	 * In FreeBSD, access checking for creating an EA is being done
@@ -1124,7 +1125,7 @@ zfs_make_xattrdir(znode_t *zp, vattr_t *vap, vnode_t **xvpp, cred_t *cr)
 	if ((error = zfs_acl_ids_create(zp, IS_XATTR, vap, cr, NULL,
 	    &acl_ids)) != 0)
 		return (error);
-	if (zfs_acl_ids_overquota(zfsvfs, &acl_ids)) {
+	if (zfs_acl_ids_overquota(zfsvfs, &acl_ids, zp->z_projid)) {
 		zfs_acl_ids_free(&acl_ids);
 		return (SET_ERROR(EDQUOT));
 	}
@@ -1168,7 +1169,7 @@ zfs_make_xattrdir(znode_t *zp, vattr_t *vap, vnode_t **xvpp, cred_t *cr)
 	 */
 	zfs_znode_getvnode(xzp, zfsvfs);
 #endif
-	*xvpp = ZTOV(xzp);
+	*xzpp = xzp;
 
 	return (0);
 }
@@ -1187,7 +1188,7 @@ zfs_make_xattrdir(znode_t *zp, vattr_t *vap, vnode_t **xvpp, cred_t *cr)
  *		error number on failure
  */
 int
-zfs_get_xattrdir(znode_t *zp, vnode_t **xvpp, cred_t *cr, int flags)
+zfs_get_xattrdir(znode_t *zp, znode_t **xzpp, cred_t *cr, int flags)
 {
 	zfsvfs_t	*zfsvfs = zp->z_zfsvfs;
 	znode_t		*xzp;
@@ -1200,7 +1201,7 @@ top:
 		return (error);
 
 	if (xzp != NULL) {
-		*xvpp = ZTOV(xzp);
+		*xzpp = xzp;
 		zfs_dirent_unlock(dl);
 		return (0);
 	}
@@ -1235,7 +1236,7 @@ top:
 	va.va_mode = S_IFDIR | S_ISVTX | 0777;
 	zfs_fuid_map_ids(zp, cr, &va.va_uid, &va.va_gid);
 
-	error = zfs_make_xattrdir(zp, &va, xvpp, cr);
+	error = zfs_make_xattrdir(zp, &va, xzpp, cr);
 	zfs_dirent_unlock(dl);
 
 	if (error == ERESTART) {

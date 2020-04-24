@@ -72,6 +72,8 @@ struct proc;
 #ifdef _KERNEL
 
 extern taskq_t *system_taskq;
+/* Global dynamic task queue for long delay */
+extern taskq_t *system_delay_taskq;
 
 extern int 	spl_taskq_init(void);
 extern void	spl_taskq_fini(void);
@@ -95,6 +97,7 @@ extern int	taskq_suspended(taskq_t *);
 extern void	taskq_resume(taskq_t *);
 extern int	taskq_member(taskq_t *, kthread_t *);
 extern boolean_t taskq_empty(taskq_t *tq);
+extern int taskq_cancel_id(taskq_t *, taskqid_t);
 
 #define taskq_wait_outstanding(T, D) taskq_wait((T))
 
@@ -102,6 +105,8 @@ extern void system_taskq_init(void);
 extern void system_taskq_fini(void);
 
 #endif	/* _KERNEL */
+
+extern int EMPTY_TASKQ(taskq_t *tq);
 
 #ifdef	__cplusplus
 }

@@ -1,4 +1,5 @@
 
+# Anyone remember why we made this a library?
 libspl_la_CPPFLAGS= \
 	-Wall \
 	-nostdinc \
@@ -15,6 +16,8 @@ libspl_la_CPPFLAGS= \
 	-I@KERNEL_HEADERS@/Headers \
 	-I@KERNEL_HEADERS@/PrivateHeaders
 
+libspl_la_CPPFLAGS += @KERNEL_DEBUG_CPPFLAGS@
+
 libspl_la_LDFLAGS= \
 	-Xlinker \
 	-kext \
@@ -26,7 +29,7 @@ libspl_la_LDFLAGS= \
 libspl_la_LIBS = -lnone
 
 # If we don't set this to nothing, it adds "-lz -liconv"
-LIBS = 
+LIBS =
 
 noinst_LTLIBRARIES = libspl.la
 

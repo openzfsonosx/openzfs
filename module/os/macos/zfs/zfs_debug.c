@@ -25,22 +25,16 @@
 
 #include <sys/zfs_context.h>
 
-#if !defined(_KERNEL) || !defined(__linux__)
+typedef struct zfs_dbgmsg {
+	list_node_t zdm_node;
+	time_t zdm_timestamp;
+	char zdm_msg[1]; /* variable length allocation */
+} zfs_dbgmsg_t;
+
 list_t zfs_dbgmsgs;
 int zfs_dbgmsg_size;
 kmutex_t zfs_dbgmsgs_lock;
 int zfs_dbgmsg_maxsize = 4<<20; /* 4MB */
-#endif
-
-void
-zfs_panic_recover(const char *fmt, ...)
-{
-	va_list adx;
-
-	va_start(adx, fmt);
-	vcmn_err(zfs_recover ? CE_WARN : CE_PANIC, fmt, adx);
-	va_end(adx);
-}
 
 /*
  * Debug logging is enabled by default for production kernel builds.
@@ -51,17 +45,14 @@ zfs_panic_recover(const char *fmt, ...)
 void
 zfs_dbgmsg_init(void)
 {
-#if !defined(_KERNEL) || !defined(__linux__)
 	list_create(&zfs_dbgmsgs, sizeof (zfs_dbgmsg_t),
 	    offsetof(zfs_dbgmsg_t, zdm_node));
 	mutex_init(&zfs_dbgmsgs_lock, NULL, MUTEX_DEFAULT, NULL);
-#endif
 }
 
 void
 zfs_dbgmsg_fini(void)
 {
-#if !defined(_KERNEL) || !defined(__linux__)
 	zfs_dbgmsg_t *zdm;
 
 	while ((zdm = list_remove_head(&zfs_dbgmsgs)) != NULL) {
@@ -71,10 +62,20 @@ zfs_dbgmsg_fini(void)
 	}
 	mutex_destroy(&zfs_dbgmsgs_lock);
 	ASSERT0(zfs_dbgmsg_size);
-#endif
 }
 
-#if !defined(_KERNEL) || !defined(__linux__)
+void
+__set_error(const char *file, const char *func, int line, int err)
+{
+	/*
+	 * To enable this:
+	 *
+	 * $ echo 512 >/sys/module/zfs/parameters/zfs_flags
+	 */
+	if (zfs_flags & ZFS_DEBUG_SET_ERROR)
+		__dprintf(B_FALSE, file, func, line, "error %lu", err);
+}
+
 /*
  * Print these messages by running:
  * echo ::zfs_dbgmsg | mdb -k
@@ -86,44 +87,18 @@ zfs_dbgmsg_fini(void)
  * dtrace -qn 'zfs$pid::zfs_dbgmsg:probe1{printf("%s\n", copyinstr(arg1))}'
  */
 
-#ifdef __APPLE__
 /*
  * MacOS X's dtrace doesn't handle the PROBEs, so
  * we have a utility function that we can watch with
- * sudo dtrace -qn 'zfs_dbgmsg_mac:entry{printf("%s\n", stringof(arg0));}'
+ * sudo dtrace -qn '__zfs_dbgmsg:entry{printf("%s\n", stringof(arg0));}'
  */
-
-noinline char *zfs_dbgmsg_mac(char *str) __attribute__((noinline)) __attribute__((optnone));
-
-#endif
-
-void
-zfs_dbgmsg(const char *fmt, ...)
+noinline void
+__zfs_dbgmsg(char *buf)
 {
-	int size;
-	va_list adx;
-	zfs_dbgmsg_t *zdm;
-
-	va_start(adx, fmt);
-	size = vsnprintf(NULL, 0, fmt, adx);
-	va_end(adx);
-
-	/*
-	 * There is one byte of string in sizeof (zfs_dbgmsg_t), used
-	 * for the terminating null.
-	 */
-	zdm = kmem_alloc(sizeof (zfs_dbgmsg_t) + size, KM_SLEEP);
+	int size = sizeof (zfs_dbgmsg_t) + strlen(buf);
+	zfs_dbgmsg_t *zdm = kmem_zalloc(size, KM_SLEEP);
 	zdm->zdm_timestamp = gethrestime_sec();
-
-	va_start(adx, fmt);
-	(void) vsnprintf(zdm->zdm_msg, size + 1, fmt, adx);
-	va_end(adx);
-
-	DTRACE_PROBE1(zfs__dbgmsg, char *, zdm->zdm_msg);
-
-#ifdef __APPLE__
-	(void) zfs_dbgmsg_mac(zdm->zdm_msg);
-#endif
+	strlcpy(zdm->zdm_msg, buf, size);
 
 	mutex_enter(&zfs_dbgmsgs_lock);
 	list_insert_tail(&zfs_dbgmsgs, zdm);
@@ -135,6 +110,60 @@ zfs_dbgmsg(const char *fmt, ...)
 		zfs_dbgmsg_size -= size;
 	}
 	mutex_exit(&zfs_dbgmsgs_lock);
+}
+
+void
+__dprintf(boolean_t dprint, const char *file, const char *func,
+    int line, const char *fmt, ...)
+{
+	int size, i;
+	va_list adx;
+	char *buf, *nl;
+	char *prefix = (dprint) ? "dprintf: " : "";
+	const char *newfile;
+
+	/*
+	 * Get rid of annoying prefix to filename.
+	 */
+	newfile = strrchr(file, '/');
+	if (newfile != NULL) {
+		newfile = newfile + 1; /* Get rid of leading / */
+	} else {
+		newfile = file;
+	}
+
+	va_start(adx, fmt);
+	size = vsnprintf(NULL, 0, fmt, adx);
+	va_end(adx);
+
+	size += snprintf(NULL, 0, "%s%s:%d:%s(): ", prefix, newfile, line, func);
+
+	/*
+	 * There is one byte of string in sizeof (zfs_dbgmsg_t), used
+	 * for the terminating null.
+	 */
+	buf = kmem_alloc(size, KM_SLEEP);
+
+	va_start(adx, fmt);
+	i = snprintf(buf, size + 1, "%s%s:%d:%s(): ",
+		prefix, newfile, line, func);
+	(void) vsnprintf(buf + i, size -i + 1, fmt, adx);
+	va_end(adx);
+
+	/*
+	 * Get rid of trailing newline for dprintf logs.
+	 */
+	if (dprint && buf[0] != '\0') {
+		nl = &buf[strlen(buf) - 1];
+		if (*nl == '\n')
+			*nl = '\0';
+	}
+
+	DTRACE_PROBE1(zfs__dbgmsg, char *, zdm->zdm_msg);
+
+	__zfs_dbgmsg(buf);
+
+	kmem_free(buf, size);
 }
 
 void
@@ -150,13 +179,3 @@ zfs_dbgmsg_print(const char *tag)
 	mutex_exit(&zfs_dbgmsgs_lock);
 }
 
-#ifdef __APPLE__
-noinline char *
-zfs_dbgmsg_mac(char *str)
-	__attribute__((noinline))
-	__attribute((optnone))
-{
-	return(str);
-}
-#endif
-#endif

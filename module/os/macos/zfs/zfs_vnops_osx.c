@@ -20,19 +20,7 @@
  */
 /*
  * Copyright (c) 2013 Will Andrews <will@firepipe.net>
- * Copyright (c) 2013, 2016 Jorgen Lundman <lundman@lundman.net>
- */
-
-/*
- * OS X ZFS vnode operation wrappers.
- *
- * The argument structure layouts were obtained from:
- * http://www.opensource.apple.com/source/xnu/xnu-792.13.8/bsd/vfs/vfs_support.c
- * http://code.ohloh.net/project?pid=Ybsxw4FOQb8
- *
- * This file should contain primarily interface points; if an interface
- * definition is more than 100 lines long, parts of it should be refactored
- * into zfs_vnops_osx_lib.c.
+ * Copyright (c) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  */
 
 /*
@@ -56,12 +44,14 @@
  * in Solaris it's the ZFS code that does.  On FreeBSD, the code Apple
  * refers to here results in a panic if the branch is actually taken.
  *
- * OS X uses vnode_put() in place of VN_RELE - needs a #define?
- * (Already is, see vnode.h)
  */
 
 #include <sys/cred.h>
 #include <sys/vnode.h>
+#include <miscfs/fifofs/fifo.h>
+#include <miscfs/specfs/specdev.h>
+#include <vfs/vfs_support.h>
+#include <sys/ioccom.h>
 #include <sys/zfs_dir.h>
 #include <sys/zfs_ioctl.h>
 #include <sys/fs/zfs.h>
@@ -74,7 +64,6 @@
 #include <sys/sa.h>
 #include <sys/zfs_vnops.h>
 #include <sys/vfs.h>
-#include <sys/vfs_opreg.h>
 #include <sys/zfs_vfsops.h>
 #include <sys/zfs_rlock.h>
 #include <sys/zfs_ctldir.h>
@@ -85,10 +74,6 @@
 #include <sys/callb.h>
 #include <sys/unistd.h>
 
-#include <miscfs/fifofs/fifo.h>
-#include <miscfs/specfs/specdev.h>
-#include <vfs/vfs_support.h>
-#include <sys/ioccom.h>
 
 
 
@@ -189,7 +174,7 @@ int
 zfs_vfs_quotactl(__unused struct mount *mp, __unused int cmds,
     __unused uid_t uid, __unused caddr_t datap, __unused vfs_context_t context)
 {
-dprintf("%s ENOTSUP\n", __func__);
+	dprintf("%s ENOTSUP\n", __func__);
 	return (ENOTSUP);
 }
 
@@ -227,8 +212,7 @@ zfs_findernotify_callback(mount_t mp, __unused void *arg)
 			return (VFS_RETURNED);
 
 		/* Guard against unmount */
-		ZFS_ENTER_NOERROR(zfsvfs);
-		if (zfsvfs->z_unmounted) goto out;
+		ZFS_ENTER_ERROR(zfsvfs, VFS_RETURNED);
 
 		/* Check if space usage has changed sufficiently to bother updating */
 		uint64_t refdbytes, availbytes, usedobjs, availobjs;
@@ -1221,6 +1205,7 @@ zfs_vnop_create(struct vnop_create_args *ap)
 	vcexcl_t excl;
 	int mode = 0;	/* FIXME */
 	int error;
+	znode_t *zp = NULL;
 
 	dprintf("vnop_create: '%s'\n", cnp->cn_nameptr);
 
@@ -1230,10 +1215,11 @@ zfs_vnop_create(struct vnop_create_args *ap)
 	 */
 	excl = (vap->va_vaflags & VA_EXCLUSIVE) ? EXCL : NONEXCL;
 
-	error = zfs_create(ap->a_dvp, cnp->cn_nameptr, vap, excl, mode,
-	    ap->a_vpp, cr);
+	error = zfs_create(VTOZ(ap->a_dvp), cnp->cn_nameptr, vap, excl, mode,
+	    &zp, cr, 0, NULL);
 	if (!error) {
 		cache_purge_negatives(ap->a_dvp);
+		*ap->a_vpp = ZTOV(zp);
 	} else {
 		dprintf("%s error %d\n", __func__, error);
 	}
@@ -1418,7 +1404,7 @@ zfs_vnop_remove(struct vnop_remove_args *ap)
 	 * extern int zfs_remove ( struct vnode *dvp, char *name, cred_t *cr,
 	 *     caller_context_t *ct, int flags);
 	 */
-	error = zfs_remove(ap->a_dvp, ap->a_cnp->cn_nameptr, cr, ct,
+	error = zfs_remove(ap->a_dvp, ap->a_cnp->cn_nameptr, cr,
 	    /* flags */0);
 	if (!error) {
 		cache_purge(ap->a_vp);
@@ -1469,7 +1455,7 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	 *     vsecattr_t *vsecp);
 	 */
 	error = zfs_mkdir(ap->a_dvp, ap->a_cnp->cn_nameptr, ap->a_vap,
-	    ap->a_vpp, cr, ct, /* flags */0, /* vsecp */NULL);
+	    ap->a_vpp, cr, /* flags */0, /* vsecp */NULL);
 	if (!error) {
 		cache_purge_negatives(ap->a_dvp);
 		vnode_update_identity (*ap->a_vpp, ap->a_dvp, (const char *)ap->a_cnp->cn_nameptr, ap->a_cnp->cn_namelen, 0, VNODE_UPDATE_NAME);
@@ -1501,7 +1487,7 @@ zfs_vnop_rmdir(struct vnop_rmdir_args *ap)
 	 *     struct vnode *cwd, cred_t *cr, caller_context_t *ct, int flags);
 	 */
 	error = zfs_rmdir(ap->a_dvp, ap->a_cnp->cn_nameptr, /* cwd */NULL, cr,
-	    ct, /* flags */0);
+	    /* flags */0);
 	if (!error) {
 		cache_purge(ap->a_vp);
 	} else {
@@ -1711,7 +1697,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	}
 
 	vap->va_mask = mask;
-	error = zfs_setattr(ap->a_vp, ap->a_vap, /* flag */0, cr, ct);
+	error = zfs_setattr(ap->a_vp, ap->a_vap, /* flag */0, cr);
 
 	dprintf("vnop_setattr: called on vp %p with mask %04x, err=%d\n",
 	    ap->a_vp, mask, error);
@@ -1808,7 +1794,7 @@ zfs_vnop_rename(struct vnop_rename_args *ap)
 	 *     int flags);
 	 */
 	error = zfs_rename(ap->a_fdvp, ap->a_fcnp->cn_nameptr, ap->a_tdvp,
-	    ap->a_tcnp->cn_nameptr, cr, ct, /* flags */0);
+	    ap->a_tcnp->cn_nameptr, cr, /* flags */0);
 
 	if (!error) {
 		cache_purge_negatives(ap->a_fdvp);
@@ -1878,7 +1864,7 @@ zfs_vnop_renamex(struct vnop_renamex_args *ap)
 	 * hacky.
 	 */
 	error = zfs_rename(ap->a_fdvp, ap->a_fcnp->cn_nameptr, ap->a_tdvp,
-	    ap->a_tcnp->cn_nameptr, cr, ct, (ap->a_flags&VFS_RENAME_EXCL));
+	    ap->a_tcnp->cn_nameptr, cr, (ap->a_flags&VFS_RENAME_EXCL));
 
 	if (!error) {
 		cache_purge_negatives(ap->a_fdvp);
@@ -1940,7 +1926,7 @@ zfs_vnop_symlink(struct vnop_symlink_args *ap)
 
 	/* OS X doesn't need to set vap->va_mode? */
 	error = zfs_symlink(ap->a_dvp, ap->a_vpp, ap->a_cnp->cn_nameptr,
-	    ap->a_vap, ap->a_target, cr);
+	    ap->a_vap, ap->a_target, cr, 0);
 	if (!error) {
 		cache_purge_negatives(ap->a_dvp);
 	} else {
@@ -2009,8 +1995,7 @@ zfs_vnop_link(struct vnop_link_args *ap)
 	 *     char *name, cred_t *cr, caller_context_t *ct, int flags);
 	 */
 
-	error = zfs_link(ap->a_tdvp, ap->a_vp, ap->a_cnp->cn_nameptr, cr, ct,
-	    /* flags */0);
+	error = zfs_link(ap->a_tdvp, ap->a_vp, ap->a_cnp->cn_nameptr, cr, 0);
 	if (!error) {
 		// Set source vnode to multipath too, zfs_get_vnode() handles the target
 		vnode_setmultipath(ap->a_vp);
@@ -2172,7 +2157,7 @@ zfs_pageout(zfsvfs_t *zfsvfs, znode_t *zp, upl_t upl, vm_offset_t upl_offset,
 			offset_t off, size_t size, int flags)
 {
 	dmu_tx_t *tx;
-	locked_range_t *lr;
+	zfs_locked_range_t *lr;
 	uint64_t filesz;
 	int err = 0;
 	size_t len = size;
@@ -2248,7 +2233,7 @@ zfs_pageout(zfsvfs_t *zfsvfs, znode_t *zp, upl_t upl, vm_offset_t upl_offset,
 
 
 top:
-	lr = rangelock_enter(&zp->z_rangelock, off, len, RL_WRITER);
+	lr = zfs_rangelock_enter(&zp->z_rangelock, off, len, RL_WRITER);
 	/*
 	 * can't push pages passed end-of-file
 	 */
@@ -2286,7 +2271,7 @@ top:
 	err = dmu_tx_assign(tx, TXG_WAIT);
 	if (err != 0) {
 		if (err == ERESTART) {
-			rangelock_exit(lr);
+			zfs_rangelock_exit(lr);
 			dmu_tx_wait(tx);
 			dmu_tx_abort(tx);
 			goto top;
@@ -2349,8 +2334,7 @@ top:
 		    &ctime, 16);
 		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs), NULL,
 		    &zp->z_pflags, 8);
-		zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime,
-		    B_TRUE);
+		zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime);
 		err = sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
 		ASSERT0(err);
 		zfs_log_write(zfsvfs->z_log, tx, TX_WRITE, zp, off, len, 0,
@@ -2359,7 +2343,7 @@ top:
 	dmu_tx_commit(tx);
 
 out:
-	rangelock_exit(lr);
+	zfs_rangelock_exit(lr);
 	if (flags & UPL_IOSYNC)
 		zil_commit(zfsvfs->z_log, zp->z_id);
 
@@ -2534,7 +2518,7 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 	zfsvfs_t *zfsvfs = NULL;
 	int error = 0;
 	uint64_t filesize;
-	locked_range_t *lr;
+	zfs_locked_range_t *lr;
 	dmu_tx_t *tx;
 	caddr_t vaddr = NULL;
 	int merror = 0;
@@ -2610,7 +2594,7 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 	ASSERT(vn_has_cached_data(ZTOV(zp)));
 	/* ASSERT(zp->z_dbuf_held); */ /* field no longer present in znode. */
 
-	lr = rangelock_enter(&zp->z_rangelock, ap->a_f_offset, a_size, RL_WRITER);
+	lr = zfs_rangelock_enter(&zp->z_rangelock, ap->a_f_offset, a_size, RL_WRITER);
 
 	/* Grab UPL now */
 	int request_flags;
@@ -2791,8 +2775,7 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		    &ctime, 16);
 		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs), NULL,
 		    &zp->z_pflags, 8);
-		zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime,
-		    B_TRUE);
+		zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime);
 		zfs_log_write(zfsvfs->z_log, tx, TX_WRITE, zp, ap->a_f_offset,
 					  a_size, 0,
 		    NULL, NULL);
@@ -2805,7 +2788,7 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		vaddr = NULL;
 	}
   out:
-	rangelock_exit(lr);
+	zfs_rangelock_exit(lr);
 	if (a_flags & UPL_IOSYNC)
 		zil_commit(zfsvfs->z_log, zp->z_id);
 
@@ -2824,7 +2807,7 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 	return (error);
 
   pageout_done:
-	rangelock_exit(lr);
+	zfs_rangelock_exit(lr);
 
   exit_abort:
 	dprintf("ZFS: pageoutv2 aborted %d\n", error);
@@ -3688,7 +3671,7 @@ zfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		goto out;
 	}
 
-	error = zfs_remove(xdvp, (char *)ap->a_name, cr, ct, /* flags */0);
+	error = zfs_remove(xdvp, (char *)ap->a_name, cr, /* flags */0);
 
 out:
 	if (cn.pn_buf)
@@ -3806,7 +3789,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 		 */
 		namelen = strlen(za.za_name);
 
-		if (zfs_vnop_force_formd_normalized_output &&
+		if (force_formd_normalized_output &&
 		    !is_ascii_str(za.za_name))
 			force_formd_normalized_output = 1;
 		else
@@ -3988,8 +3971,8 @@ zfs_vnop_makenamedstream(struct vnop_makenamedstream_args *ap)
 	VATTR_SET(&vattr, va_type, VREG);
 	VATTR_SET(&vattr, va_mode, VTOZ(vp)->z_mode & ~S_IFMT);
 
-	error = zfs_create(xdvp, (char *)ap->a_name, &vattr, NONEXCL,
-	    VTOZ(vp)->z_mode, ap->a_svpp, cr);
+//	error = zfs_create(xdvp, (char *)ap->a_name, &vattr, NONEXCL,
+//	    VTOZ(vp)->z_mode, ap->a_svpp, cr);
 
 out:
 	if (xdvp)

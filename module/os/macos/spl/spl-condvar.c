@@ -60,9 +60,11 @@ spl_cv_broadcast(kcondvar_t *cvp)
  * Block on the indicated condition variable and
  * release the associated mutex while blocked.
  */
-void
+int
 spl_cv_wait(kcondvar_t *cvp, kmutex_t *mp, int flags, const char *msg)
 {
+	int result;
+
     if (msg != NULL && msg[0] == '&')
         ++msg;  /* skip over '&' prefixes */
 
@@ -70,11 +72,13 @@ spl_cv_wait(kcondvar_t *cvp, kmutex_t *mp, int flags, const char *msg)
 	spl_wdlist_settime(mp->leak, 0);
 #endif
 	mp->m_owner = NULL;
-    (void) msleep(cvp, (lck_mtx_t *)&mp->m_lock, flags, msg, 0);
+    result = msleep(cvp, (lck_mtx_t *)&mp->m_lock, flags, msg, 0);
     mp->m_owner = current_thread();
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, gethrestime_sec());
 #endif
+
+	return (result == EWOULDBLOCK ? -1 : 0);
 }
 
 /*

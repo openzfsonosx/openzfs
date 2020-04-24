@@ -39,7 +39,7 @@ struct proc;
 
 extern int thread_issignal(struct proc *, thread_t, sigset_t);
 
-#define threadmask (sigmask(SIGILL)|sigmask(SIGTRAP)|\
+#define THREADMASK (sigmask(SIGILL)|sigmask(SIGTRAP)|\
 		sigmask(SIGIOT)|sigmask(SIGEMT)|\
 		sigmask(SIGFPE)|sigmask(SIGBUS)|\
 		sigmask(SIGSEGV)|sigmask(SIGSYS)|\
@@ -50,7 +50,10 @@ static __inline__ int
 issig(int why)
 {
 	return (thread_issignal(current_proc(), current_thread(),
-	    threadmask));
+	    THREADMASK));
 }
+
+/* Always called with curthread */
+#define signal_pending(p) issig(0)
 
 #endif /* SPL_SYS_SIGNAL_H */

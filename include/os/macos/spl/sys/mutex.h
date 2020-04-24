@@ -35,7 +35,6 @@
 #include <libkern/OSAtomic.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
-#include <sys/proc.h>
 
 #ifdef     __cplusplus
 extern "C" {
@@ -50,8 +49,11 @@ typedef enum {
 
 #define	MUTEX_NOLOCKDEP		0
 
-// Alas lck_mtx_t; is opaque and not available at compile time, in the xnu
-// sources it has not changed for many versions.
+/* Alas lck_mtx_t; is opaque and not available at compile time, and we
+ * really want to embed them. Luckily, mutex size has not changed in
+ * many versions of OSX. We should possibly to a startup check of
+ * the size though.
+ */
 typedef struct {
         uint32_t  opaque[4];
 } mutex_t;
@@ -82,6 +84,8 @@ typedef struct kmutex {
 #endif
 
 } kmutex_t;
+
+#include <sys/proc.h>
 
 #define MUTEX_HELD(x)           (mutex_owned(x))
 #define MUTEX_NOT_HELD(x)       (!mutex_owned(x))
@@ -122,7 +126,8 @@ void spl_mutex_destroy(kmutex_t *mp);
 void spl_mutex_exit(kmutex_t *mp);
 int  spl_mutex_tryenter(kmutex_t *mp);
 int  spl_mutex_owned(kmutex_t *mp);
-struct kthread *spl_mutex_owner(kmutex_t *mp);
+
+struct thread *spl_mutex_owner(kmutex_t *mp);
 
 int  spl_mutex_subsystem_init(void);
 void spl_mutex_subsystem_fini(void);

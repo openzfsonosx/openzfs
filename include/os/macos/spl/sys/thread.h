@@ -41,8 +41,10 @@
  *
  * Map that to the ZFS thread type: kthread_t
  */
-typedef struct thread kthread;
-typedef struct kthread kthread_t;
+//typedef struct thread kthread;
+//typedef struct kthread kthread_t;
+#define kthread thread
+#define kthread_t struct kthread
 
 /*
  * Thread interfaces

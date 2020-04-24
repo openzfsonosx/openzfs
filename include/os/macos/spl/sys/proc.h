@@ -32,6 +32,9 @@
 #include <i386/locks.h>
 #include_next <sys/proc.h>
 #include <sys/kernel_types.h>
+#include <sys/vnode.h>
+
+#define proc_t struct proc
 
 extern proc_t p0;              /* process 0 */
 

@@ -35,6 +35,7 @@
 #include_next <sys/types.h>
 #include <string.h>
 #include <sys/sysmacros.h>
+#include <stddef.h>
 
 /* Avoid kcdata.h header error */
 #ifdef     __cplusplus
@@ -87,6 +88,7 @@ typedef unsigned int umode_t ;
 #define	NODEV32				(dev32_t)(-1)
 typedef	uint32_t			dev32_t;
 typedef uint_t				minor_t;
+typedef	short				index_t;
 
 #include  <sys/fcntl.h>
 #define FCREAT          O_CREAT

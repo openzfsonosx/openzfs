@@ -40,6 +40,8 @@ typedef enum {
         RW_READER = 2
 } krw_t;
 
+#define	RW_NOLOCKDEP	0
+
 struct krwlock {
     uint32_t   rw_lock[4];   /* opaque lck_rw_t data */
     void       *rw_owner;    /* writer (exclusive) lock only */

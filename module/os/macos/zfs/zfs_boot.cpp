@@ -103,6 +103,8 @@ extern "C" {
 #include <sys/mount.h>
 #include <sys/fs/zfs.h>
 #include <sys/zfs_vfsops.h>
+#include <sys/zfs_rlock.h>
+#include <sys/zvol_impl.h>
 
 int dsl_dsobj_to_dsname(char *pname, uint64_t obj, char *buf);
 

@@ -72,5 +72,17 @@ zfs_lbolt(void)
 
 extern void delay(clock_t ticks);
 
+#define usleep_range(wakeup, whocares)									\
+	do {																\
+		hrtime_t delta = wakeup - gethrtime();							\
+        																\
+		if (delta > 0) {												\
+			struct timespec ts;											\
+			ts.tv_sec = delta / NANOSEC;								\
+			ts.tv_nsec = delta % NANOSEC;								\
+			(void) msleep(NULL, NULL, PWAIT, "usleep_range", &ts);		\
+		}																\
+	} while (0)
+
 
 #endif  /* _SPL_TIMER_H */

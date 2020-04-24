@@ -23,6 +23,31 @@
 #ifndef ZFS_CONTEXT_OS_H_
 #define	ZFS_CONTEXT_OS_H_
 
+#include <sys/ioctl.h>
+
 #define	ZFS_EXPORTS_PATH	"/etc/exports"
+#define MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
+
+struct spa_iokit;
+typedef struct spa_iokit spa_iokit_t;
+
+#define	zuio_segflg(U)		(U)->uio_segflg
+#define	zuio_offset(U)		(U)->uio_loffset
+#define	zuio_iovcnt(U)		(U)->uio_iovcnt
+#define	zuio_iovlen(U, I)	(U)->uio_iov[(I)].iov_len
+#define	zuio_iovbase(U, I)	(U)->uio_iov[(I)].iov_base
+#define zuio_update(U, N)	\
+	do {					\
+	(U)->uio_resid -= (N);	\
+	(U)->uio_loffset += (N);\
+	while(0)
+#define zuio_nonemptyindex(U, O, I)						\
+	for ((I) = 0; (I) < (U)->uio_iovcnt &&				\
+	    (O) >= (U)->uio_iov[(I)].iov_len;				\
+	    (O) -= (U)->uio_iov[(I)++].iov_len)				\
+		;
+#define zuio_iov(U, I, B, S)                    \
+    (B) = zuio_iovbase((U), (I));               \
+	(S) = zuio_iovlen((U), (I))
 
 #endif

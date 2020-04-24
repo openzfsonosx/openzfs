@@ -51,7 +51,11 @@
 
 #include <zfs_config.h>
 
-struct utsname utsname = { { 0 } };
+static utsname_t utsname_static = { { 0 } };
+utsname_t *utsname(void)
+{
+	return &utsname_static;
+}
 
 unsigned int max_ncpus = 0;
 uint64_t  total_memory = 0;
@@ -428,24 +432,25 @@ static void spl_start_continue(void *ignored)
     total_memory = total_memory * 50ULL / 100ULL; // smd: experiment with 50%, 8GiB
     physmem = total_memory / PAGE_SIZE;
 
-    len = sizeof(utsname.sysname);
-    sysctlbyname("kern.ostype", &utsname.sysname, &len, NULL, 0);
+    len = sizeof(utsname_static.sysname);
+    sysctlbyname("kern.ostype", &utsname_static.sysname, &len, NULL, 0);
 
     /*
      * For some reason, (CTLFLAG_KERN is not set) looking up hostname
      * returns 1. So we set it to uuid just to give it *something*.
      * As it happens, ZFS sets the nodename on init.
      */
-    len = sizeof(utsname.nodename);
-    sysctlbyname("kern.uuid", &utsname.nodename, &len, NULL, 0);
+    len = sizeof(utsname_static.nodename);
+    sysctlbyname("kern.uuid", &utsname_static.nodename, &len, NULL, 0);
 
-    len = sizeof(utsname.release);
-    sysctlbyname("kern.osrelease", &utsname.release, &len, NULL, 0);
+    len = sizeof(utsname_static.release);
+    sysctlbyname("kern.osrelease", &utsname_static.release, &len, NULL, 0);
 
-    len = sizeof(utsname.version);
-    sysctlbyname("kern.version", &utsname.version, &len, NULL, 0);
+    len = sizeof(utsname_static.version);
+    sysctlbyname("kern.version", &utsname_static.version, &len, NULL, 0);
 
-    strlcpy(utsname.nodename, hostname, sizeof(utsname.nodename));
+    strlcpy(utsname_static.nodename, hostname,
+	    sizeof(utsname_static.nodename));
 
     spl_mutex_subsystem_init();
     spl_kmem_init(total_memory);

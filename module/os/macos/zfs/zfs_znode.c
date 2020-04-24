@@ -46,6 +46,7 @@
 #include <sys/errno.h>
 #include <sys/unistd.h>
 #include <sys/atomic.h>
+#include <sys/dbuf.h>
 #include <sys/zfs_dir.h>
 #include <sys/zfs_acl.h>
 #include <sys/zfs_ioctl.h>
@@ -53,7 +54,6 @@
 #include <sys/zfs_fuid.h>
 #include <sys/dnode.h>
 #include <sys/fs/zfs.h>
-#include <sys/kidmap.h>
 #include <sys/zfs_vnops.h>
 #endif /* _KERNEL */
 
@@ -117,7 +117,7 @@ kmem_cache_t *znode_cache = NULL;
  * called with the rangelock_t's rl_lock held, which avoids races.
  */
 static void
-zfs_rangelock_cb(locked_range_t *new, void *arg)
+zfs_rangelock_cb(zfs_locked_range_t *new, void *arg)
 {
 	znode_t *zp = arg;
 
@@ -212,7 +212,7 @@ zfs_znode_cache_constructor(void *buf, void *arg, int kmflags)
 	rw_init(&zp->z_name_lock, NULL, RW_DEFAULT, NULL);
 	mutex_init(&zp->z_acl_lock, NULL, MUTEX_DEFAULT, NULL);
 	rw_init(&zp->z_xattr_lock, NULL, RW_DEFAULT, NULL);
-	rangelock_init(&zp->z_rangelock, zfs_rangelock_cb, zp);
+	zfs_rangelock_init(&zp->z_rangelock, zfs_rangelock_cb, zp);
 
 	mutex_init(&zp->z_attach_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&zp->z_attach_cv, NULL, CV_DEFAULT, NULL);
@@ -240,7 +240,7 @@ zfs_znode_cache_destructor(void *buf, void *arg)
 	rw_destroy(&zp->z_name_lock);
 	mutex_destroy(&zp->z_acl_lock);
 	rw_destroy(&zp->z_xattr_lock);
-	rangelock_fini(&zp->z_rangelock);
+	zfs_rangelock_fini(&zp->z_rangelock);
 	mutex_destroy(&zp->z_attach_lock);
 	cv_destroy(&zp->z_attach_cv);
 
@@ -743,7 +743,6 @@ zfs_znode_alloc(zfsvfs_t *zfsvfs, dmu_buf_t *db, int blksz,
 	zp->z_seq = 0x7A4653;
 	zp->z_sync_cnt = 0;
 
-	zp->z_is_zvol = 0;
 	zp->z_is_mapped = 0;
 	zp->z_is_ctldir = 0;
 	zp->z_vid = 0;
@@ -1328,6 +1327,12 @@ zfs_xvattr_set(znode_t *zp, xvattr_t *xvap, dmu_tx_t *tx)
 }
 
 int
+zfs_zget(zfsvfs_t *zfsvfs, uint64_t obj_num, znode_t **zpp)
+{
+	return zfs_zget_ext(zfsvfs, obj_num, zpp, 0);
+}
+
+int
 zfs_zget_ext(zfsvfs_t *zfsvfs, uint64_t obj_num, znode_t **zpp,
 			 int flags)
 {
@@ -1776,20 +1781,14 @@ zfs_znode_free(znode_t *zp)
  */
 void
 zfs_tstamp_update_setup(znode_t *zp, uint_t flag, uint64_t mtime[2],
-			    uint64_t ctime[2], boolean_t have_tx)
+    uint64_t ctime[2])
 {
 	timestruc_t	now;
 
-	ASSERT(have_tx == !(flag & AT_ATIME));
 	gethrestime(&now);
 
-	/*
-	 * NOTE: The following test intentionally does not update z_atime_dirty
-	 * in the case where an ATIME update has been requested but for which
-	 * the update is omitted due to relatime logic.  The rationale being
-	 * that if the flag was set somewhere else, we should leave it alone
-	 * here.
-	 */
+	zp->z_seq++;
+
 	if (flag & AT_ATIME) {
 		ZFS_TIME_ENCODE(&now, zp->z_atime);
 #ifdef LINUX
@@ -1879,20 +1878,20 @@ zfs_extend(znode_t *zp, uint64_t end)
 {
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	dmu_tx_t *tx;
-	locked_range_t *lr;
+	zfs_locked_range_t *lr;
 	uint64_t newblksz;
 	int error;
 
 	/*
 	 * We will change zp_size, lock the whole file.
 	 */
-	lr = rangelock_enter(&zp->z_rangelock, 0, UINT64_MAX, RL_WRITER);
+	lr = zfs_rangelock_enter(&zp->z_rangelock, 0, UINT64_MAX, RL_WRITER);
 
 	/*
 	 * Nothing to do if file already at desired length.
 	 */
 	if (end <= zp->z_size) {
-		rangelock_exit(lr);
+		zfs_rangelock_exit(lr);
 		return (0);
 	}
 
@@ -1923,7 +1922,7 @@ zfs_extend(znode_t *zp, uint64_t end)
 	error = dmu_tx_assign(tx, TXG_WAIT);
 	if (error) {
 		dmu_tx_abort(tx);
-		rangelock_exit(lr);
+		zfs_rangelock_exit(lr);
 		return (error);
 	}
 
@@ -1938,7 +1937,7 @@ zfs_extend(znode_t *zp, uint64_t end)
 
 	vnode_pager_setsize(ZTOV(zp), end);
 
-	rangelock_exit(lr);
+	zfs_rangelock_exit(lr);
 
 	dmu_tx_commit(tx);
 
@@ -1959,19 +1958,19 @@ static int
 zfs_free_range(znode_t *zp, uint64_t off, uint64_t len)
 {
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
-	locked_range_t *lr;
+	zfs_locked_range_t *lr;
 	int error;
 
 	/*
 	 * Lock the range being freed.
 	 */
-	lr = rangelock_enter(&zp->z_rangelock, off, len, RL_WRITER);
+	lr = zfs_rangelock_enter(&zp->z_rangelock, off, len, RL_WRITER);
 
 	/*
 	 * Nothing to do if file already at desired length.
 	 */
 	if (off >= zp->z_size) {
-		rangelock_exit(lr);
+		zfs_rangelock_exit(lr);
 		return (0);
 	}
 
@@ -2032,7 +2031,7 @@ zfs_free_range(znode_t *zp, uint64_t off, uint64_t len)
 		}
 	}
 #endif
-	rangelock_exit(lr);
+	zfs_rangelock_exit(lr);
 
 	return (error);
 }
@@ -2051,27 +2050,27 @@ zfs_trunc(znode_t *zp, uint64_t end)
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	struct vnode *vp = ZTOV(zp);
 	dmu_tx_t *tx;
-	locked_range_t *lr;
+	zfs_locked_range_t *lr;
 	int error;
 	sa_bulk_attr_t bulk[2];
 	int count = 0;
 	/*
 	 * We will change zp_size, lock the whole file.
 	 */
-	lr = rangelock_enter(&zp->z_rangelock, 0, UINT64_MAX, RL_WRITER);
+	lr = zfs_rangelock_enter(&zp->z_rangelock, 0, UINT64_MAX, RL_WRITER);
 
 	/*
 	 * Nothing to do if file already at desired length.
 	 */
 	if (end >= zp->z_size) {
-		rangelock_exit(lr);
+		zfs_rangelock_exit(lr);
 		return (0);
 	}
 
 	error = dmu_free_long_range(zfsvfs->z_os, zp->z_id, end,
 	    DMU_OBJECT_END);
 	if (error) {
-		rangelock_exit(lr);
+		zfs_rangelock_exit(lr);
 		return (error);
 	}
 
@@ -2082,7 +2081,7 @@ zfs_trunc(znode_t *zp, uint64_t end)
 	error = dmu_tx_assign(tx, TXG_WAIT);
 	if (error) {
 		dmu_tx_abort(tx);
-		rangelock_exit(lr);
+		zfs_rangelock_exit(lr);
 		return (error);
 	}
 
@@ -2107,7 +2106,7 @@ zfs_trunc(znode_t *zp, uint64_t end)
 	 */
 	vnode_pager_setsize(vp, end);
 
-	rangelock_exit(lr);
+	zfs_rangelock_exit(lr);
 
 	return (0);
 }
@@ -2183,7 +2182,7 @@ log:
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_CTIME(zfsvfs), NULL, ctime, 16);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs),
 	    NULL, &zp->z_pflags, 8);
-	zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime, B_TRUE);
+	zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime);
 	error = sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
 	ASSERT(error == 0);
 

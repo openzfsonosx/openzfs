@@ -571,7 +571,7 @@ vfs_has_feature(vfs_t *vfsp, vfs_feature_t vfsft)
 	}
 }
 
-
+#if 0
 int pn_alloc(pathname_t *p)
 {
     return ENOTSUP;
@@ -581,7 +581,7 @@ int pn_free(pathname_t *p)
 {
     return ENOTSUP;
 }
-
+#endif
 
 int
 zfs_access_native_mode(struct vnode *vp, int *mode, cred_t *cr,

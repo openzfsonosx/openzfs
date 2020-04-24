@@ -78,9 +78,9 @@ zfs_dev_is_whole_disk(const char *dev_name)
 {
 	int fd;
 
-	fd = g_open(dev_name, 0);
+	fd = open(dev_name, 0);
 	if (fd >= 0) {
-		g_close(fd);
+		close(fd);
 		return (B_TRUE);
 	}
 	return (B_FALSE);

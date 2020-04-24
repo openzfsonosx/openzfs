@@ -180,6 +180,10 @@ extern void spl_cleanup(void);
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
 #endif
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof (a) / sizeof (a[0]))
+#endif
+
 //#ifndef roundup
 //#define roundup(x, y)		((((x) + ((y) - 1)) / (y)) * (y))
 //#endif

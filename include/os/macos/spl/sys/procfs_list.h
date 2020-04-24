@@ -22,6 +22,16 @@
 #ifndef _SPL_PROCFS_LIST_H
 #define _SPL_PROCFS_LIST_H
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+struct seq_file {
+	void *dummy; /* warning: empty struct has size 0 in C, size 1 in C++ */
+};
+
+void seq_printf(struct seq_file *m, const char *fmt, ...);
+
 typedef struct procfs_list {
 	void			*pl_private;
 	kmutex_t		pl_lock;
@@ -34,6 +44,22 @@ typedef struct procfs_list_node {
 	list_node_t		pln_link;
 	uint64_t		pln_id;
 } procfs_list_node_t;
+
+void procfs_list_install(const char *module,
+    const char *name,
+    mode_t mode,
+    procfs_list_t *procfs_list,
+    int (*show)(struct seq_file *f, void *p),
+    int (*show_header)(struct seq_file *f),
+    int (*clear)(procfs_list_t *procfs_list),
+    size_t procfs_list_node_off);
+void procfs_list_uninstall(procfs_list_t *procfs_list);
+void procfs_list_destroy(procfs_list_t *procfs_list);
+void procfs_list_add(procfs_list_t *procfs_list, void *p);
+
+#ifdef  __cplusplus
+}
+#endif
 
 #endif
 

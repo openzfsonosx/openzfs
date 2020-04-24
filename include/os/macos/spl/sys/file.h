@@ -28,8 +28,9 @@
 #ifndef _SPL_FILE_H
 #define _SPL_FILE_H
 
-#define	FIGNORECASE	0x00080000
-#define	FKIOCTL		0x80000000
+#define	FIGNORECASE			0x00080000
+#define	FKIOCTL				0x80000000
+#define	ED_CASE_CONFLICT	0x10
 
 #include <sys/list.h>
 

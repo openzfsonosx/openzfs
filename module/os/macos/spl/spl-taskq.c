@@ -2499,3 +2499,12 @@ taskq_d_kstat_update(kstat_t *ksp, int rw)
 	}
 	return (0);
 }
+
+int EMPTY_TASKQ(taskq_t *tq)
+{
+#ifdef _KERNEL
+	return  ((tq)->tq_task.tqent_next == &(tq)->tq_task);
+#else
+	return (tq->tq_task.tqent_next == &tq->tq_task || tq->tq_active == 0);
+#endif
+}

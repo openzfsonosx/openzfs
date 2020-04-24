@@ -15,6 +15,7 @@ zfs_CPPFLAGS = \
 	-DKERNEL \
 	-DKERNEL_PRIVATE \
 	-DDRIVER_PRIVATE \
+	-DNAMEDSTREAMS=1 \
 	-DAPPLE \
 	-DNeXT \
 	-I$(top_srcdir)/include/os/macos/spl \
@@ -23,6 +24,8 @@ zfs_CPPFLAGS = \
 	-I$(top_srcdir)/include \
 	-I@KERNEL_HEADERS@/Headers \
 	-I@KERNEL_HEADERS@/PrivateHeaders
+
+zfs_CPPFLAGS += @KERNEL_DEBUG_CPPFLAGS@
 
 zfs_CFLAGS =
 zfs_CXXFLAGS =
@@ -50,22 +53,22 @@ zfs_kext_SOURCE =
 
 if TARGET_CPU_X86_64
 zfs_ASM_SOURCES_C = \
-        ../icp/asm-x86_64/aes/aeskey.c \
-        ../icp/algs/modes/gcm_pclmulqdq.c \
-        ../zcommon/zfs_fletcher_intel.c \
-        ../zcommon/zfs_fletcher_sse.c \
-        ../zcommon/zfs_fletcher_avx512.c \
-        vdev_raidz_math_sse2.c \
-        vdev_raidz_math_ssse3.c \
-        vdev_raidz_math_avx2.c \
-        vdev_raidz_math_avx512f.c \
-        vdev_raidz_math_avx512bw.c
+	../../../icp/asm-x86_64/aes/aeskey.c \
+	../../../icp/algs/modes/gcm_pclmulqdq.c \
+	../../../zcommon/zfs_fletcher_intel.c \
+	../../../zcommon/zfs_fletcher_sse.c \
+	../../../zcommon/zfs_fletcher_avx512.c \
+	../../../zfs/vdev_raidz_math_sse2.c \
+	../../../zfs/vdev_raidz_math_ssse3.c \
+	../../../zfs/vdev_raidz_math_avx2.c \
+	../../../zfs/vdev_raidz_math_avx512f.c \
+	../../../zfs/vdev_raidz_math_avx512bw.c
 zfs_ASM_SOURCES_AS = \
-        ../icp/asm-x86_64/aes/aes_amd64.S \
-        ../icp/asm-x86_64/aes/aes_aesni.S \
-        ../icp/asm-x86_64/modes/gcm_pclmulqdq.S \
-        ../icp/asm-x86_64/sha2/sha256_impl.S \
-        ../icp/asm-x86_64/sha2/sha512_impl.S
+	../../../icp/asm-x86_64/os/macos/aes/aes_amd64.S \
+	../../../icp/asm-x86_64/os/macos/aes/aes_aesni.S \
+	../../../icp/asm-x86_64/os/macos/modes/gcm_pclmulqdq.S \
+	../../../icp/asm-x86_64/os/macos/sha2/sha256_impl.S \
+	../../../icp/asm-x86_64/os/macos/sha2/sha512_impl.S
 else
 zfs_ASM_SOURCES_C =
 zfs_ASM_SOURCES_AS =
@@ -75,11 +78,13 @@ zfs_SOURCES = \
 	abd.c \
 	../../../zfs/aggsum.c \
 	../../../zfs/arc.c \
+	../../../avl/avl.c \
 	../../../zfs/blkptr.c \
 	../../../zfs/bplist.c \
 	../../../zfs/bpobj.c \
 	../../../zfs/bptree.c \
 	../../../zfs/bqueue.c \
+	../../../zfs/btree.c \
 	../../../zcommon/cityhash.c \
 	../../../zfs/dbuf.c \
 	../../../zfs/dbuf_stats.c \
@@ -111,12 +116,11 @@ zfs_SOURCES = \
 	../../../zfs/dsl_userhold.c \
 	../../../zfs/edonr_zfs.c \
 	../../../zfs/fm.c \
-	gfs.c \
 	../../../zfs/gzip.c \
 	../../../zfs/hkdf.c \
-	../../../zfs/ldi_osx.c \
-	../../../zfs/ldi_vnode.c \
-	../../../zfs/ldi_iokit.cpp \
+	ldi_osx.c \
+	ldi_vnode.c \
+	ldi_iokit.cpp \
 	../../../zfs/lz4.c \
 	../../../zfs/lzjb.c \
 	../../../zfs/metaslab.c \
@@ -146,8 +150,8 @@ zfs_SOURCES = \
 	../../../zfs/unique.c \
 	../../../zfs/vdev.c \
 	../../../zfs/vdev_cache.c \
-	../../../zfs/vdev_disk.c \
-	../../../zfs/vdev_file.c \
+	vdev_disk.c \
+	vdev_file.c \
 	../../../zfs/vdev_indirect.c \
 	../../../zfs/vdev_indirect_births.c \
 	../../../zfs/vdev_indirect_mapping.c \
@@ -172,12 +176,10 @@ zfs_SOURCES = \
 	../../../zfs/zcp_set.c \
 	../../../zfs/zcp_synctask.c \
 	../../../zfs/zfeature.c \
-	zfeature_common.c \
+	../../../zcommon/zfeature_common.c \
 	zfs_acl.c \
 	zfs_boot.cpp \
-	../../../zfs/zfs_aggsum.c \
 	../../../zfs/zfs_byteswap.c \
-	zfs_ctldir.c \
 	zfs_debug.c \
 	zfs_dir.c \
 	../../../zfs/zfs_fm.c \
@@ -212,85 +214,80 @@ zfs_SOURCES = \
 	ZFSDatasetScheme.cpp \
 	ZFSDataset.cpp \
 	ZFSPool.cpp \
-        ../nvpair/fnvpair.c \
-        ../nvpair/nvpair.c \
-        ../nvpair/nvpair_alloc_fixed.c \
-        ../nvpair/nvpair_alloc_spl.c \
-        ../unicode/u8_textprep.c \
-        ../unicode/uconv.c \
-        ../zcommon/zfs_comutil.c \
-        ../zcommon/zfs_deleg.c \
-        ../zcommon/zfs_fletcher.c \
-        ../zcommon/zfs_fletcher_superscalar.c \
-        ../zcommon/zfs_fletcher_superscalar4.c \
-        ../zcommon/zfs_namecheck.c \
-        ../zcommon/zfs_prop.c \
-        ../zcommon/zpool_prop.c \
-        ../zcommon/zprop_common.c \
-        ../icp/illumos-crypto.c \
-        ../icp/api/kcf_cipher.c \
-        ../icp/api/kcf_digest.c \
-        ../icp/api/kcf_mac.c \
-        ../icp/api/kcf_miscapi.c \
-        ../icp/api/kcf_ctxops.c \
-        ../icp/core/kcf_callprov.c \
-        ../icp/core/kcf_prov_tabs.c \
-        ../icp/core/kcf_sched.c \
-        ../icp/core/kcf_mech_tabs.c \
-        ../icp/core/kcf_prov_lib.c \
-        ../icp/spi/kcf_spi.c \
-        ../icp/io/aes.c \
-        ../icp/io/sha2_mod.c \
-        ../icp/io/sha1_mod.c \
-        ../icp/os/modhash.c \
-        ../icp/os/bitmap_arch.c \
-        ../icp/os/modconf.c \
-        ../icp/algs/edonr/edonr.c \
-        ../icp/algs/modes/cbc.c \
-        ../icp/algs/modes/ccm.c \
-        ../icp/algs/modes/ctr.c \
-        ../icp/algs/modes/ecb.c \
-        ../icp/algs/modes/gcm_generic.c \
-        ../icp/algs/modes/gcm.c \
-        ../icp/algs/modes/modes.c \
-        ../icp/algs/sha1/sha1.c \
-        ../icp/algs/sha2/sha2.c \
-        ../icp/algs/skein/skein.c \
-        ../icp/algs/skein/skein_block.c \
-        ../icp/algs/skein/skein_iv.c \
-        ../icp/algs/aes/aes_impl_aesni.c \
-        ../icp/algs/aes/aes_impl_generic.c \
-        ../icp/algs/aes/aes_impl_x86-64.c \
-        ../icp/algs/aes/aes_impl.c \
-        ../icp/algs/aes/aes_modes.c \
-        ../lua/lapi.c \
-        ../lua/lauxlib.c \
-        ../lua/lbaselib.c \
-        ../lua/lbitlib.c \
-        ../lua/lcode.c \
-        ../lua/lcompat.c \
-        ../lua/lcorolib.c \
-        ../lua/lctype.c \
-        ../lua/ldebug.c \
-        ../lua/ldo.c \
-        ../lua/ldump.c \
-        ../lua/lfunc.c \
-        ../lua/lgc.c \
-        ../lua/llex.c \
-        ../lua/lmem.c \
-        ../lua/lobject.c \
-        ../lua/lopcodes.c \
-        ../lua/lparser.c \
-        ../lua/lstate.c \
-        ../lua/lstring.c \
-        ../lua/lstrlib.c \
-        ../lua/ltable.c \
-        ../lua/ltablib.c \
-        ../lua/ltm.c \
-        ../lua/lundump.c \
-        ../lua/lvm.c \
-        ../lua/lzio.c \
-        ../lua/setjmp/setjmp.S \
+	../../../nvpair/fnvpair.c \
+	../../../nvpair/nvpair.c \
+	../../../nvpair/nvpair_alloc_fixed.c \
+	../../../nvpair/nvpair_alloc_spl.c \
+	../../../unicode/u8_textprep.c \
+	../../../unicode/uconv.c \
+	../../../zcommon/zfs_comutil.c \
+	../../../zcommon/zfs_deleg.c \
+	../../../zcommon/zfs_fletcher.c \
+	../../../zcommon/zfs_fletcher_superscalar.c \
+	../../../zcommon/zfs_fletcher_superscalar4.c \
+	../../../zcommon/zfs_namecheck.c \
+	../../../zcommon/zfs_prop.c \
+	../../../zcommon/zpool_prop.c \
+	../../../zcommon/zprop_common.c \
+	../../../icp/api/kcf_cipher.c \
+	../../../icp/api/kcf_digest.c \
+	../../../icp/api/kcf_mac.c \
+	../../../icp/api/kcf_miscapi.c \
+	../../../icp/api/kcf_ctxops.c \
+	../../../icp/core/kcf_callprov.c \
+	../../../icp/core/kcf_prov_tabs.c \
+	../../../icp/core/kcf_sched.c \
+	../../../icp/core/kcf_mech_tabs.c \
+	../../../icp/core/kcf_prov_lib.c \
+	../../../icp/spi/kcf_spi.c \
+	../../../icp/io/aes.c \
+	../../../icp/io/sha2_mod.c \
+	../../../icp/io/sha1_mod.c \
+	../../../icp/os/modhash.c \
+	../../../icp/os/modconf.c \
+	../../../icp/algs/edonr/edonr.c \
+	../../../icp/algs/modes/cbc.c \
+	../../../icp/algs/modes/ccm.c \
+	../../../icp/algs/modes/ctr.c \
+	../../../icp/algs/modes/ecb.c \
+	../../../icp/algs/modes/gcm_generic.c \
+	../../../icp/algs/modes/gcm.c \
+	../../../icp/algs/modes/modes.c \
+	../../../icp/algs/sha1/sha1.c \
+	../../../icp/algs/sha2/sha2.c \
+	../../../icp/algs/skein/skein.c \
+	../../../icp/algs/skein/skein_block.c \
+	../../../icp/algs/skein/skein_iv.c \
+	../../../icp/algs/aes/aes_impl_aesni.c \
+	../../../icp/algs/aes/aes_impl_generic.c \
+	../../../icp/algs/aes/aes_impl_x86-64.c \
+	../../../icp/algs/aes/aes_impl.c \
+	../../../icp/algs/aes/aes_modes.c \
+	../../../lua/lapi.c \
+	../../../lua/lauxlib.c \
+	../../../lua/lbaselib.c \
+	../../../lua/lcode.c \
+	../../../lua/lcompat.c \
+	../../../lua/lcorolib.c \
+	../../../lua/lctype.c \
+	../../../lua/ldebug.c \
+	../../../lua/ldo.c \
+	../../../lua/lfunc.c \
+	../../../lua/lgc.c \
+	../../../lua/llex.c \
+	../../../lua/lmem.c \
+	../../../lua/lobject.c \
+	../../../lua/lopcodes.c \
+	../../../lua/lparser.c \
+	../../../lua/lstate.c \
+	../../../lua/lstring.c \
+	../../../lua/lstrlib.c \
+	../../../lua/ltable.c \
+	../../../lua/ltablib.c \
+	../../../lua/ltm.c \
+	../../../lua/lvm.c \
+	../../../lua/lzio.c \
+	../../../lua/setjmp/setjmp.S \
         $(zfs_ASM_SOURCES_C) \
         $(zfs_ASM_SOURCES_AS)
 

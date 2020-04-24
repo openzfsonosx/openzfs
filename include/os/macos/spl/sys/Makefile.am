@@ -4,6 +4,7 @@ KERNEL_H = \
 	$(top_srcdir)/include/os/macos/spl/sys/callb.h \
 	$(top_srcdir)/include/os/macos/spl/sys/cmn_err.h \
 	$(top_srcdir)/include/os/macos/spl/sys/condvar.h \
+	$(top_srcdir)/include/os/macos/spl/sys/console.h \
 	$(top_srcdir)/include/os/macos/spl/sys/cred.h \
 	$(top_srcdir)/include/os/macos/spl/sys/debug.h \
 	$(top_srcdir)/include/os/macos/spl/sys/errno.h \
@@ -23,6 +24,7 @@ KERNEL_H = \
 	$(top_srcdir)/include/os/macos/spl/sys/priv.h \
 	$(top_srcdir)/include/os/macos/spl/sys/proc.h \
 	$(top_srcdir)/include/os/macos/spl/sys/processor.h \
+	$(top_srcdir)/include/os/macos/spl/sys/random.h \
 	$(top_srcdir)/include/os/macos/spl/sys/rwlock.h \
 	$(top_srcdir)/include/os/macos/spl/sys/seg_kmem.h \
 	$(top_srcdir)/include/os/macos/spl/sys/signal.h \
