@@ -186,6 +186,11 @@ typedef enum {
 	ZFS_PROP_IVSET_GUID,		/* not exposed to the user */
 	ZFS_PROP_REDACTED,
 	ZFS_PROP_REDACT_SNAPS,
+	ZFS_PROP_BROWSE,		/* macOS: nobrowse/browse */
+	ZFS_PROP_IGNOREOWNER,	/* macOS: ignoreowner mount */
+	ZFS_PROP_LASTUNMOUNT,	/* macOS: Spotlight required */
+	ZFS_PROP_MIMIC,			/* macOS: mimic=hfs|apfs */
+	ZFS_PROP_DEVDISK,		/* macOS: create IOkit virtual disk */
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 
@@ -452,6 +457,18 @@ typedef enum zfs_key_location {
 	ZFS_KEYLOCATION_URI,
 	ZFS_KEYLOCATION_LOCATIONS
 } zfs_keylocation_t;
+
+typedef enum zfs_mimic {
+	ZFS_MIMIC_OFF = 0,
+	ZFS_MIMIC_HFS,
+	ZFS_MIMIC_APFS
+} zfs_mimic_t;
+
+typedef enum zfs_devdisk {
+	ZFS_DEVDISK_POOLONLY = 0,
+	ZFS_DEVDISK_OFF,
+	ZFS_DEVDISK_ON
+} zfs_devdisk_t;
 
 #define	DEFAULT_PBKDF2_ITERATIONS 350000
 #define	MIN_PBKDF2_ITERATIONS 100000
