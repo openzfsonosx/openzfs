@@ -55,73 +55,6 @@
 #ifndef _SPL_POLICY_H
 #define _SPL_POLICY_H
 
-#ifdef __LINUX__
-
-#define	secpolicy_fs_unmount(c,vfs)			(0)
-#define	secpolicy_nfs(c)				(0)
-#define	secpolicy_sys_config(c,co)			(0)
-#define	secpolicy_zfs(c)				(0)
-#define	secpolicy_zinject(c)				(0)
-#define	secpolicy_vnode_setids_setgids(c,id)		(0)
-#define	secpolicy_vnode_setid_retain(c, sr)		(0)
-#define	secpolicy_setid_clear(v, c)			(0)
-#define	secpolicy_vnode_any_access(c,vp,o)		(0)
-#define	secpolicy_vnode_access2(c,cp,o,m1,m2)		(0)
-#define	secpolicy_vnode_chown(c,o)			(0)
-#define	secpolicy_vnode_setdac(c,o)			(0)
-#define	secpolicy_vnode_remove(c)			(0)
-#define	secpolicy_vnode_setattr(c,v,a,o,f,func,n)	(0)
-#define	secpolicy_xvattr(x, o, c, t)			(0)
-#define	secpolicy_vnode_stky_modify(c)			(0)
-#define	secpolicy_setid_setsticky_clear(v,a,o,c)	(0)
-#define	secpolicy_basic_link(c)				(0)
-
-#elif defined (__FreeBSD__)
-
-#ifdef _KERNEL
-
-#include <sys/vnode.h>
-
-struct mount;
-struct vattr;
-
-int	secpolicy_nfs(cred_t *cr);
-int	secpolicy_zfs(cred_t *crd);
-int	secpolicy_sys_config(cred_t *cr, int checkonly);
-int	secpolicy_zinject(cred_t *cr);
-int	secpolicy_fs_unmount(cred_t *cr, struct mount *vfsp);
-int	secpolicy_basic_link(vnode_t *vp, cred_t *cr);
-int	secpolicy_vnode_owner(vnode_t *vp, cred_t *cr, uid_t owner);
-int	secpolicy_vnode_chown(vnode_t *vp, cred_t *cr, uid_t owner);
-int	secpolicy_vnode_stky_modify(cred_t *cr);
-int	secpolicy_vnode_remove(vnode_t *vp, cred_t *cr);
-int	secpolicy_vnode_access(cred_t *cr, vnode_t *vp, uid_t owner,
-	    accmode_t accmode);
-int	secpolicy_vnode_access2(cred_t *cr, vnode_t *vp, uid_t owner,
-	    accmode_t curmode, accmode_t wantmode);
-int	secpolicy_vnode_any_access(cred_t *cr, vnode_t *vp, uid_t owner);
-int	secpolicy_vnode_setdac(vnode_t *vp, cred_t *cr, uid_t owner);
-int	secpolicy_vnode_setattr(cred_t *cr, vnode_t *vp, struct vattr *vap,
-	    const struct vattr *ovap, int flags,
-	    int unlocked_access(void *, int, cred_t *), void *node);
-int	secpolicy_vnode_create_gid(cred_t *cr);
-int	secpolicy_vnode_setids_setgids(vnode_t *vp, cred_t *cr, gid_t gid);
-int	secpolicy_vnode_setid_retain(vnode_t *vp, cred_t *cr,
-	    boolean_t issuidroot);
-void	secpolicy_setid_clear(struct vattr *vap, vnode_t *vp, cred_t *cr);
-int	secpolicy_setid_setsticky_clear(vnode_t *vp, struct vattr *vap,
-	    const struct vattr *ovap, cred_t *cr);
-int	secpolicy_fs_owner(struct mount *vfsp, cred_t *cr);
-int	secpolicy_fs_mount(cred_t *cr, vnode_t *mvp, struct mount *vfsp);
-void	secpolicy_fs_mount_clearopts(cred_t *cr, struct mount *vfsp);
-int	secpolicy_xvattr(vnode_t *vp, vattr_t *xvap, uid_t owner, cred_t *cr,
-	    vtype_t vtype);
-int	secpolicy_smb(cred_t *cr);
-
-#endif	/* _KERNEL */
-
-#elif defined (__APPLE__)
-
 #ifdef _KERNEL
 
 #include <sys/vnode.h>
@@ -135,7 +68,6 @@ int secpolicy_sys_config(const cred_t *, boolean_t);
 int secpolicy_zfs(const cred_t *);
 int secpolicy_zinject(const cred_t *);
 //int secpolicy_vnode_setids_setgids(const cred_t *, gid_t);
-//int secpolicy_vnode_setid_retain(const cred_t *, boolean_t);
 //void secpolicy_setid_clear(struct vattr *, cred_t *);
 int secpolicy_vnode_any_access(const cred_t *, struct vnode *, uid_t);
 int secpolicy_vnode_access2(const cred_t *, struct vnode *, uid_t, mode_t, mode_t);
@@ -176,15 +108,13 @@ int secpolicy_vnode_create_gid(const cred_t *);
 int secpolicy_vnode_setids_setgids(struct vnode *, const cred_t *, gid_t);
 int secpolicy_vnode_setdac(struct vnode *, const cred_t *, uid_t);
 int secpolicy_vnode_chown(struct vnode *, const cred_t *, uid_t);
-int secpolicy_vnode_setid_retain(struct vnode *, const cred_t *, boolean_t);
-int secpolicy_xvattr(struct vnode *, vattr_t *, uid_t, const cred_t *, enum vtype);
-int secpolicy_setid_clear(vattr_t *, struct vnode *, const cred_t *);
-int secpolicy_basic_link(struct vnode *, const cred_t *);
+int secpolicy_vnode_setid_retain(const cred_t *, boolean_t);
+int secpolicy_xvattr(vattr_t *, uid_t, const cred_t *, mode_t);
+int secpolicy_setid_clear(vattr_t *, const cred_t *);
+int secpolicy_basic_link(const cred_t *);
 int secpolicy_fs_mount_clearopts(const cred_t *, struct mount *);
 int secpolicy_fs_mount(const cred_t *, struct vnode *, struct mount *);
 
 #endif	/* _KERNEL */
-
-#endif	/* __LINUX__ */
 
 #endif /* SPL_POLICY_H */

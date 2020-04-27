@@ -361,7 +361,7 @@ zfs_vnop_open(struct vnop_open_args *ap)
 	DECLARE_CRED_AND_CONTEXT(ap);
 	int err = 0;
 
-	err = zfs_open(&ap->a_vp, ap->a_mode, cr, ct);
+	err = zfs_open(ap->a_vp, ap->a_mode, 0, cr);
 
 	if (err) dprintf("zfs_open() failed %d\n", err);
 	return (err);
@@ -381,7 +381,7 @@ zfs_vnop_close(struct vnop_close_args *ap)
 	int offset = 0;
 	DECLARE_CRED_AND_CONTEXT(ap);
 
-	return (zfs_close(ap->a_vp, ap->a_fflag, count, offset, cr, ct));
+	return (zfs_close(ap->a_vp, ap->a_fflag, cr));
 }
 
 int
@@ -438,18 +438,15 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 		case F_BARRIERFSYNC:
 			dprintf("%s F_BARRIERFSYNC\n", __func__);
 #endif
-			error = zfs_fsync(ap->a_vp, /* flag */0, cr, ct);
+			error = zfs_fsync(VTOZ(ap->a_vp), /* flag */0, cr);
 			break;
 
 		case F_CHKCLEAN:
 			dprintf("%s F_CHKCLEAN\n", __func__);
 			/* normally calls http://fxr.watson.org/fxr/source/bsd/vfs/vfs_cluster.c?v=xnu-2050.18.24#L5839 */
 			/* XXX Why don't we? */
-off_t fsize = zp->z_size;
+			off_t fsize = zp->z_size;
 			error = is_file_clean(ap->a_vp, fsize);
-			//error = is_file_clean(ap->a_vp, zp->z_size);
-
-			if (error) dprintf("F_CHKCLEAN ret %d\n", error);
 			break;
 
 		case F_RDADVISE:
@@ -953,7 +950,7 @@ zfs_vnop_read(struct vnop_read_args *ap)
 	DECLARE_CRED_AND_CONTEXT(ap);
 
 	/* resid = uio_resid(ap->a_uio); */
-	error = zfs_read(ap->a_vp, ap->a_uio, ioflag, cr, ct);
+	error = zfs_read(ap->a_vp, ap->a_uio, ioflag, cr);
 
 	if (error) dprintf("vnop_read %d\n", error);
 	return (error);
@@ -979,7 +976,7 @@ zfs_vnop_write(struct vnop_write_args *ap)
 	    ap->a_vp, uio_offset(ap->a_uio), uio_resid(ap->a_uio));
 
 	/* resid=uio_resid(ap->a_uio); */
-	error = zfs_write(ap->a_vp, ap->a_uio, ioflag, cr, ct);
+	error = zfs_write(ap->a_vp, ap->a_uio, ioflag, cr);
 
 	/*
 	 * Mac OS X: pageout requires that the UBC file size be current.
@@ -1024,7 +1021,7 @@ zfs_vnop_access(struct vnop_access_args *ap)
 		mode |= VEXEC;
 
 	dprintf("vnop_access: action %04x -> mode %04x\n", action, mode);
-	error = zfs_access(ap->a_vp, mode, 0, cr, ct);
+	error = zfs_access(ap->a_vp, mode, 0, cr);
 
 	if (error) dprintf("%s: error %d\n", __func__, error);
 	return (error);
@@ -1135,8 +1132,11 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	dprintf("+vnop_lookup '%s' %s\n", filename ? filename : cnp->cn_nameptr,
 			negative_cache ? "negative_cache":"");
 
-	error = zfs_lookup(ap->a_dvp, filename ? filename : cnp->cn_nameptr,
-	    ap->a_vpp, cnp, cnp->cn_nameiop, cr, /* flags */ 0);
+	znode_t *zp = NULL;
+	int direntflags = 0;
+
+	error = zfs_lookup(VTOZ(ap->a_dvp), filename ? filename : cnp->cn_nameptr,
+	    &zp, /* flags */ 0, cr, &direntflags, cnp);
 	/* flags can be LOOKUP_XATTR | FIGNORECASE */
 
 #if 1
@@ -1161,22 +1161,13 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	} /* ENOENT */
 #endif
 
-#if 0
-	if (!error && negative_cache) {
-		printf("[ZFS] Incorrect negative_cache entry for '%s'\n",
-		    filename ? filename : cnp->cn_nameptr);
-		cache_purge_negatives(ap->a_dvp);
-	}
-#endif
-
-
 exit:
 
-#ifdef __APPLE__
-	if (!error)
+	if (error == 0) {
+		*ap->a_vpp = ZTOV(zp);
 		zfs_cache_name(*ap->a_vpp, ap->a_dvp,
 					   filename ? filename : cnp->cn_nameptr);
-#endif
+	}
 
 	dprintf("-vnop_lookup %d : dvp %llu '%s'\n", error, VTOZ(ap->a_dvp)->z_id,
 			filename ? filename : cnp->cn_nameptr);
@@ -1404,7 +1395,7 @@ zfs_vnop_remove(struct vnop_remove_args *ap)
 	 * extern int zfs_remove ( struct vnode *dvp, char *name, cred_t *cr,
 	 *     caller_context_t *ct, int flags);
 	 */
-	error = zfs_remove(ap->a_dvp, ap->a_cnp->cn_nameptr, cr,
+	error = zfs_remove(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr, cr,
 	    /* flags */0);
 	if (!error) {
 		cache_purge(ap->a_vp);
@@ -1454,9 +1445,11 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	 *     struct vnode **vpp, cred_t *cr, caller_context_t *ct, int flags,
 	 *     vsecattr_t *vsecp);
 	 */
-	error = zfs_mkdir(ap->a_dvp, ap->a_cnp->cn_nameptr, ap->a_vap,
-	    ap->a_vpp, cr, /* flags */0, /* vsecp */NULL);
+	znode_t *zp = NULL;
+	error = zfs_mkdir(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr, ap->a_vap,
+	    &zp, cr, /* flags */0, /* vsecp */NULL);
 	if (!error) {
+		*ap->a_vpp = ZTOV(zp);
 		cache_purge_negatives(ap->a_dvp);
 		vnode_update_identity (*ap->a_vpp, ap->a_dvp, (const char *)ap->a_cnp->cn_nameptr, ap->a_cnp->cn_namelen, 0, VNODE_UPDATE_NAME);
 	} else {
@@ -1486,8 +1479,8 @@ zfs_vnop_rmdir(struct vnop_rmdir_args *ap)
 	 * extern int zfs_rmdir(struct vnode *dvp, char *name,
 	 *     struct vnode *cwd, cred_t *cr, caller_context_t *ct, int flags);
 	 */
-	error = zfs_rmdir(ap->a_dvp, ap->a_cnp->cn_nameptr, /* cwd */NULL, cr,
-	    /* flags */0);
+	error = zfs_rmdir(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr,
+		/* cwd */NULL, cr, /* flags */0);
 	if (!error) {
 		cache_purge(ap->a_vp);
 	} else {
@@ -1578,7 +1571,7 @@ zfs_vnop_fsync(struct vnop_fsync_args *ap)
 	 */
 	if (vnode_isrecycled(ap->a_vp)) return 0;
 
-	err = zfs_fsync(ap->a_vp, /* flag */0, cr, ct);
+	err = zfs_fsync(VTOZ(ap->a_vp), /* flag */0, cr);
 
 	if (err) dprintf("%s err %d\n", __func__, err);
 
@@ -1697,7 +1690,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	}
 
 	vap->va_mask = mask;
-	error = zfs_setattr(ap->a_vp, ap->a_vap, /* flag */0, cr);
+	error = zfs_setattr(VTOZ(ap->a_vp), ap->a_vap, /* flag */0, cr);
 
 	dprintf("vnop_setattr: called on vp %p with mask %04x, err=%d\n",
 	    ap->a_vp, mask, error);
@@ -1793,8 +1786,8 @@ zfs_vnop_rename(struct vnop_rename_args *ap)
 	 *     struct vnode *tdvp, char *tnm, cred_t *cr, caller_context_t *ct,
 	 *     int flags);
 	 */
-	error = zfs_rename(ap->a_fdvp, ap->a_fcnp->cn_nameptr, ap->a_tdvp,
-	    ap->a_tcnp->cn_nameptr, cr, /* flags */0);
+	error = zfs_rename(VTOZ(ap->a_fdvp), ap->a_fcnp->cn_nameptr,
+		VTOZ(ap->a_tdvp), ap->a_tcnp->cn_nameptr, cr, /* flags */0);
 
 	if (!error) {
 		cache_purge_negatives(ap->a_fdvp);
@@ -1863,8 +1856,9 @@ zfs_vnop_renamex(struct vnop_renamex_args *ap)
 	 * FIGNORECASE, passing VFS_RENAME_EXCL should be ok, if a bit
 	 * hacky.
 	 */
-	error = zfs_rename(ap->a_fdvp, ap->a_fcnp->cn_nameptr, ap->a_tdvp,
-	    ap->a_tcnp->cn_nameptr, cr, (ap->a_flags&VFS_RENAME_EXCL));
+	error = zfs_rename(VTOZ(ap->a_fdvp), ap->a_fcnp->cn_nameptr,
+		VTOZ(ap->a_tdvp), ap->a_tcnp->cn_nameptr, cr,
+		(ap->a_flags&VFS_RENAME_EXCL));
 
 	if (!error) {
 		cache_purge_negatives(ap->a_fdvp);
@@ -1925,9 +1919,11 @@ zfs_vnop_symlink(struct vnop_symlink_args *ap)
 	 */
 
 	/* OS X doesn't need to set vap->va_mode? */
-	error = zfs_symlink(ap->a_dvp, ap->a_vpp, ap->a_cnp->cn_nameptr,
-	    ap->a_vap, ap->a_target, cr, 0);
+	znode_t *zp = NULL;
+	error = zfs_symlink(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr,
+	    ap->a_vap, ap->a_target, &zp, cr, 0);
 	if (!error) {
+		*ap->a_vpp = ZTOV(zp);
 		cache_purge_negatives(ap->a_dvp);
 	} else {
 		dprintf("%s: error %d\n", __func__, error);
@@ -1955,7 +1951,7 @@ zfs_vnop_readlink(struct vnop_readlink_args *ap)
 	 * extern int zfs_readlink(struct vnode *vp, uio_t *uio, cred_t *cr,
 	 *     caller_context_t *ct);
 	 */
-	return (zfs_readlink(ap->a_vp, ap->a_uio, cr, ct));
+	return (zfs_readlink(ap->a_vp, ap->a_uio, cr));
 }
 
 int
@@ -1995,7 +1991,8 @@ zfs_vnop_link(struct vnop_link_args *ap)
 	 *     char *name, cred_t *cr, caller_context_t *ct, int flags);
 	 */
 
-	error = zfs_link(ap->a_tdvp, ap->a_vp, ap->a_cnp->cn_nameptr, cr, 0);
+	error = zfs_link(VTOZ(ap->a_tdvp), VTOZ(ap->a_vp),
+		ap->a_cnp->cn_nameptr, cr, 0);
 	if (!error) {
 		// Set source vnode to multipath too, zfs_get_vnode() handles the target
 		vnode_setmultipath(ap->a_vp);
@@ -2960,7 +2957,7 @@ zfs_vnop_inactive(struct vnop_inactive_args *ap)
 
 
 	/* We can call it directly, huzzah! */
-	zfs_inactive(vp, cr, NULL);
+	zfs_inactive(vp);
 
 	/* dprintf("-vnop_inactive\n"); */
 	return (0);

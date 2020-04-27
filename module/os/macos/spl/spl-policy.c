@@ -820,25 +820,24 @@ int secpolicy_vnode_chown( struct vnode *vp, const cred_t *cr, uid_t u)
 	return (0);
 }
 
-int secpolicy_vnode_setid_retain( struct vnode *vp, const cred_t *cr,
+int secpolicy_vnode_setid_retain( const cred_t *cr,
                                   int fal)
 {
 	return (0);
 }
 
-int secpolicy_xvattr(struct vnode *dvp, vattr_t *vap, uid_t uid,
-                     const cred_t *cr, enum vtype ty)
+int secpolicy_xvattr(vattr_t *vap, uid_t uid,
+                     const cred_t *cr, mode_t mod)
 {
 	return (0);
 }
 
-int secpolicy_setid_clear(vattr_t *vap, struct vnode *vp,
-                          const cred_t *cr)
+int secpolicy_setid_clear(vattr_t *vap, const cred_t *cr)
 {
 	return (0);
 }
 
-int secpolicy_basic_link(struct vnode *svp, const cred_t *cr)
+int secpolicy_basic_link(const cred_t *cr)
 {
 	return (0);
 }

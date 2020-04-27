@@ -134,12 +134,14 @@ extern minor_t zfsdev_minor_alloc(void);
 #define	VTOZ(VP)		((znode_t *)vnode_fsnode((VP)))
 #define	ITOZ(VP)		((znode_t *)vnode_fsnode((VP)))
 
+#define VTOM(VP)		((mount_t *)vnode_mount((VP)))
+
 /* These are not used so far, VN_HOLD returncode must be checked. */
 #define	zhold(zp)		VN_HOLD(ZTOV(zp))
 #define	zrele(zp)		VN_RELE(ZTOV(zp))
 
 #define	ZTOZSB(zp)		((zp)->z_zfsvfs)
-#define	ITOZSB(vp)		((zfsvfs_t *)vfs_private(vp))
+#define	ITOZSB(vp)		((zfsvfs_t *)vfs_fsprivate(vnode_mount(vp)))
 #define	ZTOTYPE(zp)		(vnode_vtype(ZTOV(zp)))
 #define	ZTOGID(zp)		((zp)->z_gid)
 #define	ZTOUID(zp)		((zp)->z_uid)
@@ -220,6 +222,9 @@ extern int zfs_znode_parent_and_name(struct znode *zp, struct znode **dzpp,
     char *buf);
 extern uint32_t zfs_getbsdflags(struct znode *zp);
 extern void zfs_setattr_generate_id(struct znode *, uint64_t, char *name);
+
+extern int zfs_setattr_set_documentid(struct znode *zp,
+    boolean_t update_flags);
 
 /* Legacy macOS uses fnv_32a hash for hostid. */
 #define FNV1_32A_INIT ((uint32_t)0x811c9dc5)

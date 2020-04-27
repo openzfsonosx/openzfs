@@ -83,33 +83,32 @@ enum vcexcl	{ NONEXCL, EXCL };
 enum rm         { RMFILE, RMDIRECTORY };        /* rm or rmdir (remove) */
 enum create     { CRCREAT, CRMKNOD, CRMKDIR };  /* reason for create */
 
-#define va_mask         va_active
-#define va_nodeid   va_fileid
-#define va_nblocks  va_filerev
+#define va_mask			va_active
+#define va_nodeid		va_fileid
+#define va_nblocks		va_filerev
 
 
 /*
  * vnode attr translations
  */
-#define AT_TYPE         VNODE_ATTR_va_type
-#define AT_MODE         VNODE_ATTR_va_mode
-#define AT_ACL          VNODE_ATTR_va_acl
-#define AT_UID          VNODE_ATTR_va_uid
-#define AT_GID          VNODE_ATTR_va_gid
-#define AT_ATIME        VNODE_ATTR_va_access_time
-#define AT_MTIME        VNODE_ATTR_va_modify_time
-#define AT_CTIME        VNODE_ATTR_va_change_time
-#define AT_SIZE         VNODE_ATTR_va_data_size
-#define	AT_NOSET        0
+#define AT_TYPE			VNODE_ATTR_va_type
+#define AT_MODE			VNODE_ATTR_va_mode
+#define AT_ACL			VNODE_ATTR_va_acl
+#define AT_UID			VNODE_ATTR_va_uid
+#define AT_GID			VNODE_ATTR_va_gid
+#define AT_ATIME		VNODE_ATTR_va_access_time
+#define AT_MTIME		VNODE_ATTR_va_modify_time
+#define AT_CTIME		VNODE_ATTR_va_change_time
+#define AT_CRTIME		VNODE_ATTR_va_create_time
+#define AT_SIZE			VNODE_ATTR_va_data_size
+#define	AT_NOSET		0
 
-#define va_size         va_data_size
-#define va_atime        va_access_time
-#define va_mtime        va_modify_time
-#define va_ctime        va_change_time
-#define va_crtime       va_create_time
-#define va_bytes        va_data_size
-
-
+#define va_size			va_data_size
+#define va_atime		va_access_time
+#define va_mtime		va_modify_time
+#define va_ctime		va_change_time
+#define va_crtime		va_create_time
+#define va_bytes		va_data_size
 
 typedef struct vnode_attr vattr;
 typedef struct vnode_attr vattr_t;
@@ -158,60 +157,37 @@ extern int vn_rename(char *from, char *to, enum uio_seg seg);
 #define VN_UNLOCK( vp )
 static inline int vn_lock(struct vnode *vp, int fl) { return 0; }
 
+/*
+ * XNU reserves fileID 1-15, so we remap them high.
+ * 2 is root-of-the-mount.
+ * If ID is same as root, return 2. Otherwise, if it is 0-15, return
+ * adjusted, otherwise, return as-is.
+ * See hfs_format.h: kHFSRootFolderID, kHFSExtentsFileID, ...
+ */
+#define INO_ROOT 			2ULL
+#define INO_RESERVED		16ULL	/* [0-15] reserved. */
+#define INO_ISRESERVED(ID)	((ID)<(INO_RESERVED))
+/*							0xFFFFFFFFFFFFFFF0 */
+#define INO_MAP				((uint64_t)-INO_RESERVED) /* -16, -15, ..., -1 */
 
-// THIS FILE SHOULD HAVE NO NON-KERNEL PARTS, THAT LIVES IN LIBSPL/
-#ifndef _KERNEL
-extern int vn_close(struct vnode *vp, int flags, int x1, int x2, void *x3, void *x4);
-extern int vn_seek(struct vnode *vp, offset_t o, offset_t *op, void *ct);
+#define INO_ZFSTOXNU(ID, ROOT)	\
+	((ID)==(ROOT)?INO_ROOT:(INO_ISRESERVED(ID)?INO_MAP+(ID):(ID)))
 
-extern int vn_getattr(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4);
-extern int vn_fsync(struct vnode *vp, int flags, void *x3, void *x4);
-extern int vn_space(struct vnode *vp, int cmd, struct flock *bfp, int flag,
-    offset_t offset, void *x6, void *x7);
-extern file_t *vn_getf(int fd);
-extern void vn_releasef(int fd);
-extern int vn_set_pwd(const char *filename);
+/*
+ * This macro relies on *unsigned*.
+ * If asking for 2, return rootID. If in special range, adjust to
+ * normal, otherwise, return as-is.
+ */
+#define INO_XNUTOZFS(ID, ROOT)	\
+	((ID)==INO_ROOT)?(ROOT):(INO_ISRESERVED((ID)-INO_MAP))?((ID)-INO_MAP):(ID)
 
-int spl_vn_init_kallsyms_lookup(void);
-int spl_vn_init(void);
-void spl_vn_fini(void);
-
-#define VOP_CLOSE				vn_close
-#define VOP_SEEK				vn_seek
-#define VOP_GETATTR				vn_getattr
-#define VOP_FSYNC				vn_fsync
-#define VOP_SPACE				vn_space
-#define VOP_PUTPAGE(vp, o, s, f, x1, x2)	((void)0)
-#define vn_is_readonly(vp)			0
-#define getf					vn_getf
-#define releasef				vn_releasef
-
-#else
-
-// KERNEL
-#define VN_HOLD(vp)     vnode_getwithref(vp)
-
-#define VN_RELE(vp)                                 \
-    do {                                            \
-        if ((vp) && (vp) != DNLC_NO_VNODE)          \
-            vnode_put(vp);                          \
-    } while (0)
-
- /*
-  * FIX THIS, OSX
-  *
-  * Like vn_rele() except if we are going to call VOP_INACTIVE() then do it
-  * asynchronously using a taskq.This can avoid deadlocks caused by re-entering
-  * the file system as a result of releasing the vnode. Note, file systems
-  * already have to handle the race where the vnode is incremented before the
-  * inactive routine is called and does its locking.
-  *
-  * Warning: Excessive use of this routine can lead to performance problems.
-  * This is because taskqs throttle back allocation if too many are created.
-  */
+#define VN_HOLD(vp)		vnode_getwithref(vp)
+#define VN_RELE(vp)		vnode_put(vp)
 
 void spl_rele_async(void *arg);
 void vn_rele_async(struct vnode *vp, void *taskq);
+
+extern int vnode_iocount(struct vnode *);
 
 #define VN_RELE_ASYNC(vp,tq) vn_rele_async((vp),(tq))
 
@@ -246,9 +222,6 @@ extern void          dnlc_update     ( struct vnode *vp, char *name,
 extern int spl_build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
 						  int flags, vfs_context_t ctx);
 
-
-
-#endif
 
 extern struct vnode *rootdir;
 

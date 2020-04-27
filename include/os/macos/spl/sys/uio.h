@@ -124,6 +124,7 @@ static inline int uiocopy(const char *p, size_t n, enum uio_rw rw, struct uio *u
 #define uiomove(A,B,C,D) uiomove((A),(B),(D))
 #define uioskip(A,B)     uio_update((A), (B))
 
+extern int uio_prefaultpages(ssize_t, uio_t *);
 
 #ifdef  __cplusplus
 }
