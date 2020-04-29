@@ -18,29 +18,16 @@
  *
  * CDDL HEADER END
  */
-/*
- * Copyright (c) 2017 by Lawrence Livermore National Security, LLC.
- */
+#ifndef _SYS_ZVOL_OS_h
+#define _SYS_ZVOL_OS_h
 
-#include <sys/zfs_context.h>
-#include <sys/mmp.h>
+extern int zvol_os_ioctl(dev_t, unsigned long, caddr_t,
+    int isblk, cred_t *, int *rvalp);
+extern int zvol_os_open(dev_t dev, int flag, int otyp, struct proc *p);
+extern int zvol_os_close(dev_t dev, int flag, int otyp, struct proc *p);
+extern int zvol_os_read(dev_t dev, struct uio *uiop, int p);
+extern int zvol_os_write(dev_t dev, struct uio *uiop, int p);
+extern void zvol_os_strategy(struct buf *bp);
+extern int zvol_os_get_volume_blocksize(dev_t dev);
 
-static int
-param_set_multihost_interval(const char *val, zfs_kernel_param_t *kp)
-{
-	int ret;
-
-	ret = param_set_ulong(val, kp);
-	if (ret < 0)
-		return (ret);
-
-	if (spa_mode_global != SPA_MODE_UNINIT)
-		mmp_signal_all_threads();
-
-	return (ret);
-}
-
-module_param_call(zfs_multihost_interval, param_set_multihost_interval,
-    param_get_ulong, &zfs_multihost_interval, 0644);
-MODULE_PARM_DESC(zfs_multihost_interval,
-	"Milliseconds between mmp writes to each leaf");
+#endif

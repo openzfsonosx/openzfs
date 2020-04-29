@@ -23,12 +23,8 @@
 #include <sys/zfs_file.h>
 #include <sys/stat.h>
 #include <sys/file.h>
-#include <linux/falloc.h>
-#include <linux/fs.h>
-#include <linux/uaccess.h>
-#ifdef HAVE_FDTABLE_HEADER
-#include <linux/fdtable.h>
-#endif
+
+#define FILE_FD_NOTUSED -1
 
 /*
  * Open file
@@ -42,51 +38,61 @@
 int
 zfs_file_open(const char *path, int flags, int mode, zfs_file_t **fpp)
 {
-	struct file *filp;
-	int saved_umask;
+	struct vnode *vp = NULL;
+    vfs_context_t vctx;
+	int error;
 
 	if (!(flags & O_CREAT) && (flags & O_WRONLY))
 		flags |= O_EXCL;
 
-	if (flags & O_CREAT)
-		saved_umask = xchg(&current->fs->umask, 0);
+    vctx = vfs_context_create((vfs_context_t)0);
+    error = vnode_open(path, flags, mode, 0, &vp, vctx);
+    (void) vfs_context_rele(vctx);
+	if (error == 0 &&
+	    vp != NULL) {
+		zfs_file_t *zf;
+		zf = (zfs_file_t *)kmem_zalloc(sizeof(zfs_file_t), KM_SLEEP);
+		zf->f_vnode = vp;
+		zf->f_fd = FILE_FD_NOTUSED;
+		*fpp = zf;
+	}
 
-	filp = filp_open(path, flags, mode);
+	/* Optional, implemented O_APPEND: set offset to file size. */
+	VERIFY0(flags & O_APPEND);
 
-	if (flags & O_CREAT)
-		(void) xchg(&current->fs->umask, saved_umask);
-
-	if (IS_ERR(filp))
-		return (-PTR_ERR(filp));
-
-	*fpp = filp;
-	return (0);
+	return (error);
 }
 
 void
 zfs_file_close(zfs_file_t *fp)
 {
-	filp_close(fp, 0);
+    vfs_context_t vctx;
+    vctx = vfs_context_create((vfs_context_t)0);
+	vnode_close(fp->f_vnode, fp->f_writes ? FWRITE : 0, vctx);
+    (void) vfs_context_rele(vctx);
+
+	kmem_free(fp, sizeof(zfs_file_t));
 }
 
-static ssize_t
-zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count, loff_t *off)
+static int
+zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
+	loff_t *off, ssize_t *resid)
 {
-#if defined(HAVE_KERNEL_WRITE_PPOS)
-	return (kernel_write(fp, buf, count, off));
-#else
-	mm_segment_t saved_fs;
-	ssize_t rc;
+	int error;
 
-	saved_fs = get_fs();
-	set_fs(KERNEL_DS);
+	/* If we came with a 'fd' use it, as it can handle pipes. */
+	if (fp->f_fd == FILE_FD_NOTUSED)
+		error = spl_vn_rdwr(UIO_WRITE, fp, (caddr_t)buf, count,
+		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    kcred, resid);
+	else
+		error = zfs_vn_rdwr(UIO_WRITE, fp->f_vnode, (caddr_t)buf, count,
+		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    kcred, resid);
 
-	rc = vfs_write(fp, (__force const char __user __user *)buf, count, off);
-
-	set_fs(saved_fs);
-
-	return (rc);
-#endif
+	fp->f_writes = 1;
+	*off += count - *resid;
+	return error;
 }
 
 /*
@@ -103,22 +109,14 @@ zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count, loff_t *off)
 int
 zfs_file_write(zfs_file_t *fp, const void *buf, size_t count, ssize_t *resid)
 {
-	loff_t off = fp->f_pos;
+	loff_t off = fp->f_offset;
 	ssize_t rc;
 
-	rc = zfs_file_write_impl(fp, buf, count, &off);
-	if (rc < 0)
-		return (-rc);
+	rc = zfs_file_write_impl(fp, buf, count, &off, resid);
+	if (rc == 0)
+		fp->f_offset = off;
 
-	fp->f_pos = off;
-
-	if (resid) {
-		*resid = count - rc;
-	} else if (rc != count) {
-		return (EIO);
-	}
-
-	return (0);
+	return (SET_ERROR(rc));
 }
 
 /*
@@ -136,38 +134,30 @@ int
 zfs_file_pwrite(zfs_file_t *fp, const void *buf, size_t count, loff_t off,
     ssize_t *resid)
 {
-	ssize_t rc;
-
-	rc  = zfs_file_write_impl(fp, buf, count, &off);
-	if (rc < 0)
-		return (-rc);
-
-	if (resid) {
-		*resid = count - rc;
-	} else if (rc != count) {
-		return (EIO);
-	}
-
-	return (0);
+	return zfs_file_write_impl(fp, buf, count, &off, resid);
 }
 
 static ssize_t
-zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off)
+zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off,
+	ssize_t *resid)
 {
-#if defined(HAVE_KERNEL_READ_PPOS)
-	return (kernel_read(fp, buf, count, off));
-#else
-	mm_segment_t saved_fs;
-	ssize_t rc;
+	int error;
 
-	saved_fs = get_fs();
-	set_fs(KERNEL_DS);
+	/* If we have realvp, it's faster to call its spl_vn_rdwr */
+	if (fp->f_fd == FILE_FD_NOTUSED)
+		error = spl_vn_rdwr(UIO_READ, fp, buf, count,
+		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    kcred, resid);
+	else
+		error = zfs_vn_rdwr(UIO_READ, fp->f_vnode, buf, count,
+		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    kcred, resid);
 
-	rc = vfs_read(fp, (void __user *)buf, count, off);
-	set_fs(saved_fs);
+	if (error)
+		return SET_ERROR(error);
 
-	return (rc);
-#endif
+	*off += count - *resid;
+	return SET_ERROR(0);
 }
 
 /*
@@ -184,22 +174,13 @@ zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off)
 int
 zfs_file_read(zfs_file_t *fp, void *buf, size_t count, ssize_t *resid)
 {
-	loff_t off = fp->f_pos;
-	ssize_t rc;
+	loff_t off = fp->f_offset;
+	int rc;
 
-	rc = zfs_file_read_impl(fp, buf, count, &off);
-	if (rc < 0)
-		return (-rc);
-
-	fp->f_pos = off;
-
-	if (resid) {
-		*resid = count - rc;
-	} else if (rc != count) {
-		return (EIO);
-	}
-
-	return (0);
+	rc = zfs_file_read_impl(fp, buf, count, &off, resid);
+	if (rc == 0)
+		fp->f_offset = off;
+	return (rc);
 }
 
 /*
@@ -217,19 +198,7 @@ int
 zfs_file_pread(zfs_file_t *fp, void *buf, size_t count, loff_t off,
     ssize_t *resid)
 {
-	ssize_t rc;
-
-	rc = zfs_file_read_impl(fp, buf, count, &off);
-	if (rc < 0)
-		return (-rc);
-
-	if (resid) {
-		*resid = count - rc;
-	} else if (rc != count) {
-		return (EIO);
-	}
-
-	return (0);
+	return (zfs_file_read_impl(fp, buf, count, &off, resid));
 }
 
 /*
@@ -244,16 +213,22 @@ zfs_file_pread(zfs_file_t *fp, void *buf, size_t count, loff_t off,
 int
 zfs_file_seek(zfs_file_t *fp, loff_t *offp, int whence)
 {
-	loff_t rc;
-
 	if (*offp < 0 || *offp > MAXOFFSET_T)
 		return (EINVAL);
 
-	rc = vfs_llseek(fp, *offp, whence);
-	if (rc < 0)
-		return (-rc);
-
-	*offp = rc;
+	switch(whence) {
+		case SEEK_SET:
+			fp->f_offset = *offp;
+			break;
+		case SEEK_CUR:
+			fp->f_offset += *offp;
+			*offp = fp->f_offset;
+			break;
+		case SEEK_END:
+			/* Implement this if eventually needed: get filesize */
+			VERIFY0(whence == SEEK_END);
+			break;
+	}
 
 	return (0);
 }
@@ -271,22 +246,23 @@ zfs_file_seek(zfs_file_t *fp, loff_t *offp, int whence)
 int
 zfs_file_getattr(zfs_file_t *filp, zfs_file_attr_t *zfattr)
 {
-	struct kstat stat;
+    vfs_context_t vctx;
 	int rc;
+	vattr_t vap;
 
-#if defined(HAVE_4ARGS_VFS_GETATTR)
-	rc = vfs_getattr(&filp->f_path, &stat, STATX_BASIC_STATS,
-	    AT_STATX_SYNC_AS_STAT);
-#elif defined(HAVE_2ARGS_VFS_GETATTR)
-	rc = vfs_getattr(&filp->f_path, &stat);
-#else
-	rc = vfs_getattr(filp->f_path.mnt, filp->f_dentry, &stat);
-#endif
+	VATTR_INIT(&vap);
+	VATTR_WANTED(&vap, va_size);
+	VATTR_WANTED(&vap, va_mode);
+
+	vctx = vfs_context_create((vfs_context_t)0);
+    rc = vnode_getattr(filp->f_vnode, &vap, vctx);
+    (void) vfs_context_rele(vctx);
+
 	if (rc)
-		return (-rc);
+		return (rc);
 
-	zfattr->zfa_size = stat.size;
-	zfattr->zfa_mode = stat.mode;
+	zfattr->zfa_size = vap.va_size;
+	zfattr->zfa_mode = vap.va_mode;
 
 	return (0);
 }
@@ -302,27 +278,13 @@ zfs_file_getattr(zfs_file_t *filp, zfs_file_attr_t *zfattr)
 int
 zfs_file_fsync(zfs_file_t *filp, int flags)
 {
-	int datasync = 0;
-	int error;
-	int fstrans;
+    vfs_context_t vctx;
+    int rc;
 
-	if (flags & O_DSYNC)
-		datasync = 1;
-
-	/*
-	 * May enter XFS which generates a warning when PF_FSTRANS is set.
-	 * To avoid this the flag is cleared over vfs_sync() and then reset.
-	 */
-	fstrans = __spl_pf_fstrans_check();
-	if (fstrans)
-		current->flags &= ~(__SPL_PF_FSTRANS);
-
-	error = -vfs_fsync(filp, datasync);
-
-	if (fstrans)
-		current->flags |= __SPL_PF_FSTRANS;
-
-	return (error);
+    vctx = vfs_context_create((vfs_context_t)0);
+    rc = VNOP_FSYNC(filp->f_vnode, (flags == FSYNC), vctx);
+    (void) vfs_context_rele(vctx);
+    return (rc);
 }
 
 /*
@@ -338,26 +300,7 @@ zfs_file_fsync(zfs_file_t *filp, int flags)
 int
 zfs_file_fallocate(zfs_file_t *fp, int mode, loff_t offset, loff_t len)
 {
-	/*
-	 * May enter XFS which generates a warning when PF_FSTRANS is set.
-	 * To avoid this the flag is cleared over vfs_sync() and then reset.
-	 */
-	int fstrans = __spl_pf_fstrans_check();
-	if (fstrans)
-		current->flags &= ~(__SPL_PF_FSTRANS);
-
-	/*
-	 * When supported by the underlying file system preferentially
-	 * use the fallocate() callback to preallocate the space.
-	 */
-	int error = EOPNOTSUPP;
-	if (fp->f_op->fallocate)
-		error = fp->f_op->fallocate(fp, mode, offset, len);
-
-	if (fstrans)
-		current->flags |= __SPL_PF_FSTRANS;
-
-	return (error);
+	return (0);
 }
 
 /*
@@ -370,7 +313,7 @@ zfs_file_fallocate(zfs_file_t *fp, int mode, loff_t offset, loff_t len)
 loff_t
 zfs_file_off(zfs_file_t *fp)
 {
-	return (fp->f_pos);
+	return (fp->f_offset);
 }
 
 /*
@@ -383,7 +326,7 @@ zfs_file_off(zfs_file_t *fp)
 void *
 zfs_file_private(zfs_file_t *fp)
 {
-	return (fp->private_data);
+	return (fp->f_private);
 }
 
 /*
@@ -412,15 +355,10 @@ zfs_file_unlink(const char *path)
 int
 zfs_file_get(int fd, zfs_file_t **fpp)
 {
-	zfs_file_t *fp;
-
-	fp = fget(fd);
-	if (fp == NULL)
-		return (EBADF);
-
-	*fpp = fp;
-
-	return (0);
+	*fpp = getf(fd);
+	if (*fpp == NULL)
+		return EBADF;
+	return 0;
 }
 
 /*
@@ -431,10 +369,5 @@ zfs_file_get(int fd, zfs_file_t **fpp)
 void
 zfs_file_put(int fd)
 {
-	struct file *fp;
-
-	if ((fp = fget(fd)) != NULL) {
-		fput(fp);
-		fput(fp);
-	}
+	releasef(fd);
 }

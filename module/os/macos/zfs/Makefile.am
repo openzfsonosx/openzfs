@@ -78,6 +78,7 @@ zfs_SOURCES = \
 	abd.c \
 	../../../zfs/aggsum.c \
 	../../../zfs/arc.c \
+	arc_os.c \
 	../../../avl/avl.c \
 	../../../zfs/blkptr.c \
 	../../../zfs/bplist.c \
@@ -142,6 +143,7 @@ zfs_SOURCES = \
 	../../../zfs/spa_history.c \
 	../../../zfs/spa_log_spacemap.c \
 	../../../zfs/spa_misc.c \
+	spa_misc_os.c \
 	spa_stats.c \
 	../../../zfs/space_map.c \
 	../../../zfs/space_reftree.c \
@@ -183,8 +185,10 @@ zfs_SOURCES = \
 	zfs_debug.c \
 	zfs_dir.c \
 	../../../zfs/zfs_fm.c \
+	zfs_file_os.c \
 	../../../zfs/zfs_fuid.c \
 	../../../zfs/zfs_ioctl.c \
+	zfs_ioctl_os.c \
 	zfs_kstat_osx.c \
 	../../../zfs/zfs_log.c \
 	../../../zfs/zfs_onexit.c \
@@ -209,6 +213,7 @@ zfs_SOURCES = \
 	../../../zfs/zrlock.c \
 	../../../zfs/zthr.c \
 	../../../zfs/zvol.c \
+	zvol_os.c \
 	zvolIO.cpp \
 	ZFSDatasetProxy.cpp \
 	ZFSDatasetScheme.cpp \
@@ -302,16 +307,16 @@ zfs.kext$(EXEEXT): zfs $(PLIST_STRING) $(INFO_PLIST)
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(ZFS_META_VERSION)" zfs.kext/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(ZFS_META_VERSION)" zfs.kext/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Delete :OSBundleLibraries:net.lundman.kernel.dependencies" zfs.kext/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Add :OSBundleLibraries:net.lundman.kernel.dependencies.$(ZFS_KERNEL_DEPENDENCIES) string 12.5.0" zfs.kext/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Add :OSBundleLibraries:net.lundman.kernel.dependencies.$(ZFS_META_VERSION) string 12.5.0" zfs.kext/Contents/Info.plist
 	@cp -f $(PLIST_STRING) zfs.kext/Contents/Resources/English.lproj/
 	@cp -f zfs zfs.kext/Contents/MacOS/
 	@mkdir -p zfs.kext/Contents/PlugIns/KernelExports.kext/
 	@cp -f $(top_srcdir)/module/os/macos/kernel/kernelexports zfs.kext/Contents/PlugIns/KernelExports.kext/KernelExports
 	@cp -f $(top_srcdir)/module/os/macos/kernel/Info.plist zfs.kext/Contents/PlugIns/KernelExports.kext/
-	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier net.lundman.kernel.dependencies.$(SPL_KERNEL_DEPENDENCIES)" zfs.kext/Contents/PlugIns/KernelExports.kext/Info.plist
-	if [ "0$(ZFS_BOOT)" -eq 1 ]; then /usr/libexec/PlistBuddy -c "Add :OSBundleRequired string Root" zfs.kext/Contents/Info.plist; fi
+	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier net.lundman.kernel.dependencies.$(ZFS_META_VERSION)" zfs.kext/Contents/PlugIns/KernelExports.kext/Info.plist
+	/usr/libexec/PlistBuddy -c "Add :OSBundleRequired string Root" zfs.kext/Contents/Info.plist
 	cp -f $(top_srcdir)/module/os/macos/kernel/version.plist zfs.kext/Contents/PlugIns/KernelExports.kext/
-	@kextlibs -undef-symbols -xml zfs.kext/ || echo "Ignoring errors.."
+	@kextlibs -unsupported -undef-symbols -xml zfs.kext/ || echo "Ignoring errors..(Most of these are expected)"
 
 install-exec-local: zfs.kext
 	rm -rf $(KERNEL_MODDIR)

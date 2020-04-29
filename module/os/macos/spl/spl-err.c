@@ -21,7 +21,7 @@
 
 /*
  *
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  *
  */
 
@@ -57,9 +57,26 @@ vcmn_err(int ce, const char *fmt, va_list ap)
 void
 cmn_err(int ce, const char *fmt, ...)
 {
-        va_list ap;
+	va_list ap;
 
-        va_start(ap, fmt);
-        vcmn_err(ce, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	vcmn_err(ce, fmt, ap);
+	va_end(ap);
 } /* cmn_err() */
+
+
+int
+spl_panic(const char *file, const char *func, int line, const char *fmt, ...)
+{
+	char msg[MAXMSGLEN];
+	va_list ap;
+
+	va_start(ap, fmt);
+	(void) vsnprintf(msg, sizeof (msg), fmt, ap);
+	va_end(ap);
+
+	panic("%s", msg);
+
+	/* Unreachable */
+	return 1;
+}

@@ -73,6 +73,7 @@ typedef	int	fstrans_cookie_t;
 
 #define zuio_segflg(U)		(uio_isuserspace((U))?UIO_USERSPACE:UIO_SYSSPACE)
 #define	zuio_offset(U)		uio_offset((U))
+#define	zuio_resid(U)		uio_resid((U))
 #define	zuio_iovcnt(U)		uio_iovcnt((U))
 #define	zuio_update(U, N)	uio_update((U), (N))
 #define	zuio_nonemptyindex(U, O, I)							\
@@ -126,6 +127,7 @@ typedef struct {
 #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
 
 #define barrier()		__asm__ __volatile__("": : :"memory")
+#define smp_rmb()		barrier()
 
 #define READ_ONCE(x) ({							\
 			__typeof(x) __var = ({				\

@@ -21,7 +21,7 @@
 
 /*
  *
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  *
  */
 
@@ -60,8 +60,6 @@ utsname_t *utsname(void)
 unsigned int max_ncpus = 0;
 uint64_t  total_memory = 0;
 uint64_t  real_total_memory = 0;
-
-uint64_t spl_initialised = 0;
 
 // Size in bytes of the memory allocated in seg_kmem
 extern uint64_t		segkmem_total_mem_allocated;
@@ -166,7 +164,8 @@ extern kmod_info_t * kmod; /* the list of modules */
 extern addr64_t  kvtophys(vm_offset_t va);
 
 static int
-panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search, const char *module_name)
+panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
+    const char *module_name)
 {
 	kernel_nlist_t      *sym = NULL;
 	struct load_command         *cmd;
@@ -390,21 +389,18 @@ int ddi_copyinstr(const void *uaddr, void *kaddr, size_t len, size_t *done)
 	return ret;
 }
 
-static void spl_start_continue(void *ignored);
-
-kern_return_t spl_start (kmod_info_t * ki, void * d)
+kern_return_t spl_start(kmod_info_t *ki, void *d)
 {
 	printf("SPL: loading\n");
 
-	(void)thread_create(NULL, 0, spl_start_continue, 0, 0, 0, 0, 92);
-
-	return KERN_SUCCESS;
-}
-
-static void spl_start_continue(void *ignored)
-{
     int ncpus;
     size_t len = sizeof(ncpus);
+
+	/*
+	 * Boot load time is excessively early, so we have to wait
+	 * until certain subsystems are available. Surely there is
+	 * a more elegant way to do this wait?
+	 */
 
 	while(current_proc() == NULL) {
 		printf("SPL: waiting for kernel init...\n");
@@ -424,12 +420,12 @@ static void spl_start_continue(void *ignored)
 	if (!max_ncpus) max_ncpus = 1;
 
 	/*
-	 * Setting the total memory to physmem * 80% here, since kmem is
+	 * Setting the total memory to physmem * 50% here, since kmem is
 	 * not in charge of all memory and we need to leave some room for
 	 * the OS X allocator. We internally add pressure if we step over it
 	 */
     real_total_memory = total_memory;
-    total_memory = total_memory * 50ULL / 100ULL; // smd: experiment with 50%, 8GiB
+    total_memory = total_memory * 50ULL / 100ULL;
     physmem = total_memory / PAGE_SIZE;
 
     len = sizeof(utsname_static.sysname);
@@ -458,12 +454,10 @@ static void spl_start_continue(void *ignored)
 	spl_kmem_thread_init();
 	spl_kmem_mp_init();
 
-	spl_initialised = 1;
-
-	thread_exit();
+	return KERN_SUCCESS;
 }
 
-kern_return_t spl_stop (kmod_info_t * ki, void * d)
+kern_return_t spl_stop(kmod_info_t *ki, void *d)
 {
 	spl_kmem_thread_fini();
     spl_vnode_fini();
@@ -477,13 +471,3 @@ kern_return_t spl_stop (kmod_info_t * ki, void * d)
     return KERN_SUCCESS;
 }
 
-
-extern kern_return_t _start(kmod_info_t *ki, void *data);
-extern kern_return_t _stop(kmod_info_t *ki, void *data);
-__private_extern__ kern_return_t spl_start(kmod_info_t *ki, void *data);
-__private_extern__ kern_return_t spl_stop(kmod_info_t *ki, void *data);
-
-__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(net.lundman.spl, "1.0.0", _start, _stop)
-__private_extern__ kmod_start_func_t *_realmain = spl_start;
-__private_extern__ kmod_stop_func_t *_antimain = spl_stop;
-__private_extern__ int _kext_apple_cc = __APPLE_CC__ ;

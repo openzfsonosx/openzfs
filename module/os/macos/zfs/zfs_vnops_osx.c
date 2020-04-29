@@ -341,7 +341,77 @@ void zfs_stop_notify_thread(void)
 	cv_destroy(&zfs_findernotify_thread_cv);
 }
 
+int
+zfs_vfs_sysctl(int *name, __unused u_int namelen, user_addr_t oldp,
+    size_t *oldlenp, user_addr_t newp, size_t newlen,
+	__unused vfs_context_t context)
+{
+#if 0
+	int error;
+	switch(name[0]) {
+	case ZFS_SYSCTL_FOOTPRINT: {
+		zfs_footprint_stats_t *footprint;
+		size_t copyinsize;
+		size_t copyoutsize;
+		int max_caches;
+		int act_caches;
 
+		if (newp) {
+			return (EINVAL);
+		}
+		if (!oldp) {
+			*oldlenp = sizeof (zfs_footprint_stats_t);
+			return (0);
+		}
+		copyinsize = *oldlenp;
+		if (copyinsize < sizeof (zfs_footprint_stats_t)) {
+			*oldlenp = sizeof (zfs_footprint_stats_t);
+			return (ENOMEM);
+		}
+		footprint = kmem_alloc(copyinsize, KM_SLEEP);
+
+		max_caches = copyinsize - sizeof (zfs_footprint_stats_t);
+		max_caches += sizeof (kmem_cache_stats_t);
+		max_caches /= sizeof (kmem_cache_stats_t);
+
+		footprint->version = ZFS_FOOTPRINT_VERSION;
+
+		footprint->memory_stats.current = zfs_footprint.current;
+		footprint->memory_stats.target = zfs_footprint.target;
+		footprint->memory_stats.highest = zfs_footprint.highest;
+		footprint->memory_stats.maximum = zfs_footprint.maximum;
+
+		arc_get_stats(&footprint->arc_stats);
+
+		kmem_cache_stats(&footprint->cache_stats[0], max_caches, &act_caches);
+		footprint->caches_count = act_caches;
+		footprint->thread_count = zfs_threads;
+
+		copyoutsize = sizeof (zfs_footprint_stats_t) +
+		              ((act_caches - 1) * sizeof (kmem_cache_stats_t));
+
+		error = ddi_copyout(footprint, oldp, copyoutsize, 0);
+
+		kmem_free(footprint, copyinsize);
+
+		return (error);
+	    }
+
+	case ZFS_SYSCTL_CONFIG_DEBUGMSG:
+		error = sysctl_int(oldp, oldlenp, newp, newlen, &zfs_msg_buf_enabled);
+		return error;
+
+	case ZFS_SYSCTL_CONFIG_zdprintf:
+#ifdef ZFS_DEBUG
+		error = sysctl_int(oldp, oldlenp, newp, newlen, &zfs_zdprintf_enabled);
+#else
+		error = ENOTSUP;
+#endif
+		return error;
+	}
+#endif
+	return (ENOTSUP);
+}
 
 /*
  * All these functions could be declared as 'static' but to assist with
@@ -5030,8 +5100,6 @@ zfs_vfsops_init(void)
 {
 	struct vfs_fsentry vfe;
 
-	zfs_init();
-
 	/* Start thread to notify Finder of changes */
 	zfs_start_notify_thread();
 
@@ -5071,8 +5139,6 @@ zfs_vfsops_fini(void)
 {
 
 	zfs_stop_notify_thread();
-
-	zfs_fini();
 
 	return (vfs_fsremove(zfs_vfsconf));
 }

@@ -67,6 +67,9 @@ clock_t cv_timedwait_hires(kcondvar_t *cvp, kmutex_t *mp,
 #define cv_timedwait(cvp, mp, tim)      \
 	spl_cv_timedwait((cvp), (mp), (tim), PRIBIO, #cvp)
 
+#define cv_timedwait_io(cvp, mp, tim)      \
+	spl_cv_timedwait((cvp), (mp), (tim), PRIBIO, #cvp)
+
 #define cv_wait_interruptible(cvp, mp)        \
 	(void) spl_cv_wait((cvp), (mp), PRIBIO|PCATCH, #cvp)
 

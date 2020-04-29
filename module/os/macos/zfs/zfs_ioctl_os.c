@@ -19,29 +19,11 @@
  * CDDL HEADER END
  */
 
-/*
- * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Portions Copyright 2011 Martin Matuska
- * Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
- * Portions Copyright 2012 Pawel Jakub Dawidek <pawel@dawidek.net>
- * Copyright (c) 2014, 2016 Joyent, Inc. All rights reserved.
- * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2014, Joyent, Inc. All rights reserved.
- * Copyright (c) 2011, 2018 by Delphix. All rights reserved.
- * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
- * Copyright (c) 2013 Steven Hartland. All rights reserved.
- * Copyright (c) 2014 Integros [integros.com]
- * Copyright 2016 Toomas Soome <tsoome@me.com>
- * Copyright (c) 2016 Actifio, Inc. All rights reserved.
- * Copyright (c) 2018, loli10K <ezomori.nozomu@gmail.com>. All rights reserved.
- * Copyright 2017 RackTop Systems.
- * Copyright (c) 2017 Open-E, Inc. All Rights Reserved.
- * Copyright (c) 2019 Datto Inc.
- */
-
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/errno.h>
+#include <sys/conf.h>
+#include <miscfs/devfs/devfs.h>
 #include <sys/uio.h>
 #include <sys/file.h>
 #include <sys/kmem.h>
@@ -60,35 +42,43 @@
 #include <sys/dsl_crypt.h>
 
 #include <sys/zfs_ioctl_impl.h>
+#include <sys/zvol_os.h>
 
-#include <sys/zfs_sysfs.h>
-#include <linux/miscdevice.h>
-#include <linux/slab.h>
+int zfs_major				= 0;
+int zfs_bmajor				= 0;
+static void *zfs_devnode 	= NULL;
+#define ZFS_MAJOR			-24
 
 boolean_t
 zfs_vfs_held(zfsvfs_t *zfsvfs)
 {
-	return (zfsvfs->z_sb != NULL);
+	return (zfsvfs->z_vfs != NULL);
 }
 
 int
 zfs_vfs_ref(zfsvfs_t **zfvp)
 {
-	if (*zfvp == NULL || (*zfvp)->z_sb == NULL ||
-	    !atomic_inc_not_zero(&((*zfvp)->z_sb->s_active))) {
+	int error = 0;
+
+	if (*zfvp == NULL || (*zfvp)->z_vfs == NULL)
 		return (SET_ERROR(ESRCH));
+
+	error = vfs_busy((*zfvp)->z_vfs, LK_NOWAIT);
+	if (error != 0) {
+		*zfvp = NULL;
+		error = SET_ERROR(ESRCH);
 	}
-	return (0);
+	return (error);
 }
 
 void
 zfs_vfs_rele(zfsvfs_t *zfsvfs)
 {
-	deactivate_super(zfsvfs->z_sb);
+	vfs_unbusy(zfsvfs->z_vfs);
 }
 
 static int
-zfsdev_state_init(struct file *filp)
+zfsdev_state_init(dev_t dev)
 {
 	zfsdev_state_t *zs, *zsprev = NULL;
 	minor_t minor;
@@ -111,7 +101,8 @@ zfsdev_state_init(struct file *filp)
 		newzs = B_TRUE;
 	}
 
-	filp->private_data = zs;
+	//zs->zs_dev = dev;
+	//filp->f_private = zs;
 
 	zfs_onexit_init((zfs_onexit_t **)&zs->zs_onexit);
 	zfs_zevent_init((zfs_zevent_t **)&zs->zs_zevent);
@@ -126,10 +117,8 @@ zfsdev_state_init(struct file *filp)
 	 */
 	if (newzs) {
 		zs->zs_minor = minor;
-		smp_wmb();
 		zsprev->zs_next = zs;
 	} else {
-		smp_wmb();
 		zs->zs_minor = minor;
 	}
 
@@ -137,53 +126,63 @@ zfsdev_state_init(struct file *filp)
 }
 
 static int
-zfsdev_state_destroy(struct file *filp)
+zfsdev_state_destroy(dev_t dev)
 {
 	zfsdev_state_t *zs;
 
 	ASSERT(MUTEX_HELD(&zfsdev_state_lock));
-	ASSERT(filp->private_data != NULL);
 
-	zs = filp->private_data;
-	zs->zs_minor = -1;
-	zfs_onexit_destroy(zs->zs_onexit);
-	zfs_zevent_destroy(zs->zs_zevent);
+	zs = zfsdev_get_state(minor(dev), ZST_ALL);
+	if (!zs)
+		return (0);
 
+	ASSERT(zs != NULL);
+	if (zs->zs_minor != -1) {
+		zs->zs_minor = -1;
+		zfs_onexit_destroy(zs->zs_onexit);
+		zfs_zevent_destroy(zs->zs_zevent);
+	}
 	return (0);
 }
 
 static int
-zfsdev_open(struct inode *ino, struct file *filp)
+zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 {
 	int error;
 
 	mutex_enter(&zfsdev_state_lock);
-	error = zfsdev_state_init(filp);
+	if (zfsdev_get_state(minor(dev), ZST_ALL)) {
+		mutex_exit(&zfsdev_state_lock);
+		return (0);
+	}
+	error = zfsdev_state_init(dev);
 	mutex_exit(&zfsdev_state_lock);
 
 	return (-error);
 }
 
 static int
-zfsdev_release(struct inode *ino, struct file *filp)
+zfsdev_release(dev_t dev, int flags, int devtype, struct proc *p)
 {
 	int error;
 
 	mutex_enter(&zfsdev_state_lock);
-	error = zfsdev_state_destroy(filp);
+	error = zfsdev_state_destroy(dev);
 	mutex_exit(&zfsdev_state_lock);
 
 	return (-error);
 }
 
-static long
-zfsdev_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
+static int
+zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
+    struct proc *p)
 {
 	uint_t vecnum;
 	zfs_cmd_t *zc;
 	int error, rc;
 
-	vecnum = cmd - ZFS_IOC_FIRST;
+	/* Translate XNU ioctl to enum table: */
+	vecnum = cmd - _IOWR('Z', 0, struct zfs_cmd);
 
 	zc = kmem_zalloc(sizeof (zfs_cmd_t), KM_SLEEP);
 
@@ -201,118 +200,124 @@ out:
 
 }
 
-void
-zfs_ioctl_init_os(void)
-{
-}
+/* for spa_iokit_dataset_proxy_create */
+#include <sys/ZFSDataset.h>
+#include <sys/ZFSDatasetScheme.h>
 
-#ifdef CONFIG_COMPAT
-static long
-zfsdev_compat_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
-{
-	return (zfsdev_ioctl(filp, cmd, arg));
-}
-#else
-#define	zfsdev_compat_ioctl	NULL
-#endif
-
-static const struct file_operations zfsdev_fops = {
-	.open		= zfsdev_open,
-	.release	= zfsdev_release,
-	.unlocked_ioctl	= zfsdev_ioctl,
-	.compat_ioctl	= zfsdev_compat_ioctl,
-	.owner		= THIS_MODULE,
-};
-
-static struct miscdevice zfs_misc = {
-	.minor		= ZFS_DEVICE_MINOR,
-	.name		= ZFS_DRIVER,
-	.fops		= &zfsdev_fops,
-};
-
-MODULE_ALIAS_MISCDEV(ZFS_DEVICE_MINOR);
-MODULE_ALIAS("devname:zfs");
-
-int
-zfsdev_attach(void)
+static int
+zfs_ioc_osx_proxy_dataset(zfs_cmd_t *zc)
 {
 	int error;
+	const char *osname;
 
-	error = misc_register(&zfs_misc);
-	if (error == -EBUSY) {
-		/*
-		 * Fallback to dynamic minor allocation in the event of a
-		 * collision with a reserved minor in linux/miscdevice.h.
-		 * In this case the kernel modules must be manually loaded.
-		 */
-		printk(KERN_INFO "ZFS: misc_register() with static minor %d "
-		    "failed %d, retrying with MISC_DYNAMIC_MINOR\n",
-		    ZFS_DEVICE_MINOR, error);
+	/* XXX Get osname */
+	osname = zc->zc_name;
 
-		zfs_misc.minor = MISC_DYNAMIC_MINOR;
-		error = misc_register(&zfs_misc);
-	}
+	/* Create new virtual disk, and return /dev/disk name */
+	error = zfs_osx_proxy_create(osname);
 
+	if (!error)
+		error = zfs_osx_proxy_get_bsdname(osname,
+		    zc->zc_value, sizeof(zc->zc_value));
 	if (error)
-		printk(KERN_INFO "ZFS: misc_register() failed %d\n", error);
+		printf("%s: Created virtual disk '%s' for '%s'\n", __func__,
+		    zc->zc_value, osname);
 
 	return (error);
 }
 
 void
-zfsdev_detach(void)
+zfs_ioctl_init_os(void)
 {
-	misc_deregister(&zfs_misc);
+	/* APPLE Specific ioctls */
+	zfs_ioctl_register_pool(ZFS_IOC_PROXY_DATASET,
+	    zfs_ioc_osx_proxy_dataset, zfs_secpolicy_config,
+	    B_FALSE, POOL_CHECK_NONE);
 }
 
-#ifdef DEBUG
-#define	ZFS_DEBUG_STR	" (DEBUG mode)"
-#else
-#define	ZFS_DEBUG_STR	""
-#endif
-
-static int __init
-_init(void)
+/* ioctl handler for block device. Relay to zvol */
+static int
+zfsdev_bioctl(dev_t dev, u_long cmd, caddr_t data,
+    __unused int flag, struct proc *p)
 {
-	int error;
+    return (zvol_os_ioctl(dev, cmd, data, 1, NULL, NULL));
+}
 
-	if ((error = zfs_kmod_init()) != 0) {
-		printk(KERN_NOTICE "ZFS: Failed to Load ZFS Filesystem v%s-%s%s"
-		    ", rc = %d\n", ZFS_META_VERSION, ZFS_META_RELEASE,
-		    ZFS_DEBUG_STR, error);
+static struct bdevsw zfs_bdevsw = {
+	.d_open			= zvol_os_open,
+	.d_close		= zvol_os_close,
+	.d_strategy		= zvol_os_strategy,
+	.d_ioctl		= zfsdev_bioctl, /* block ioctl handler */
+	.d_dump			= eno_dump,
+	.d_psize		= zvol_os_get_volume_blocksize,
+	.d_type			= D_DISK,
+};
 
-		return (-error);
+static struct cdevsw zfs_cdevsw = {
+	.d_open			= zfsdev_open,
+	.d_close		= zfsdev_release,
+	.d_read			= zvol_os_read,
+	.d_write		= zvol_os_write,
+	.d_ioctl		= zfsdev_ioctl,
+	.d_stop			= eno_stop,
+	.d_reset		= eno_reset,
+	.d_ttys			= NULL,
+	.d_select		= eno_select,
+	.d_mmap			= eno_mmap,
+	.d_strategy		= eno_strat,
+	.d_reserved_1	= eno_getc,
+	.d_reserved_2	= eno_putc,
+	.d_type			= D_DISK
+};
+
+/* Callback to create a unique minor for each open */
+static int
+zfs_devfs_clone(__unused dev_t dev, int action)
+{
+	static minor_t minorx;
+
+	if (action == DEVFS_CLONE_ALLOC) {
+		mutex_enter(&zfsdev_state_lock);
+		minorx = zfsdev_minor_alloc();
+		mutex_exit(&zfsdev_state_lock);
+		return minorx;
+	}
+	return -1;
+}
+
+int
+zfsdev_attach(void)
+{
+	dev_t dev;
+
+	zfs_bmajor = bdevsw_add(-1, &zfs_bdevsw);
+	zfs_major = cdevsw_add_with_bdev(-1, &zfs_cdevsw, zfs_bmajor);
+
+	if (zfs_major < 0) {
+		printf("ZFS: zfs_attach() failed to allocate a major number\n");
+		return (-1);
 	}
 
-	zfs_sysfs_init();
-
-	printk(KERN_NOTICE "ZFS: Loaded module v%s-%s%s, "
-	    "ZFS pool version %s, ZFS filesystem version %s\n",
-	    ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR,
-	    SPA_VERSION_STRING, ZPL_VERSION_STRING);
-#ifndef CONFIG_FS_POSIX_ACL
-	printk(KERN_NOTICE "ZFS: Posix ACLs disabled by kernel\n");
-#endif /* CONFIG_FS_POSIX_ACL */
+	dev = makedev(zfs_major, 0);/* Get the device number */
+	zfs_devnode = devfs_make_node_clone(dev, DEVFS_CHAR, UID_ROOT, GID_WHEEL,
+	    0666, zfs_devfs_clone, "zfs", 0);
+	if (!zfs_devnode) {
+		printf("ZFS: devfs_make_node() failed\n");
+		return (-1);
+	}
 
 	return (0);
 }
 
-static void __exit
-_fini(void)
+void
+zfsdev_detach(void)
 {
-	zfs_sysfs_fini();
-	zfs_kmod_fini();
-
-	printk(KERN_NOTICE "ZFS: Unloaded module v%s-%s%s\n",
-	    ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR);
+	if (zfs_devnode) {
+		devfs_remove(zfs_devnode);
+		zfs_devnode = NULL;
+	}
+	if (zfs_major) {
+		(void) cdevsw_remove(zfs_major, &zfs_cdevsw);
+		zfs_major = 0;
+	}
 }
-
-#if defined(_KERNEL)
-module_init(_init);
-module_exit(_fini);
-#endif
-
-ZFS_MODULE_DESCRIPTION("ZFS");
-ZFS_MODULE_AUTHOR(ZFS_META_AUTHOR);
-ZFS_MODULE_LICENSE(ZFS_META_LICENSE);
-ZFS_MODULE_VERSION(ZFS_META_VERSION "-" ZFS_META_RELEASE);

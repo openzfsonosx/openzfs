@@ -127,27 +127,29 @@ typedef struct vnode_attr vattr_t;
 extern struct vnode *vn_alloc(int flag);
 
 extern int vn_open(char *pnamep, enum uio_seg seg, int filemode,
-                   int createmode,
-                   struct vnode **vpp, enum create crwhy, mode_t umask);
-
+    int createmode, struct vnode **vpp, enum create crwhy, mode_t umask);
 extern int vn_openat(char *pnamep, enum uio_seg seg, int filemode,
-                     int createmode, struct vnode **vpp, enum create crwhy,
-                     mode_t umask, struct vnode *startvp);
+    int createmode, struct vnode **vpp, enum create crwhy,
+    mode_t umask, struct vnode *startvp);
 
-#define vn_renamepath(tdvp, svp, tnm, lentnm)   do { } while (0)
-#define vn_free(vp)             do { } while (0)
-#define vn_pages_remove(vp,fl,op)       do { } while (0)
+#define vn_renamepath(tdvp, svp, tnm, lentnm)	do { } while (0)
+#define vn_free(vp)								do { } while (0)
+#define vn_pages_remove(vp,fl,op)				do { } while (0)
 
-
-
-// OSX kernel has a vn_rdwr, let's work around it.
+/* XNU is a vn_rdwr, so we work around it to match arguments */
+/* This should be deprecated, if not now, soon. */
 extern int  zfs_vn_rdwr(enum uio_rw rw, struct vnode *vp, caddr_t base,
-                        ssize_t len, offset_t offset, enum uio_seg seg,
-                        int ioflag, rlim64_t ulimit, cred_t *cr,
-                        ssize_t *residp);
+    ssize_t len, offset_t offset, enum uio_seg seg, int ioflag,
+    rlim64_t ulimit, cred_t *cr, ssize_t *residp);
 
-#define vn_rdwr(rw, vp, base, len, off, seg, flg, limit, cr, resid)     \
-    zfs_vn_rdwr((rw), (vp), (base), (len), (off), (seg), (flg), (limit), (cr), (resid))
+#define vn_rdwr(rw, vp, b, l, o, s, flg, li, cr, resid)     \
+    zfs_vn_rdwr((rw), (vp), (b), (l), (o), (s), (flg), (li), (cr), (resid))
+
+/* Other vn_rdwr for zfs_file_t ops */
+struct spl_fileproc;
+extern int spl_vn_rdwr(enum uio_rw rw, struct spl_fileproc *, caddr_t base,
+    ssize_t len, offset_t offset, enum uio_seg seg, int ioflag,
+	rlim64_t ulimit, cred_t *cr, ssize_t *residp);
 
 extern int vn_remove(char *fnamep, enum uio_seg seg, enum rm dirflag);
 extern int vn_rename(char *from, char *to, enum uio_seg seg);
@@ -171,7 +173,7 @@ static inline int vn_lock(struct vnode *vp, int fl) { return 0; }
 #define INO_MAP				((uint64_t)-INO_RESERVED) /* -16, -15, ..., -1 */
 
 #define INO_ZFSTOXNU(ID, ROOT)	\
-	((ID)==(ROOT)?INO_ROOT:(INO_ISRESERVED(ID)?INO_MAP+(ID):(ID)))
+    ((ID)==(ROOT)?INO_ROOT:(INO_ISRESERVED(ID)?INO_MAP+(ID):(ID)))
 
 /*
  * This macro relies on *unsigned*.
@@ -179,7 +181,7 @@ static inline int vn_lock(struct vnode *vp, int fl) { return 0; }
  * normal, otherwise, return as-is.
  */
 #define INO_XNUTOZFS(ID, ROOT)	\
-	((ID)==INO_ROOT)?(ROOT):(INO_ISRESERVED((ID)-INO_MAP))?((ID)-INO_MAP):(ID)
+    ((ID)==INO_ROOT)?(ROOT):(INO_ISRESERVED((ID)-INO_MAP))?((ID)-INO_MAP):(ID)
 
 #define VN_HOLD(vp)		vnode_getwithref(vp)
 #define VN_RELE(vp)		vnode_put(vp)
@@ -198,17 +200,16 @@ extern int vnode_iocount(struct vnode *);
 
 #define VATTR_NULL(v) do { } while(0)
 
-extern int
-VOP_CLOSE(struct vnode *vp, int flag, int count, offset_t off, void *cr, void *);
-extern int
-VOP_FSYNC(struct vnode *vp, int flags, void* unused, void *);
-extern int
-VOP_SPACE(struct vnode *vp, int cmd, struct flock *fl, int flags, offset_t off,
-          cred_t *cr, void *ctx);
+extern int VOP_CLOSE(struct vnode *vp, int flag, int count,
+    offset_t off, void *cr, void *);
+extern int VOP_FSYNC(struct vnode *vp, int flags, void* unused, void *);
+extern int VOP_SPACE(struct vnode *vp, int cmd, struct flock *fl,
+    int flags, offset_t off, cred_t *cr, void *ctx);
 
-extern int VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4);
+extern int VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags,
+    void *x3, void *x4);
 
-#define VOP_UNLOCK(vp,fl)   	do { } while(0)
+#define VOP_UNLOCK(vp,fl)	do { } while(0)
 
 void vfs_mountedfrom(struct mount *vfsp, char *osname);
 
@@ -219,24 +220,16 @@ extern void          dnlc_update     ( struct vnode *vp, char *name,
                                        struct vnode *tp);
 
 #define build_path(A, B, C, D, E, F) spl_build_path(A,B,C,D,E,F)
-extern int spl_build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
-						  int flags, vfs_context_t ctx);
-
+extern int spl_build_path(struct vnode *vp, char *buff, int buflen,
+    int *outlen, int flags, vfs_context_t ctx);
 
 extern struct vnode *rootdir;
 
-static inline int
-chklock(struct vnode *vp, int iomode, unsigned long long offset, ssize_t len, int fmode, void *ct)
+static inline int chklock(struct vnode *vp, int iomode,
+	unsigned long long offset, ssize_t len, int fmode, void *ct)
 {
     return (0);
 }
-
-
-#ifdef ZFS_LEOPARD_ONLY
-#define vn_has_cached_data(VP)  (VTOZ(VP)->z_is_mapped)
-#else
-#define vn_has_cached_data(VP)  (VTOZ(VP)->z_is_mapped || vnode_isswap(VP))
-#endif
 
 #define vn_ismntpt(vp)   (vnode_mountedhere(vp) != NULL)
 
@@ -259,18 +252,6 @@ extern int spl_vfs_root(mount_t mount, struct vnode **vp);
 #define VFS_ROOT(V, L, VP) spl_vfs_root((V), (VP))
 
 extern void cache_purgevfs(mount_t mp);
-
-int spl_vn_rdwr(
-            enum uio_rw rw,
-            struct vnode *vp,
-            caddr_t base,
-            ssize_t len,
-            offset_t offset,
-            enum uio_seg seg,
-            int ioflag,
-            rlim64_t ulimit,        /* meaningful only if rw is UIO_WRITE */
-            cred_t *cr,
-            ssize_t *residp);
 
 vfs_context_t vfs_context_kernel(void);
 vfs_context_t spl_vfs_context_kernel(void);

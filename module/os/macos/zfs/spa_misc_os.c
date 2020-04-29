@@ -42,69 +42,8 @@
 #include <sys/kstat.h>
 #include "zfs_prop.h"
 
-
-int
-param_set_deadman_failmode(const char *val, zfs_kernel_param_t *kp)
-{
-	int error;
-
-	error = -param_set_deadman_failmode_common(val);
-	if (error == 0)
-		error = param_set_charp(val, kp);
-
-	return (error);
-}
-
-int
-param_set_deadman_ziotime(const char *val, zfs_kernel_param_t *kp)
-{
-	int error;
-
-	error = param_set_ulong(val, kp);
-	if (error < 0)
-		return (SET_ERROR(error));
-
-	spa_set_deadman_ziotime(MSEC2NSEC(zfs_deadman_ziotime_ms));
-
-	return (0);
-}
-
-int
-param_set_deadman_synctime(const char *val, zfs_kernel_param_t *kp)
-{
-	int error;
-
-	error = param_set_ulong(val, kp);
-	if (error < 0)
-		return (SET_ERROR(error));
-
-	spa_set_deadman_synctime(MSEC2NSEC(zfs_deadman_synctime_ms));
-
-	return (0);
-}
-
-int
-param_set_slop_shift(const char *buf, zfs_kernel_param_t *kp)
-{
-	unsigned long val;
-	int error;
-
-	error = kstrtoul(buf, 0, &val);
-	if (error)
-		return (SET_ERROR(error));
-
-	if (val < 1 || val > 31)
-		return (SET_ERROR(-EINVAL));
-
-	error = param_set_int(buf, kp);
-	if (error < 0)
-		return (SET_ERROR(error));
-
-	return (0);
-}
-
 const char *
 spa_history_zone(void)
 {
-	return ("linux");
+	return ("macos");
 }

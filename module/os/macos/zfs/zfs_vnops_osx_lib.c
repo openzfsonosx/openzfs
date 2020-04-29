@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2013 Will Andrews <will@firepipe.net>
- * Copyright (c) 2013, 2016 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (c) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  */
 #include <sys/cred.h>
 #include <sys/vnode.h>
@@ -592,7 +592,7 @@ zfs_access_native_mode(struct vnode *vp, int *mode, cred_t *cr,
     int flag = 0; // FIXME
 
 	if (accmode != 0)
-		error = zfs_access(vp, accmode, flag, cr, ct);
+		error = zfs_access(vp, accmode, flag, cr);
 
 	*mode &= ~(accmode);
 
@@ -619,7 +619,7 @@ zfs_vnop_ioctl_fullfsync(struct vnode *vp, vfs_context_t ct, zfsvfs_t *zfsvfs)
 {
 	int error;
 
-    error = zfs_fsync(vp, /*syncflag*/0, NULL, (caller_context_t *)ct);
+    error = zfs_fsync(VTOZ(vp), /*syncflag*/0, NULL);
 	if (error)
 		return (error);
 
@@ -1340,8 +1340,7 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
         if (!sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zfsvfs),
                        &xattr, sizeof(xattr)) &&
             xattr) {
-			vnode_t *xdvp = NULLVP;
-			vnode_t *xvp = NULLVP;
+			znode_t *xdzp = NULL, *xzp = NULL;
 			pathname_t cn = { 0 };
 			char *name = NULL;
 
@@ -1350,18 +1349,18 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 			cn.pn_buf = kmem_zalloc(cn.pn_bufsize, KM_SLEEP);
 
 			/* Grab the hidden attribute directory vnode. */
-			if (zfs_get_xattrdir(zp, &xdvp, cr, 0) == 0 &&
-			    zfs_dirlook(VTOZ(xdvp), name, &xvp, 0, NULL,
+			if (zfs_get_xattrdir(zp, &xdzp, cr, 0) == 0 &&
+			    zfs_dirlook(xdzp, name, &xzp, 0, NULL,
                             &cn) == 0) {
-				rsrcsize = VTOZ(xvp)->z_size;
+				rsrcsize = xzp->z_size;
 			}
             spa_strfree(name);
 			kmem_free(cn.pn_buf, cn.pn_bufsize);
 
-			if (xvp)
-				vnode_put(xvp);
-			if (xdvp)
-				vnode_put(xdvp);
+			if (xzp)
+				zrele(xzp);
+			if (xdzp)
+				zrele(xdzp);
 		}
 		if (ATTR_FILE_RSRCLENGTH & fileattr) {
 			*((off_t *)attrbufptr) = rsrcsize;
@@ -1525,8 +1524,8 @@ int getpackedsize(struct attrlist *alp, boolean_t user64)
 
 void getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip)
 {
-	vnode_t	*xdvp = NULLVP;
-	vnode_t	*xvp = NULLVP;
+	znode_t	*xdzp = NULL;
+	znode_t	*xzp = NULL;
 	struct uio		*auio = NULL;
 	pathname_t  cn = { 0 };
 	int		error;
@@ -1550,7 +1549,7 @@ void getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip)
 	 *
 	 * XXX - switch to embedded Finder Info when it becomes available
 	 */
-	if ((error = zfs_get_xattrdir(zp, &xdvp, cr, 0))) {
+	if ((error = zfs_get_xattrdir(zp, &xdzp, cr, 0))) {
 		goto out;
 	}
 
@@ -1558,10 +1557,10 @@ void getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip)
 	cn.pn_bufsize = strlen(name)+1;
 	cn.pn_buf = kmem_zalloc(cn.pn_bufsize, KM_SLEEP);
 
-	if ((error = zfs_dirlook(VTOZ(xdvp), name, &xvp, 0, NULL, &cn))) {
+	if ((error = zfs_dirlook(xdzp, name, &xzp, 0, NULL, &cn))) {
 		goto out;
 	}
-	error = dmu_read_uio(zp->z_zfsvfs->z_os, VTOZ(xvp)->z_id, auio,
+	error = dmu_read_uio(zp->z_zfsvfs->z_os, xzp->z_id, auio,
 	                     sizeof (finderinfo_t));
 out:
     if (name)
@@ -1570,10 +1569,10 @@ out:
 		kmem_free(cn.pn_buf, cn.pn_bufsize);
 	if (auio)
 		uio_free(auio);
-	if (xvp)
-		vnode_put(xvp);
-	if (xdvp)
-		vnode_put(xdvp);
+	if (xzp)
+		zrele(xzp);
+	if (xdzp)
+		zrele(xdzp);
 	if (error == 0)
 		return;
 nodata:

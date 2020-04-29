@@ -48,6 +48,7 @@ libspl_la_SOURCES = 	\
 	spl-policy.c \
 	spl-proc.c \
 	spl-processor.c \
+	spl-proc_list.c \
 	spl-rwlock.c \
 	spl-seg_kmem.c \
 	spl-taskq.c \

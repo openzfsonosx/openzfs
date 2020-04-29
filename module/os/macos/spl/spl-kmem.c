@@ -6176,7 +6176,7 @@ spl_vm_pool_low(void)
 // ===============================================================
 
 void
-strfree(char *str)
+kmem_strfree(char *str)
 {
 	zfs_kmem_free(str, strlen(str) + 1);
 }

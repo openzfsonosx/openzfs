@@ -19,29 +19,39 @@
  * CDDL HEADER END
  */
 
-#ifndef _SPL_MOD_H
-#define	_SPL_MOD_H
+#include <sys/list.h>
+#include <sys/mutex.h>
+#include <sys/procfs_list.h>
 
-#define	ZFS_MODULE_DESCRIPTION(s)
-#define	ZFS_MODULE_AUTHOR(s)
-#define	ZFS_MODULE_LICENSE(s)
-#define	ZFS_MODULE_VERSION(s)
+void
+seq_printf(struct seq_file *m, const char *fmt, ...)
+{
+}
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
+void
+procfs_list_install(const char *module,
+    const char *name,
+    mode_t mode,
+    procfs_list_t *procfs_list,
+    int (*show)(struct seq_file *f, void *p),
+    int (*show_header)(struct seq_file *f),
+    int (*clear)(procfs_list_t *procfs_list),
+    size_t procfs_list_node_off)
+{
+}
 
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
+void
+procfs_list_uninstall(procfs_list_t *procfs_list)
+{
+}
 
-#define module_init(fn)
-#define module_exit(fn)
+void
+procfs_list_destroy(procfs_list_t *procfs_list)
+{
+}
 
-#define	ZFS_MODULE_PARAM_ARGS	void
+void
+procfs_list_add(procfs_list_t *procfs_list, void *p)
+{
+}
 
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-#define module_param_call(a, b, c, d, e)
-#define module_param_named(a, b, c, d)
-
-kern_return_t spl_start(kmod_info_t *ki, void *d);
-kern_return_t spl_stop(kmod_info_t *ki, void *d);
-
-#endif /* SPL_MOD_H */

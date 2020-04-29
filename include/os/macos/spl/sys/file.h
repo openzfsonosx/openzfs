@@ -34,18 +34,28 @@
 
 #include <sys/list.h>
 
+/*
+ * XNU has all the proc structs as opaque and with no functions we
+ * are allowed to call, so we implement file IO from within the kernel
+ * as vnode operations.
+ * The second mode is when we are given a "fd" from userland, which we
+ * map in here, using getf()/releasef().
+ * When it comes to IO, if "fd" is set, we use it (fo_rdwr()) as it
+ * can handle both files, and pipes.
+ * In kernel space file ops, we use vn_rdwr on the vnode.
+ */
 struct spl_fileproc {
-    void        *f_vnode;  // this points to the "fd" so we can look it up.
-    list_node_t  f_next;   /* next zfsdev_state_t link */
-    int          f_fd;
-    uint64_t     f_offset;
-    void        *f_proc;
-    void        *f_fp;
-    int          f_writes;
-	minor_t      f_file; // Minor of the file
+	void			*f_vnode;	/* underlying vnode */
+	list_node_t		f_next;		/* * next getf() link for releasef() */
+	int				f_fd;		/* * userland file descriptor */
+	off_t			f_offset;	/* offset for stateful IO */
+	void			*f_proc;	/* opaque */
+	void			*f_fp;		/* opaque */
+	int				f_writes;	/* did write? for close sync */
+	minor_t			f_file;		/* minor of the file */
+	void			*f_private;	/* zfsdev_state_t */
 };
-
-#define file_t struct spl_fileproc
+/* Members with '*' are not used when 'fd' is not given */
 
 void *getf(int fd);
 void releasef(int fd);
