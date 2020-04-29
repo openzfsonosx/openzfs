@@ -296,7 +296,7 @@ sha2_digest_update_uio(SHA2_CTX *sha2_ctx, crypto_data_t *data)
 	size_t cur_len;
 
 	/* we support only kernel buffer */
-	if (zuio_segflt(data->cd_uio) != UIO_SYSSPACE)
+	if (zuio_segflg(data->cd_uio) != UIO_SYSSPACE)
 		return (CRYPTO_ARGUMENTS_BAD);
 
 	/*
