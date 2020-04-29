@@ -1316,6 +1316,7 @@ typedef enum zfs_ioc {
 	ZFS_IOC_NEXTBOOT,			/* 0x84 (FreeBSD) */
 	ZFS_IOC_JAIL,				/* 0x85 (FreeBSD) */
 	ZFS_IOC_UNJAIL,				/* 0x86 (FreeBSD) */
+	ZFS_IOC_PROXY_DATASET,			/* 0x87 (macOS) */
 	ZFS_IOC_LAST
 } zfs_ioc_t;
 
