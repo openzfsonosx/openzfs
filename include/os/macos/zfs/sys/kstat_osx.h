@@ -52,7 +52,6 @@ typedef struct osx_kstat {
 	kstat_named_t l2arc_write_boost;
 	kstat_named_t l2arc_headroom;
 	kstat_named_t l2arc_headroom_boost;
-	kstat_named_t l2arc_max_block_size;
 	kstat_named_t l2arc_feed_secs;
 	kstat_named_t l2arc_feed_min_ms;
 
@@ -73,7 +72,6 @@ typedef struct osx_kstat {
 	kstat_named_t zfs_vdev_read_gap_limit;
 	kstat_named_t zfs_vdev_write_gap_limit;
 
-	kstat_named_t arc_reduce_dnlc_percent;
 	kstat_named_t arc_lotsfree_percent;
 	kstat_named_t zfs_dirty_data_max;
 	kstat_named_t zfs_dirty_data_sync;
@@ -164,7 +162,7 @@ extern uint64_t vnop_num_reclaims;
 
 extern uint64_t zfs_arc_max;
 extern uint64_t zfs_arc_min;
-extern uint64_t zfs_arc_meta_limit;
+extern unsigned long zfs_arc_meta_limit;
 extern uint64_t zfs_arc_meta_min;
 extern int zfs_arc_grow_retry;
 extern int zfs_arc_shrink_shift;
@@ -175,7 +173,6 @@ extern uint64_t l2arc_write_max;
 extern uint64_t l2arc_write_boost;
 extern uint64_t l2arc_headroom;
 extern uint64_t l2arc_headroom_boost;
-extern uint64_t l2arc_max_block_size;
 extern uint64_t l2arc_feed_secs;
 extern uint64_t l2arc_feed_min_ms;
 
@@ -250,7 +247,7 @@ extern uint64_t zfs_lua_max_memlimit;
 
 extern uint64_t  zfs_trim_extent_bytes_max;
 extern uint64_t  zfs_trim_extent_bytes_min;
-extern uint64_t  zfs_trim_metaslab_skip;
+extern unsigned int zfs_trim_metaslab_skip;
 extern uint64_t  zfs_trim_txg_batch;
 extern uint64_t  zfs_trim_queue_limit;
 
@@ -258,6 +255,9 @@ extern uint64_t  zfs_send_unmodified_spill_blocks;
 extern uint64_t  zfs_special_class_metadata_reserve_pct;
 
 extern int zfs_vnop_force_formd_normalized_output;
+
+extern int zfs_arc_min_prefetch_ms;
+extern int zfs_arc_min_prescient_prefetch_ms;
 
 int        kstat_osx_init(void);
 void       kstat_osx_fini(void);

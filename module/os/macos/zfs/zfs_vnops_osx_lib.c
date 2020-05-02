@@ -750,7 +750,7 @@ zfs_setbsdflags(znode_t *zp, uint32_t bsdflags)
  * Return value: 0 on success or errno value on failure.
  */
 int
-zfs_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
+zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
                  vnode_t **vpp, int flag)
 {
 	znode_t  *xzp = NULL;
@@ -2227,3 +2227,22 @@ zfs_vfs_uuid_gen(const char *osname, uuid_t uuid)
 
 	return (0);
 }
+
+int
+uio_prefaultpages(ssize_t n, struct uio *uio)
+{
+
+}
+
+/* No #pragma weaks here! */
+void dmu_buf_add_ref(dmu_buf_t *db, void *tag)
+{
+	dbuf_add_ref((dmu_buf_impl_t *)db, tag);
+}
+
+boolean_t dmu_buf_try_add_ref(dmu_buf_t *db, objset_t *os, uint64_t object,
+	uint64_t blkid, void *tag)
+{
+	return dbuf_try_add_ref(db, os, object, blkid, tag);
+}
+

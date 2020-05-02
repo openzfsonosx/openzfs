@@ -491,17 +491,17 @@
 #include <sys/kmem.h>
 #include <sys/vmem.h>
 #include <sys/callb.h>
-#ifndef __APPLE__
-#include <sys/class.h>
-#endif
 #include <sys/systm.h>
 #include <sys/cmn_err.h>
 #include <sys/debug.h>
 #include <sys/vmsystm.h>	/* For throttlefree */
 #include <sys/sysmacros.h>
 #include <sys/note.h>
+#include <sys/tsd.h>
 
 static kmem_cache_t *taskq_ent_cache, *taskq_cache;
+
+static uint_t taskq_tsd;
 
 /*
  * Pseudo instance numbers for taskqs without explicitly provided instance.
@@ -510,6 +510,7 @@ static vmem_t *taskq_id_arena;
 
 /* Global system task queue for common use */
 taskq_t	*system_taskq = NULL;
+taskq_t *system_delay_taskq = NULL;
 
 /*
  * Maximum number of entries in global system taskq is
@@ -847,6 +848,8 @@ taskq_ent_destructor(void *buf, void *cdrarg)
 int
 spl_taskq_init(void)
 {
+	tsd_create(&taskq_tsd, NULL);
+
 	taskq_ent_cache = kmem_cache_create("taskq_ent_cache",
 	    sizeof (taskq_ent_t), 0, taskq_ent_constructor,
 	    taskq_ent_destructor, NULL, NULL, NULL, 0);
@@ -876,6 +879,8 @@ spl_taskq_fini(void)
 	list_destroy(&taskq_cpupct_list);
 
 	vmem_destroy(taskq_id_arena);
+
+	tsd_destroy(&taskq_tsd);
 }
 
 
@@ -1000,12 +1005,16 @@ system_taskq_init(void)
 	system_taskq = taskq_create_common("system_taskq", 0,
 	    system_taskq_size * max_ncpus, minclsyspri, 4, 512, &p0, 0,
 	    TASKQ_DYNAMIC | TASKQ_PREPOPULATE);
+	system_delay_taskq = taskq_create("system_delay_taskq", max_ncpus,
+	    minclsyspri, 0, 0, 0);
 }
 
 
 void
 system_taskq_fini(void)
 {
+    if (system_taskq)
+        taskq_destroy(system_delay_taskq);
     if (system_taskq)
         taskq_destroy(system_taskq);
 	system_taskq = NULL;
@@ -1402,6 +1411,12 @@ taskq_empty(taskq_t *tq)
 	return (rv);
 }
 
+int
+taskq_empty_ent(taskq_ent_t *t)
+{
+	return (IS_EMPTY(*t));
+}
+
 /*
  * Wait for all pending tasks to complete.
  * Calling taskq_wait from a task will cause deadlock.
@@ -1508,6 +1523,10 @@ taskq_resume(taskq_t *tq)
 int
 taskq_member(taskq_t *tq, kthread_t *thread)
 {
+
+	return (tq == (taskq_t *)tsd_get_by_thread(taskq_tsd, thread));
+
+
 #ifdef __APPLE__
 	int i;
 
@@ -1528,6 +1547,25 @@ taskq_member(taskq_t *tq, kthread_t *thread)
 #else
 	return (thread->t_taskq == tq);
 #endif
+}
+
+taskq_t *
+taskq_of_curthread(void)
+{
+	return (tsd_get(taskq_tsd));
+}
+
+/*
+ * Cancel an already dispatched task given the task id.  Still pending tasks
+ * will be immediately canceled, and if the task is active the function will
+ * block until it completes.  Preallocated tasks which are canceled must be
+ * freed by the caller.
+ */
+int
+taskq_cancel_id(taskq_t *tq, taskqid_t id)
+{
+	/* Something goes in here */
+	return -1;
 }
 
 /*
@@ -1639,27 +1677,10 @@ taskq_thread(void *arg)
 	hrtime_t start, end;
 	boolean_t freeit;
 
-#ifndef __APPLE__
-	curthread->t_taskq = tq;	/* mark ourselves for taskq_member() */
-
-	if (curproc != &p0 && (tq->tq_flags & TASKQ_DUTY_CYCLE)) {
-		sysdc_thread_enter(curthread, tq->tq_DC,
-		    (tq->tq_flags & TASKQ_DC_BATCH) ? SYSDC_THREAD_BATCH : 0);
-	}
-
-	if (tq->tq_flags & TASKQ_CPR_SAFE) {
-		CALLB_CPR_INIT_SAFE(curthread, tq->tq_name);
-	} else {
-		CALLB_CPR_INIT(&cprinfo, &tq->tq_lock, callb_generic_cpr,
-		    tq->tq_name);
-	}
-
-#else
-
 	CALLB_CPR_INIT(&cprinfo, &tq->tq_lock, callb_generic_cpr,
 				   tq->tq_name);
-#endif
 
+	tsd_set(taskq_tsd, tq);
 	mutex_enter(&tq->tq_lock);
 	thread_id = ++tq->tq_nthreads;
 	ASSERT(tq->tq_flags & TASKQ_THREAD_CREATED);
@@ -1788,19 +1809,11 @@ taskq_thread(void *arg)
 		cv_broadcast(&tq->tq_wait_cv);
 	}
 
-#ifndef __APPLE__
-	ASSERT(!(tq->tq_flags & TASKQ_CPR_SAFE));
-	CALLB_CPR_EXIT(&cprinfo);		/* drops tq->tq_lock */
-	if (curthread->t_lwp != NULL) {
-		mutex_enter(&curproc->p_lock);
-		lwp_exit();
-	} else {
-		thread_exit();
-	}
-#else
+	tsd_set(taskq_tsd, NULL);
+
 	CALLB_CPR_EXIT(&cprinfo);
 	thread_exit();
-#endif
+
 }
 
 /*

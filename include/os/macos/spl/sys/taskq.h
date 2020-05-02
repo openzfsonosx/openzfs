@@ -44,6 +44,7 @@ typedef uintptr_t taskqid_t;
 typedef void (task_func_t)(void *);
 
 struct proc;
+struct taskq_ent;
 
 /* New ZFS expects to find taskq_ent_t as well */
 #include <sys/taskq_impl.h>
@@ -98,6 +99,8 @@ extern void	taskq_resume(taskq_t *);
 extern int	taskq_member(taskq_t *, kthread_t *);
 extern boolean_t taskq_empty(taskq_t *tq);
 extern int taskq_cancel_id(taskq_t *, taskqid_t);
+extern taskq_t *taskq_of_curthread(void);
+extern int taskq_empty_ent(struct taskq_ent *);
 
 #define taskq_wait_outstanding(T, D) taskq_wait((T))
 

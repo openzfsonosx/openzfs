@@ -23,3 +23,8 @@
 #include <sys/kstat.h>
 #include <sys/debug.h>
 
+struct proc {
+	void *nothing;
+};
+
+struct proc p0 = {0};

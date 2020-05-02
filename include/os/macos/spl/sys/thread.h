@@ -35,6 +35,10 @@
 #include <sys/condvar.h>
 #include <kern/sched_prim.h>
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 /*
  * OsX thread type is
  * typedef struct thread *thread_t;
@@ -99,5 +103,11 @@ static inline void kpreempt(int flags)
 {
 	 (void)thread_block(THREAD_CONTINUE_NULL);
 }
+
+
+
+#ifdef	__cplusplus
+}
+#endif
 
 #endif  /* _SPL_THREAD_H */

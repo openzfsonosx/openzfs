@@ -91,7 +91,7 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>CDDL (ZFS), BSD (FreeBSD), Copyright © 2012-2016 OpenZFS on OS X. All rights reserved.</string>
+	<string>CDDL (ZFS), BSD (FreeBSD), Copyright © 2012-2020 OpenZFS on OS X. All rights reserved.</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -99,15 +99,15 @@
 		<key>com.apple.iokit.IOStorageFamily</key>
 		<string>1.6</string>
 		<key>com.apple.kpi.bsd</key>
-		<string>10.0</string>
+		<string>8.0.0</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>10.0</string>
+		<string>8.0.0</string>
 		<key>com.apple.kpi.libkern</key>
 		<string>10.0</string>
 		<key>com.apple.kpi.mach</key>
-		<string>10.0</string>
+		<string>8.0.0</string>
 		<key>com.apple.kpi.unsupported</key>
-		<string>10.0</string>
+		<string>8.0.0</string>
 		<key>net.lundman.kernel.dependencies</key>
 		<string>12.5.0</string>
 	</dict>

@@ -18,18 +18,35 @@
  *
  * CDDL HEADER END
  */
-
 /*
- *
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
- *
+ * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  */
 
-#ifndef _SPL_VMSYSTM_H
-#define _SPL_VMSYSTM_H
+#include <sys/zfs_context.h>
+#include <sys/dmu.h>
+#include <sys/avl.h>
+#include <sys/zap.h>
+#include <sys/refcount.h>
+#include <sys/nvpair.h>
+#ifdef _KERNEL
+#include <sys/sid.h>
+#include <sys/zfs_vfsops.h>
+#include <sys/zfs_znode.h>
+#endif
+#include <sys/zfs_fuid.h>
 
-#include <sys/types.h>
+uint64_t
+zfs_fuid_create_cred(zfsvfs_t *zfsvfs, zfs_fuid_type_t type,
+    cred_t *cr, zfs_fuid_info_t **fuidp)
+{
+	uid_t		id;
 
-#define	xcopyout	copyout
+	VERIFY(type == ZFS_OWNER || type == ZFS_GROUP);
 
-#endif /* SPL_VMSYSTM_H */
+	id = (type == ZFS_OWNER) ? crgetuid(cr) : crgetgid(cr);
+
+	if (IS_EPHEMERAL(id))
+		return ((type == ZFS_OWNER) ? UID_NOBODY : GID_NOBODY);
+
+	return ((uint64_t)id);
+}

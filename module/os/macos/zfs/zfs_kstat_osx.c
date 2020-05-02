@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2014,2016 Jorgen Lundman <lundman@lundman.net>
+ * Copyright 2014, 2020 Jorgen Lundman <lundman@lundman.net>
  */
 
 #include <sys/spa.h>
@@ -80,7 +80,6 @@ osx_kstat_t osx_kstat = {
 	{ "l2arc_write_boost",			KSTAT_DATA_UINT64 },
 	{ "l2arc_headroom",				KSTAT_DATA_UINT64 },
 	{ "l2arc_headroom_boost",		KSTAT_DATA_UINT64 },
-	{ "l2arc_max_block_size",		KSTAT_DATA_UINT64 },
 	{ "l2arc_feed_secs",			KSTAT_DATA_UINT64 },
 	{ "l2arc_feed_min_ms",			KSTAT_DATA_UINT64 },
 
@@ -101,7 +100,6 @@ osx_kstat_t osx_kstat = {
 	{ "read_gap_limit",				KSTAT_DATA_INT64  },
 	{ "write_gap_limit",			KSTAT_DATA_INT64  },
 
-	{"arc_reduce_dnlc_percent",		KSTAT_DATA_INT64  },
 	{"arc_lotsfree_percent",		KSTAT_DATA_INT64  },
 	{"zfs_dirty_data_max",			KSTAT_DATA_INT64  },
 	{"zfs_dirty_data_sync",			KSTAT_DATA_INT64  },
@@ -204,6 +202,8 @@ static kstat_t		*osx_kstat_ksp;
 #pragma GCC diagnostic ignored "-Wframe-larger-than="
 #endif
 
+extern kstat_t *arc_ksp;
+
 static int osx_kstat_update(kstat_t *ksp, int rw)
 {
 	osx_kstat_t *ks = ksp->ks_data;
@@ -223,7 +223,10 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_vfs_sync_paranoia = ks->darwin_use_system_sync.value.ui64;
 
 		/* ARC */
-		arc_kstat_update(ksp, rw);
+		/* Upstream has this static, but we can find another way ... */
+		/* arc_kstat_update(ksp, rw); */
+		if (arc_ksp != NULL && arc_ksp->ks_update != NULL)
+			arc_ksp->ks_update(ksp, rw);
 		arc_kstat_update_osx(ksp, rw);
 
 		/* L2ARC */
@@ -231,7 +234,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		l2arc_write_boost = ks->l2arc_write_boost.value.ui64;
 		l2arc_headroom = ks->l2arc_headroom.value.ui64;
 		l2arc_headroom_boost = ks->l2arc_headroom_boost.value.ui64;
-		l2arc_max_block_size = ks->l2arc_max_block_size.value.ui64;
 		l2arc_feed_secs = ks->l2arc_feed_secs.value.ui64;
 		l2arc_feed_min_ms = ks->l2arc_feed_min_ms.value.ui64;
 
@@ -274,8 +276,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_vdev_write_gap_limit =
 			ks->zfs_vdev_write_gap_limit.value.i64;
 
-		arc_reduce_dnlc_percent =
-			ks->arc_reduce_dnlc_percent.value.i64;
 		arc_lotsfree_percent =
 			ks->arc_lotsfree_percent.value.i64;
 		zfs_dirty_data_max =
@@ -395,6 +395,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			ks->zfs_special_class_metadata_reserve_pct.value.ui64;
 
 		// Check if string has changed (from KREAD), if so, update.
+#if 0
 		if (strcmp(vdev_raidz_string,
 				ks->zfs_vdev_raidz_impl.value.string.addr.ptr) != 0)
 			zfs_vdev_raidz_impl_set(ks->zfs_vdev_raidz_impl.value.string.addr.ptr);
@@ -408,6 +409,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		if (strcmp(zfs_fletcher_4_string,
 				ks->zfs_fletcher_4_impl.value.string.addr.ptr) != 0)
 			zfs_fletcher_4_impl_set(ks->zfs_fletcher_4_impl.value.string.addr.ptr);
+#endif
 
 	} else {
 
@@ -427,7 +429,8 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->darwin_use_system_sync.value.ui64		 = zfs_vfs_sync_paranoia;
 
 		/* ARC */
-		arc_kstat_update(ksp, rw);
+		if (arc_ksp != NULL && arc_ksp->ks_update != NULL)
+			arc_ksp->ks_update(ksp, rw);
 		arc_kstat_update_osx(ksp, rw);
 
 		/* L2ARC */
@@ -435,7 +438,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->l2arc_write_boost.value.ui64             = l2arc_write_boost;
 		ks->l2arc_headroom.value.ui64                = l2arc_headroom;
 		ks->l2arc_headroom_boost.value.ui64          = l2arc_headroom_boost;
-		ks->l2arc_max_block_size.value.ui64          = l2arc_max_block_size;
 		ks->l2arc_feed_secs.value.ui64               = l2arc_feed_secs;
 		ks->l2arc_feed_min_ms.value.ui64             = l2arc_feed_min_ms;
 
@@ -477,8 +479,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->zfs_vdev_write_gap_limit.value.i64 =
 			zfs_vdev_write_gap_limit;
 
-		ks->arc_reduce_dnlc_percent.value.i64 =
-			arc_reduce_dnlc_percent;
 		ks->arc_lotsfree_percent.value.i64 =
 			arc_lotsfree_percent;
 		ks->zfs_dirty_data_max.value.i64 =
@@ -592,7 +592,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			zfs_send_unmodified_spill_blocks;
 		ks->zfs_special_class_metadata_reserve_pct.value.ui64 =
 			zfs_special_class_metadata_reserve_pct;
-
+#if 0
 		zfs_vdev_raidz_impl_get(vdev_raidz_string, sizeof(vdev_raidz_string));
 		kstat_named_setstr(&ks->zfs_vdev_raidz_impl, vdev_raidz_string);
 
@@ -605,7 +605,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_fletcher_4_impl_get(zfs_fletcher_4_string,
 			sizeof(zfs_fletcher_4_string));
 		kstat_named_setstr(&ks->zfs_fletcher_4_impl, zfs_fletcher_4_string);
-
+#endif
 	}
 
 	return 0;

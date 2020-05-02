@@ -29,24 +29,22 @@
 
 #include <sys/zfs_vfsops.h>
 #include <sys/zfs_ioctl.h>
-#include <sys/zfs_ioctl_impl.h>
 #include <sys/zfs_znode.h>
 #include <sys/zvol.h>
 
 #include <sys/zvolIO.h>
-
-#include <sys/zfs_boot.h>
-#include <sys/spa_impl.h>
-
 #include <sys/ldi_osx.h>
 
 #include <sys/zfs_vnops.h>
 #include <sys/taskq.h>
+#include <sys/spa_impl.h>
+#include <sys/zfs_boot.h>
 
 #include <libkern/version.h>
 #include <libkern/sysctl.h>
 
 #include <zfs_gitrev.h>
+#include <zfs_config.h>
 
 // Define the superclass.
 #define super IOService
@@ -54,6 +52,10 @@
 OSDefineMetaClassAndStructors(net_lundman_zfs_zvol, IOService)
 
 extern "C" {
+
+#include <sys/zfs_ioctl_impl.h>
+#include <sys/utsname.h>
+#include <string.h>
 
 extern SInt32 zfs_active_fs_count;
 
@@ -72,8 +74,14 @@ SYSCTL_STRING(_zfs, OID_AUTO, kext_version,
 			  CTLFLAG_RD | CTLFLAG_LOCKED,
 			  spl_gitrev, 0, "ZFS KEXT Version");
 
-#include <sys/utsname.h>
-#include <string.h>
+
+extern kern_return_t _start(kmod_info_t *ki, void *data);
+extern kern_return_t _stop(kmod_info_t *ki, void *data);
+
+__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(net.lundman.zfs, "1.0.0", _start, _stop)
+kmod_start_func_t *_realmain = 0;
+kmod_stop_func_t  *_antimain = 0;
+int _kext_apple_cc = __APPLE_CC__ ;
 
 } // Extern "C"
 
@@ -241,7 +249,12 @@ net_lundman_zfs_zvol::start (IOService *provider)
 	 */
 	system_taskq_init();
 
-	zfs_boot_init((IOService *)this);
+	res = zfs_boot_init((IOService *)this);
+
+	printf("ZFS: Loaded module v%s-%s%s, "
+		"ZFS pool version %s, ZFS filesystem version %s\n",
+		ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR,
+		SPA_VERSION_STRING, ZPL_VERSION_STRING);
 
 	return true;
 
@@ -276,7 +289,8 @@ net_lundman_zfs_zvol::stop(IOService *provider)
 
 	spl_stop(NULL, NULL);
 
-	IOLog("ZFS: Unloaded module\n");
+	printf("ZFS: Unloaded module v%s-%s%s\n",
+		ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR);
 
 	/*
 	 * There is no way to ensure all threads have actually got to the

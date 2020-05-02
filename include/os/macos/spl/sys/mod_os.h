@@ -41,7 +41,15 @@
 #define module_param_call(a, b, c, d, e)
 #define module_param_named(a, b, c, d)
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 kern_return_t spl_start(kmod_info_t *ki, void *d);
 kern_return_t spl_stop(kmod_info_t *ki, void *d);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* SPL_MOD_H */

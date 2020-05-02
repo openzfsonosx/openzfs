@@ -1258,11 +1258,15 @@ abd_iterate_func2(abd_t *dabd, abd_t *sabd, size_t doff, size_t soff,
 {
 	int ret = 0;
 	struct abd_iter daiter, saiter;
+	int onlyone = 0;
 
-	VERIFY3P(sabd,!=,dabd);
+	/* With abd move, we'd try to mutex twice */
+	if (sabd == dabd)
+		onlyone = 1;
 
 	mutex_enter(&dabd->abd_mutex);
-	mutex_enter(&sabd->abd_mutex);
+	if (onlyone == 0)
+		mutex_enter(&sabd->abd_mutex);
 	abd_verify(dabd);
 	abd_verify(sabd);
 
@@ -1297,7 +1301,8 @@ abd_iterate_func2(abd_t *dabd, abd_t *sabd, size_t doff, size_t soff,
 		abd_iter_advance(&saiter, len);
 	}
 
-	mutex_exit(&sabd->abd_mutex);
+	if (onlyone == 0)
+		mutex_exit(&sabd->abd_mutex);
 	mutex_exit(&dabd->abd_mutex);
 	return (ret);
 }

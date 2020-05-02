@@ -29,93 +29,35 @@
 /* Portions Copyright 2013,2020 Jorgen Lundman */
 
 #include <sys/types.h>
-
-#ifndef __APPLE__
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/sysmacros.h>
-#include <sys/kmem.h>
-#include <sys/pathname.h>
-#include <sys/vnode.h>
-#include <sys/vfs.h>
-#include <sys/vfs_opreg.h>
-#include <sys/mntent.h>
-#include <sys/mount.h>
-#include <sys/cmn_err.h>
-#include "fs/fs_subr.h"
-#include <sys/zfs_znode.h>
-#endif /* !__APPLE__ */
-
 #include <sys/zfs_dir.h>
-
-#ifndef __APPLE__
-#include <sys/zil.h>
-#include <sys/fs/zfs.h>
-#include <sys/dmu.h>
-#endif /* !__APPLE__ */
-
 #include <sys/policy.h>
-
 #include <sys/dsl_prop.h>
 #include <sys/dsl_dataset.h>
-
-#ifndef __APPLE__
-#include <sys/dsl_deleg.h>
-#include <sys/spa.h>
-#endif /* !__APPLE__ */
-
 #include <sys/zap.h>
-
 #include <sys/sa.h>
 #include <sys/sa_impl.h>
-#ifndef __APPLE__
-#include <sys/varargs.h>
-#include <sys/policy.h>
-#include <sys/atomic.h>
-#include <sys/mkdev.h>
-#include <sys/modctl.h>
-#include <sys/refstr.h>
-#include <sys/zfs_ioctl.h>
-#endif /* !__APPLE__ */
-
 #include <sys/zfs_ctldir.h>
-
-#ifndef __APPLE__
-#include <sys/zfs_fuid.h>
-#include <sys/bootconf.h>
-#include <sys/sunddi.h>
-#include <sys/dnlc.h>
-#endif /* !__APPLE__ */
-
 #include <sys/dmu_objset.h>
-
-#ifndef __APPLE__
-#include <sys/spa_boot.h>
-#endif /* !__APPLE__ */
-
-#ifdef __LINUX__
-#include <sys/zpl.h>
-#endif /* __LINUX__ */
+#include <sys/zfs_quota.h>
 
 #include "zfs_comutil.h"
 
-#ifdef __APPLE__
 #include <sys/zfs_vnops.h>
 #include <sys/systeminfo.h>
 #include <sys/zfs_mount.h>
 #include <sys/ZFSDatasetScheme.h>
 #include <sys/dsl_dir.h>
-#endif /* __APPLE__ */
 
 //#define dprintf kprintf
 
-#ifdef __APPLE__
 unsigned int zfs_vnop_skip_unlinked_drain = 0;
 
 int  zfs_module_start(kmod_info_t *ki, void *data);
 int  zfs_module_stop(kmod_info_t *ki, void *data);
 extern int getzfsvfs(const char *dsname, zfsvfs_t **zfvp);
 
+void arc_os_init(void);
+void arc_os_fini(void);
 
 /*
  * AVL tree of hardlink entries, which we need to map for Finder. The va_linkid
@@ -174,8 +116,6 @@ uint32_t	zfs_active_fs_count = 0;
 extern void zfs_ioctl_init(void);
 extern void zfs_ioctl_fini(void);
 
-#endif
-
 static int
 zfsvfs_parse_option(char *option, char *value, vfs_t *vfsp)
 {
@@ -233,6 +173,10 @@ zfsvfs_parse_options(char *mntopts, vfs_t *vfsp)
 	return (error);
 }
 
+zfs_is_readonly(zfsvfs_t *zfsvfs)
+{
+	return (!!(vfs_isrdonly(zfsvfs->z_vfs)));
+}
 
 /* The OS sync ignored by default, as ZFS handles internal periodic
  * syncs. (As per illumos) Unfortunately, we can not tell the difference
@@ -296,62 +240,6 @@ zfs_vfs_sync(struct mount *vfsp, __unused int waitfor, __unused vfs_context_t co
 
 }
 
-
-
-#ifndef __APPLE__
-static int
-zfs_create_unique_device(dev_t *dev)
-{
-	major_t new_major;
-
-	do {
-		ASSERT3U(zfs_minor, <=, MAXMIN32);
-		minor_t start = zfs_minor;
-		do {
-			mutex_enter(&zfs_dev_mtx);
-			if (zfs_minor >= MAXMIN32) {
-				/*
-				 * If we're still using the real major
-				 * keep out of /dev/zfs and /dev/zvol minor
-				 * number space.  If we're using a getudev()'ed
-				 * major number, we can use all of its minors.
-				 */
-				if (zfs_major == ddi_name_to_major(ZFS_DRIVER))
-					zfs_minor = ZFS_MIN_MINOR;
-				else
-					zfs_minor = 0;
-			} else {
-				zfs_minor++;
-			}
-			*dev = makedevice(zfs_major, zfs_minor);
-			mutex_exit(&zfs_dev_mtx);
-		} while (vfs_devismounted(*dev) && zfs_minor != start);
-		if (zfs_minor == start) {
-			/*
-			 * We are using all ~262,000 minor numbers for the
-			 * current major number.  Create a new major number.
-			 */
-			if ((new_major = getudev()) == (major_t)-1) {
-				cmn_err(CE_WARN,
-				    "zfs_mount: Can't get unique major "
-				    "device number.");
-				return (-1);
-			}
-			mutex_enter(&zfs_dev_mtx);
-			zfs_major = new_major;
-			zfs_minor = 0;
-
-			mutex_exit(&zfs_dev_mtx);
-		} else {
-			break;
-		}
-		/* CONSTANTCONDITION */
-	} while (1);
-
-	return (0);
-}
-#endif	/* !__FreeBSD__ */
-
 static void
 atime_changed_cb(void *arg, uint64_t newval)
 {
@@ -400,32 +288,6 @@ xattr_changed_cb(void *arg, uint64_t newval)
 			zfsvfs->z_xattr_sa = B_FALSE;
 	}
 }
-
-#if 0 // unused function
-static void
-acltype_changed_cb(void *arg, uint64_t newval)
-{
-#ifdef LINUX
-	switch (newval) {
-	case ZFS_ACLTYPE_OFF:
-		zsb->z_acl_type = ZFS_ACLTYPE_OFF;
-		zsb->z_sb->s_flags &= ~MS_POSIXACL;
-		break;
-	case ZFS_ACLTYPE_POSIXACL:
-#ifdef CONFIG_FS_POSIX_ACL
-		zsb->z_acl_type = ZFS_ACLTYPE_POSIXACL;
-		zsb->z_sb->s_flags |= MS_POSIXACL;
-#else
-		zsb->z_acl_type = ZFS_ACLTYPE_OFF;
-		zsb->z_sb->s_flags &= ~MS_POSIXACL;
-#endif /* CONFIG_FS_POSIX_ACL */
-		break;
-	default:
-		break;
-	}
-#endif
-}
-#endif
 
 static void
 blksz_changed_cb(void *arg, uint64_t newval)
@@ -515,7 +377,6 @@ acl_inherit_changed_cb(void *arg, uint64_t newval)
 	zfsvfs->z_acl_inherit = newval;
 }
 
-#ifdef __APPLE__
 static void
 finderbrowse_changed_cb(void *arg, uint64_t newval)
 {
@@ -550,8 +411,6 @@ mimic_changed_cb(void *arg, uint64_t newval)
 	    strlcpy(vfsstatfs->f_fstypename, "hfs", MFSTYPENAMELEN);
 	}
 }
-
-#endif
 
 static int
 zfs_register_callbacks(struct mount *vfsp)
@@ -602,78 +461,35 @@ zfs_register_callbacks(struct mount *vfsp)
 	    !spa_writeable(dmu_objset_spa(os))) {
 		readonly = B_TRUE;
 		do_readonly = B_TRUE;
-#ifndef __APPLE__
-		/* Apple has no option to pass RW to mount, ie
-		 * zfs set readonly=on D ; zfs mount -o rw D
-		 */
-	} else if (vfs_optionisset(vfsp, MNTOPT_RW, NULL)) {
-		readonly = B_FALSE;
-		do_readonly = B_TRUE;
-#endif
 	}
 	if (vfs_optionisset(vfsp, MNT_NODEV, NULL)) {
 		devices = B_FALSE;
 		do_devices = B_TRUE;
-#ifndef __APPLE__
-	} else {
-        devices = B_TRUE;
-        do_devices = B_TRUE;
-#endif
     }
 	/* xnu SETUID, not IllumOS SUID */
 	if (vfs_optionisset(vfsp, MNT_NOSUID, NULL)) {
 		setuid = B_FALSE;
 		do_setuid = B_TRUE;
-#ifndef __APPLE__
-	} else {
-        setuid = B_TRUE;
-        do_setuid = B_TRUE;
-#endif
     }
 	if (vfs_optionisset(vfsp, MNT_NOEXEC, NULL)) {
 		exec = B_FALSE;
 		do_exec = B_TRUE;
-#ifndef __APPLE__
-	} else {
-		exec = B_TRUE;
-		do_exec = B_TRUE;
-#endif
 	}
 	if (vfs_optionisset(vfsp, MNT_NOUSERXATTR, NULL)) {
 		xattr = B_FALSE;
 		do_xattr = B_TRUE;
-#ifndef __APPLE__
-	} else {
-		xattr = B_TRUE;
-		do_xattr = B_TRUE;
-#endif
 	}
 	if (vfs_optionisset(vfsp, MNT_NOATIME, NULL)) {
 		atime = B_FALSE;
 		do_atime = B_TRUE;
-#ifndef __APPLE__
-	} else {
-		atime = B_TRUE;
-		do_atime = B_TRUE;
-#endif
 	}
 	if (vfs_optionisset(vfsp, MNT_DONTBROWSE, NULL)) {
 		finderbrowse = B_FALSE;
 		do_finderbrowse = B_TRUE;
-#ifndef __APPLE__
-	} else {
-		finderbrowse = B_TRUE;
-		do_finderbrowse = B_TRUE;
-#endif
 	}
 	if (vfs_optionisset(vfsp, MNT_IGNORE_OWNERSHIP, NULL)) {
 		ignoreowner = B_TRUE;
 		do_ignoreowner = B_TRUE;
-#ifndef __APPLE__
-	} else {
-		ignoreowner = B_FALSE;
-		do_ignoreowner = B_TRUE;
-#endif
 	}
 
 	/*
@@ -683,23 +499,6 @@ zfs_register_callbacks(struct mount *vfsp)
 	 * This is weird, but it is documented to only be changeable
 	 * at mount time.
 	 */
-#ifdef __LINUX__
-	uint64_t nbmand = 0;
-
-	if (vfs_optionisset(vfsp, MNTOPT_NONBMAND, NULL)) {
-		nbmand = B_FALSE;
-	} else if (vfs_optionisset(vfsp, MNTOPT_NBMAND, NULL)) {
-		nbmand = B_TRUE;
-	} else {
-		char osname[ZFS_MAX_DATASET_NAME_LEN];
-
-		dmu_objset_name(os, osname);
-		if (error = dsl_prop_get_integer(osname, "nbmand", &nbmand,
-		    NULL)) {
-			return (error);
-		}
-	}
-#endif
 
 	/*
 	 * Register property callbacks.
@@ -762,16 +561,11 @@ zfs_register_callbacks(struct mount *vfsp)
 		xattr_changed_cb(zfsvfs, xattr);
 	if (do_atime)
 		atime_changed_cb(zfsvfs, atime);
-#ifdef __APPLE__
+
 	if (do_finderbrowse)
 		finderbrowse_changed_cb(zfsvfs, finderbrowse);
 	if (do_ignoreowner)
 		ignoreowner_changed_cb(zfsvfs, ignoreowner);
-#endif
-#ifndef __APPLE__
-
-	nbmand_changed_cb(zfsvfs, nbmand);
-#endif
 
 	return (0);
 
@@ -780,173 +574,81 @@ unregister:
 	return (error);
 }
 
-static int
-zfs_space_delta_cb(dmu_object_type_t bonustype, void *data,
-    uint64_t *userp, uint64_t *groupp)
-{
-	//int error = 0;
-
-	/*
-	 * Is it a valid type of object to track?
-	 */
-	if (bonustype != DMU_OT_ZNODE && bonustype != DMU_OT_SA)
-		return (SET_ERROR(ENOENT));
-
-	/*
-	 * If we have a NULL data pointer
-	 * then assume the id's aren't changing and
-	 * return EEXIST to the dmu to let it know to
-	 * use the same ids
-	 */
-	if (data == NULL)
-		return (SET_ERROR(EEXIST));
-
-	if (bonustype == DMU_OT_ZNODE) {
-		znode_phys_t *znp = data;
-		*userp = znp->zp_uid;
-		*groupp = znp->zp_gid;
-	} else {
-#if 1
-		int hdrsize;
-		sa_hdr_phys_t *sap = data;
-		sa_hdr_phys_t sa = *sap;
-		boolean_t swap = B_FALSE;
-
-		ASSERT(bonustype == DMU_OT_SA);
-
-		if (sa.sa_magic == 0) {
-			/*
-			 * This should only happen for newly created
-			 * files that haven't had the znode data filled
-			 * in yet.
-			 */
-			*userp = 0;
-			*groupp = 0;
-			return (0);
-		}
-		if (sa.sa_magic == BSWAP_32(SA_MAGIC)) {
-			sa.sa_magic = SA_MAGIC;
-			sa.sa_layout_info = BSWAP_16(sa.sa_layout_info);
-			swap = B_TRUE;
-		} else {
-			if (sa.sa_magic != SA_MAGIC) {
-				printf("ZFS: sa.sa_magic %x is not SA_MAGIC\n",
-					sa.sa_magic);
-				return -1;
-			}
-			VERIFY3U(sa.sa_magic, ==, SA_MAGIC);
-		}
-
-		hdrsize = sa_hdrsize(&sa);
-		VERIFY3U(hdrsize, >=, sizeof (sa_hdr_phys_t));
-		*userp = *((uint64_t *)((uintptr_t)data + hdrsize +
-		    SA_UID_OFFSET));
-		*groupp = *((uint64_t *)((uintptr_t)data + hdrsize +
-		    SA_GID_OFFSET));
-		if (swap) {
-			*userp = BSWAP_64(*userp);
-			*groupp = BSWAP_64(*groupp);
-		}
-#endif
-	}
-	return (0);
-}
-
-static void
-fuidstr_to_sid(zfsvfs_t *zfsvfs, const char *fuidstr,
-    char *domainbuf, int buflen, uid_t *ridp)
-{
-	uint64_t fuid;
-	const char *domain;
-
-	fuid = zfs_strtonum(fuidstr, NULL);
-
-	domain = zfs_fuid_find_by_idx(zfsvfs, FUID_INDEX(fuid));
-	if (domain)
-		(void) strlcpy(domainbuf, domain, buflen);
-	else
-		domainbuf[0] = '\0';
-	*ridp = FUID_RID(fuid);
-}
-
-static uint64_t
-zfs_userquota_prop_to_obj(zfsvfs_t *zfsvfs, zfs_userquota_prop_t type)
-{
-	switch (type) {
-	case ZFS_PROP_USERUSED:
-		return (DMU_USERUSED_OBJECT);
-	case ZFS_PROP_GROUPUSED:
-		return (DMU_GROUPUSED_OBJECT);
-	case ZFS_PROP_USERQUOTA:
-		return (zfsvfs->z_userquota_obj);
-	case ZFS_PROP_GROUPQUOTA:
-		return (zfsvfs->z_groupquota_obj);
-    default:
-		return (SET_ERROR(ENOTSUP));
-        break;
-	}
-	return (0);
-}
-
 /*
- * buf must be big enough (eg, 32 bytes)
+ * Takes a dataset, a property, a value and that value's setpoint as
+ * found in the ZAP. Checks if the property has been changed in the vfs.
+ * If so, val and setpoint will be overwritten with updated content.
+ * Otherwise, they are left unchanged.
  */
-static int
-id_to_fuidstr(zfsvfs_t *zfsvfs, const char *domain, uid_t rid,
-    char *buf, boolean_t addok)
+int
+zfs_get_temporary_prop(dsl_dataset_t *ds, zfs_prop_t zfs_prop, uint64_t *val,
+    char *setpoint)
 {
-	uint64_t fuid;
-	int domainid = 0;
+	int error;
+	zfsvfs_t *zfvp;
+	mount_t vfsp;
+	objset_t *os;
+	uint64_t tmp = *val;
 
-	if (domain && domain[0]) {
-		domainid = zfs_fuid_find_by_domain(zfsvfs, domain, NULL, addok);
-		if (domainid == -1)
-			return (SET_ERROR(ENOENT));
+	error = dmu_objset_from_ds(ds, &os);
+	if (error != 0)
+		return (error);
+
+	if (dmu_objset_type(os) != DMU_OST_ZFS)
+		return (EINVAL);
+
+	mutex_enter(&os->os_user_ptr_lock);
+	zfvp = dmu_objset_get_user(os);
+	mutex_exit(&os->os_user_ptr_lock);
+	if (zfvp == NULL)
+		return (ESRCH);
+
+	vfsp = zfvp->z_vfs;
+
+	switch (zfs_prop) {
+        case ZFS_PROP_ATIME:
+//			if (vfsp->vfs_do_atime)
+//				tmp = vfsp->vfs_atime;
+			break;
+        case ZFS_PROP_RELATIME:
+//			if (vfsp->vfs_do_relatime)
+//				tmp = vfsp->vfs_relatime;
+			break;
+        case ZFS_PROP_DEVICES:
+//			if (vfsp->vfs_do_devices)
+//				tmp = vfsp->vfs_devices;
+			break;
+        case ZFS_PROP_EXEC:
+//			if (vfsp->vfs_do_exec)
+//				tmp = vfsp->vfs_exec;
+			break;
+        case ZFS_PROP_SETUID:
+//			if (vfsp->vfs_do_setuid)
+//				tmp = vfsp->vfs_setuid;
+			break;
+        case ZFS_PROP_READONLY:
+//			if (vfsp->vfs_do_readonly)
+//				tmp = vfsp->vfs_readonly;
+			break;
+        case ZFS_PROP_XATTR:
+//			if (vfsp->vfs_do_xattr)
+//				tmp = vfsp->vfs_xattr;
+			break;
+        case ZFS_PROP_NBMAND:
+//			if (vfsp->vfs_do_nbmand)
+//				tmp = vfsp->vfs_nbmand;
+			break;
+        default:
+			return (ENOENT);
 	}
-	fuid = FUID_ENCODE(domainid, rid);
-	(void) snprintf(buf, 32, "%llx", (longlong_t)fuid);
+
+	if (tmp != *val) {
+		(void) strlcpy(setpoint, "temporary", ZFS_MAX_DATASET_NAME_LEN);
+		*val = tmp;
+	}
 	return (0);
 }
 
-boolean_t
-zfs_fuid_overquota(zfsvfs_t *zfsvfs, boolean_t isgroup, uint64_t fuid)
-{
-	char buf[32];
-	uint64_t used, quota, usedobj, quotaobj;
-	int err;
-
-	usedobj = isgroup ? DMU_GROUPUSED_OBJECT : DMU_USERUSED_OBJECT;
-	quotaobj = isgroup ? zfsvfs->z_groupquota_obj : zfsvfs->z_userquota_obj;
-
-	if (quotaobj == 0 || zfsvfs->z_replay)
-		return (B_FALSE);
-
-	(void) snprintf(buf, sizeof(buf), "%llx", (longlong_t)fuid);
-	err = zap_lookup(zfsvfs->z_os, quotaobj, buf, 8, 1, &quota);
-	if (err != 0)
-		return (B_FALSE);
-
-	err = zap_lookup(zfsvfs->z_os, usedobj, buf, 8, 1, &used);
-	if (err != 0)
-		return (B_FALSE);
-	return (used >= quota);
-}
-
-boolean_t
-zfs_owner_overquota(zfsvfs_t *zfsvfs, znode_t *zp, boolean_t isgroup)
-{
-	uint64_t fuid;
-	uint64_t quotaobj;
-
-	quotaobj = isgroup ? zfsvfs->z_groupquota_obj : zfsvfs->z_userquota_obj;
-
-	fuid = isgroup ? zp->z_gid : zp->z_uid;
-
-	if (quotaobj == 0 || zfsvfs->z_replay)
-		return (B_FALSE);
-
-	return (zfs_fuid_overquota(zfsvfs, isgroup, fuid));
-}
 
 /*
  * Associate this zfsvfs with the given objset, which must be owned.
@@ -3442,10 +3144,8 @@ bail:
 		 * Since we couldn't setup the sa framework, try to force
 		 * unmount this file system.
 		 */
-#ifndef __APPLE__
 		if (zfsvfs->z_os)
-			(void) zfs_umount(zfsvfs->z_sb);
-#endif
+			zfs_vfs_unmount(zfsvfs->z_vfs, 0, NULL);
 	}
 	return (err);
 }
@@ -3536,11 +3236,16 @@ zfs_init(void)
 	zfs_vnodes_adjust();
 
 	dmu_objset_register_type(DMU_OST_ZFS, zfs_space_delta_cb);
+
+	/* Start arc_os - reclaim thread */
+	arc_os_init();
+
 }
 
 void
 zfs_fini(void)
 {
+	arc_os_fini();
 	zfsctl_fini();
 	zfs_znode_fini();
 	zfs_vnodes_adjust_back();
@@ -3550,6 +3255,40 @@ int
 zfs_busy(void)
 {
 	return (zfs_active_fs_count != 0);
+}
+
+/*
+ * Release VOPs and unmount a suspended filesystem.
+ */
+int
+zfs_end_fs(zfsvfs_t *zfsvfs, dsl_dataset_t *ds)
+{
+	ASSERT(RRM_WRITE_HELD(&zfsvfs->z_teardown_lock));
+	ASSERT(RW_WRITE_HELD(&zfsvfs->z_teardown_inactive_lock));
+
+	/*
+	 * We already own this, so just hold and rele it to update the
+	 * objset_t, as the one we had before may have been evicted.
+	 */
+	objset_t *os;
+	VERIFY3P(ds->ds_owner, ==, zfsvfs);
+	VERIFY(dsl_dataset_long_held(ds));
+	dsl_pool_t *dp = spa_get_dsl(dsl_dataset_get_spa(ds));
+	dsl_pool_config_enter(dp, FTAG);
+	VERIFY0(dmu_objset_from_ds(ds, &os));
+	dsl_pool_config_exit(dp, FTAG);
+	zfsvfs->z_os = os;
+
+	/* release the VOPs */
+	rw_exit(&zfsvfs->z_teardown_inactive_lock);
+	rrm_exit(&zfsvfs->z_teardown_lock, FTAG);
+
+	/*
+	 * Try to force unmount this file system.
+	 */
+	zfs_vfs_unmount(zfsvfs->z_vfs, 0, NULL);
+	zfsvfs->z_unmounted = B_TRUE;
+	return (0);
 }
 
 int

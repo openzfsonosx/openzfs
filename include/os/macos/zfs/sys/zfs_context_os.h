@@ -101,13 +101,13 @@ static inline void *zuio_iovbase(struct uio *u, uint_t i)
 	return (void *)iov_base;
 }
 
-#define	zuio_iov(U, I, B, S)								\
-	do {													\
-		user_size_t iov_len;								\
-		user_addr_t iov_base;								\
-		VERIFY0(uio_getiov((U), (I), &iov_base, &iov_len));	\
-		(B) = (void *)(uintptr_t) iov_base;					\
-		(S) = (uint64_t) iov_len;							\
+#define	zuio_iov(U, I, B, S)									\
+	do {														\
+		user_size_t _iov_len;									\
+		user_addr_t _iov_base;									\
+		VERIFY0(uio_getiov((U), (I), &_iov_base, &_iov_len));	\
+		(B) = (void *)(uintptr_t) _iov_base;					\
+		(S) = (uint64_t) _iov_len;								\
 	} while(0)
 
 #ifdef _KERNEL
@@ -200,6 +200,12 @@ atomic_dec(atomic_t *v)
 {
 	return (__sync_fetch_and_add(&v->counter, -1) - 1);
 }
+
+extern void kx_qsort (void *array, size_t nm, size_t member_size,
+    int (*cmpf)(const void *, const void *));
+#define qsort kx_qsort
+
+#define strstr kmem_strstr
 
 #endif // _KERNEL
 

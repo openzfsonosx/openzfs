@@ -230,6 +230,12 @@ atomic_cas_64(volatile uint64_t *_target, uint64_t _cmp, uint64_t _new)
     return __sync_val_compare_and_swap(_target, _cmp, _new);
 }
 
+static inline uint32_t
+atomic_swap_32(volatile uint32_t *_target, uint32_t _new)
+{
+    return __sync_lock_test_and_set(_target, _new);
+}
+
 static inline uint64_t
 atomic_swap_64(volatile uint64_t *_target, uint64_t _new)
 {

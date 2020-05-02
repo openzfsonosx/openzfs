@@ -111,22 +111,6 @@ typedef struct zfs_soft_state {
 extern minor_t zfsdev_minor_alloc(void);
 
 /*
- * Range locking rules
- * --------------------
- * 1. When truncating a file (zfs_create, zfs_setattr, zfs_space) the whole
- *    file range needs to be locked as RL_WRITER. Only then can the pages be
- *    freed etc and zp_size reset. zp_size must be set within range lock.
- * 2. For writes and punching holes (zfs_write & zfs_space) just the range
- *    being written or freed needs to be locked as RL_WRITER.
- *    Multiple writes at the end of the file must coordinate zp_size updates
- *    to ensure data isn't lost. A compare and swap loop is currently used
- *    to ensure the file size is at least the offset last written.
- * 3. For reads (zfs_read, zfs_get_data & zfs_putapage) just the range being
- *    read needs to be locked as RL_READER. A check against zp_size can then
- *    be made for reading beyond end of file.
- */
-
-/*
  * Convert between znode pointers and vnode pointers
  */
 #define	ZTOV(ZP)		((ZP)->z_vnode)
@@ -151,6 +135,10 @@ extern minor_t zfsdev_minor_alloc(void);
 #define	Z_ISLNK(type)	((type) == VLNK)
 
 /* Called on entry to each ZFS inode and vfs operation. */
+#define ZFS_ENTER_IFERROR(zfsvfs)					  \
+	rrm_enter_read(&(zfsvfs)->z_teardown_lock, FTAG); \
+	if ((zfsvfs)->z_unmounted)
+
 #define ZFS_ENTER_ERROR(zfsvfs, error)								\
 	do {                                                            \
         rrm_enter_read(&(zfsvfs)->z_teardown_lock, FTAG);			\
@@ -208,9 +196,11 @@ extern minor_t zfsdev_minor_alloc(void);
 }
 #define	ZFS_ACCESSTIME_STAMP(zfsvfs, zp) \
     if ((zfsvfs)->z_atime && !vfs_isrdonly(zfsvfs->z_vfs))		\
-		zfs_tstamp_update_setup_ext(zp, ACCESSED, NULL, NULL);
+		zfs_tstamp_update_setup_ext(zp, ACCESSED, NULL, NULL, B_FALSE);
 
 extern void	zfs_tstamp_update_setup_ext(struct znode *,
+    uint_t, uint64_t [2], uint64_t [2], boolean_t);
+extern void	zfs_tstamp_update_setup(struct znode *,
     uint_t, uint64_t [2], uint64_t [2]);
 extern void zfs_znode_free(struct znode *);
 
@@ -229,6 +219,9 @@ extern int zfs_setattr_set_documentid(struct znode *zp,
 /* Legacy macOS uses fnv_32a hash for hostid. */
 #define FNV1_32A_INIT ((uint32_t)0x811c9dc5)
 uint32_t fnv_32a_str(const char *str, uint32_t hval);
+
+void zfs_setbsdflags(struct znode *, uint32_t bsdflags);
+uint32_t zfs_getbsdflags(struct znode *zp);
 
 #ifdef	__cplusplus
 }

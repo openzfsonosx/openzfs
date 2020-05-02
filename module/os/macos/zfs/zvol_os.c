@@ -373,7 +373,7 @@ zvol_init(void)
 		return (-ENOMEM);
 	}
 
-	zvol_init_impl();
+//	zvol_init_impl();
 	zvol_register_ops(&zvol_macos_ops);
 	return (0);
 }
@@ -381,7 +381,7 @@ zvol_init(void)
 void
 zvol_fini(void)
 {
-	zvol_fini_impl();
+//	zvol_fini_impl();
 	taskq_destroy(zvol_taskq);
 }
 

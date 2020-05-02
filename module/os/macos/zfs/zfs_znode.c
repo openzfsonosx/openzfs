@@ -1780,21 +1780,22 @@ zfs_znode_free(znode_t *zp)
  *		have_tx == !(flag & AT_ATIME)
  */
 void
-zfs_tstamp_update_setup(znode_t *zp, uint_t flag, uint64_t mtime[2],
-    uint64_t ctime[2])
+zfs_tstamp_update_setup_ext(znode_t *zp, uint_t flag, uint64_t mtime[2],
+    uint64_t ctime[2], boolean_t have_tx)
 {
 	timestruc_t	now;
 
 	gethrestime(&now);
 
-	zp->z_seq++;
+	if (have_tx) {  /* will sa_bulk_update happen really soon? */
+		zp->z_atime_dirty = 0;
+		zp->z_seq++;
+	} else {
+		zp->z_atime_dirty = 1;
+	}
 
 	if (flag & AT_ATIME) {
 		ZFS_TIME_ENCODE(&now, zp->z_atime);
-#ifdef LINUX
-		ZTOI(zp)->i_atime.tv_sec = zp->z_atime[0];
-		ZTOI(zp)->i_atime.tv_nsec = zp->z_atime[1];
-#endif
 	}
 
 	if (flag & AT_MTIME) {
@@ -1810,6 +1811,13 @@ zfs_tstamp_update_setup(znode_t *zp, uint_t flag, uint64_t mtime[2],
 		if (zp->z_zfsvfs->z_use_fuids)
 			zp->z_pflags |= ZFS_ARCHIVE;
 	}
+}
+
+void
+zfs_tstamp_update_setup(znode_t *zp, uint_t flag, uint64_t mtime[2],
+    uint64_t ctime[2])
+{
+	zfs_tstamp_update_setup_ext(zp, flag, mtime, ctime, B_TRUE);
 }
 
 /*
@@ -2125,7 +2133,7 @@ zfs_trunc(znode_t *zp, uint64_t end)
 int
 zfs_freesp(znode_t *zp, uint64_t off, uint64_t len, int flag, boolean_t log)
 {
-	struct vnode *vp = ZTOV(zp);
+//	struct vnode *vp = ZTOV(zp);
 	dmu_tx_t *tx;
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	zilog_t *zilog = zfsvfs->z_log;
@@ -2147,16 +2155,6 @@ zfs_freesp(znode_t *zp, uint64_t off, uint64_t len, int flag, boolean_t log)
 		if (error == 0 && log)
 			goto log;
 		goto out;
-	}
-
-	/*
-	 * Check for any locks in the region to be freed.
-	 */
-
-	if (MANDLOCK(vp, (mode_t)mode)) {
-		uint64_t length = (len ? len : zp->z_size - off);
-		if ((error = chklock(vp, FWRITE, off, length, flag, NULL)))
-			return (SET_ERROR(EAGAIN));
 	}
 
 	if (len == 0) {

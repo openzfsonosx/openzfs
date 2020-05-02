@@ -271,6 +271,8 @@ extern void zfsvfs_free(zfsvfs_t *zfsvfs);
 extern int zfs_get_temporary_prop(dsl_dataset_t *ds, zfs_prop_t zfs_prop,
     uint64_t *val, char *setpoint);
 
+extern int zfs_end_fs(zfsvfs_t *zfsvfs, struct dsl_dataset *ds);
+
 #ifdef	__cplusplus
 }
 #endif

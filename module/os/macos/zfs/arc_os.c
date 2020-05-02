@@ -34,6 +34,7 @@
 #include <sys/zio_checksum.h>
 #include <sys/zfs_context.h>
 #include <sys/arc.h>
+#include <sys/arc_impl.h>
 #include <sys/refcount.h>
 #include <sys/vdev.h>
 #include <sys/vdev_trim.h>
@@ -55,9 +56,12 @@
 #include <sys/arc_impl.h>
 #include <sys/trace_zfs.h>
 #include <sys/aggsum.h>
+#include <sys/kstat_osx.h>
 
 int64_t last_free_memory;
 free_memory_reason_t last_free_reason;
+
+extern arc_stats_t arc_stats;
 
 static kmutex_t			arc_reclaim_lock;
 static kcondvar_t		arc_reclaim_thread_cv;
@@ -75,8 +79,6 @@ static kcondvar_t		arc_reclaim_waiters_cv;
  */
 extern int	arc_no_grow_shift;
 
-
-extern uint64_t		arc_adjust(void);
 
 /*
  * Return a default max arc size based on the amount of physical memory.
@@ -114,7 +116,7 @@ arc_free_memory(void)
 {
 	int64_t avail;
 
-	avail = kmem_avail();
+	avail = spl_free_wrapper();
 	return avail >= 0LL ? avail : 0LL;
 }
 
@@ -248,9 +250,10 @@ arc_shrink(int64_t to_free)
 
 	shrank = arc_c_before - arc_c;
 
-	if (aggsum_value(&arc_size) > arc_c)
-		arc_adjust_evicted = arc_adjust();
-
+	if (aggsum_value(&arc_size) > arc_c) {
+		zthr_wakeup(arc_adjust_zthr);
+		arc_adjust_evicted = 0;
+	}
 	return (shrank + arc_adjust_evicted);
 }
 
@@ -267,11 +270,9 @@ static void arc_kmem_reap_now(void)
 
 	/* Now some OsX additionals */
 	extern kmem_cache_t *abd_chunk_cache;
-	extern kmem_cache_t *dnode_cache;
 	extern kmem_cache_t *znode_cache;
 
 	kmem_cache_reap_now(abd_chunk_cache);
-	if (dnode_cache) kmem_cache_reap_now(dnode_cache);
 	if (znode_cache) kmem_cache_reap_now(znode_cache);
 
 	if (zio_arena_parent != NULL) {
@@ -337,7 +338,7 @@ arc_reclaim_thread(void *unused)
 		 * arc_kmem_reap_now(), so that we can wake up
 		 * arc_get_data_impl() sooner.
 		 */
-		evicted = arc_adjust();
+		zthr_wakeup(arc_adjust_zthr);
 
 		int64_t free_memory = arc_available_memory();
 
@@ -558,8 +559,15 @@ arc_reclaim_thread(void *unused)
 	thread_exit();
 }
 
+/* This is called before arc is initialized, and threads are not running */
 void
 arc_lowmem_init(void)
+{
+}
+
+/* This is called after arc is initialized, and thread are running */
+void
+arc_os_init(void)
 {
 	mutex_init(&arc_reclaim_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&arc_reclaim_thread_cv, NULL, CV_DEFAULT, NULL);
@@ -576,6 +584,11 @@ arc_lowmem_init(void)
 
 void
 arc_lowmem_fini(void)
+{
+}
+
+void
+arc_os_fini(void)
 {
 	mutex_enter(&arc_reclaim_lock);
 	arc_reclaim_thread_exit = B_TRUE;
@@ -594,6 +607,168 @@ arc_lowmem_fini(void)
 	cv_destroy(&arc_reclaim_waiters_cv);
 }
 
+/*
+ * Uses ARC static variables in logic.
+ */
+#define	arc_meta_limit	ARCSTAT(arcstat_meta_limit) /* max size for metadata */
+/* max size for dnodes */
+#define	arc_dnode_size_limit	ARCSTAT(arcstat_dnode_limit)
+#define	arc_meta_min	ARCSTAT(arcstat_meta_min) /* min size for metadata */
+#define	arc_meta_max	ARCSTAT(arcstat_meta_max) /* max size of metadata */
+
+/* So close, they made arc_min_prefetch_ms be static, but no others */
+
+int arc_kstat_update_osx(kstat_t *ksp, int rw)
+{
+	osx_kstat_t *ks = ksp->ks_data;
+
+	if (rw == KSTAT_WRITE) {
+
+		/* Did we change the value ? */
+		if (ks->arc_zfs_arc_max.value.ui64 != zfs_arc_max) {
+
+			/* Assign new value */
+			zfs_arc_max = ks->arc_zfs_arc_max.value.ui64;
+
+			/* Update ARC with new value */
+			if (zfs_arc_max > 64<<20 && zfs_arc_max < physmem * PAGESIZE)
+				arc_c_max = zfs_arc_max;
+
+			arc_c = arc_c_max;
+			arc_p = (arc_c >> 1);
+
+			/* If meta_limit is not set, adjust it automatically */
+			if (!zfs_arc_meta_limit)
+				arc_meta_limit = arc_c_max / 4;
+		}
+
+		if (ks->arc_zfs_arc_min.value.ui64 != zfs_arc_min) {
+			zfs_arc_min = ks->arc_zfs_arc_min.value.ui64;
+			if (zfs_arc_min > 64<<20 && zfs_arc_min <= arc_c_max) {
+				arc_c_min = zfs_arc_min;
+				printf("ZFS: set arc_c_min %llu, arc_meta_min %llu, zfs_arc_meta_min %llu\n",
+					arc_c_min, arc_meta_min, zfs_arc_meta_min);
+				if(arc_c < arc_c_min) {
+					printf("ZFS: raise arc_c %llu to arc_c_min %llu\n",
+					    arc_c, arc_c_min);
+					arc_c = arc_c_min;
+					if(arc_p < (arc_c >> 1)) {
+						printf("ZFS: raise arc_p %llu to %llu\n",
+						    arc_p, (arc_c >> 1));
+						arc_p = (arc_c >> 1);
+					}
+				}
+			}
+		}
+
+		if (ks->arc_zfs_arc_meta_limit.value.ui64 != zfs_arc_meta_limit) {
+			zfs_arc_meta_limit  = ks->arc_zfs_arc_meta_limit.value.ui64;
+
+			/* Allow the tunable to override if it is reasonable */
+			if (zfs_arc_meta_limit > 0 && zfs_arc_meta_limit <= arc_c_max)
+				arc_meta_limit = zfs_arc_meta_limit;
+
+			if (arc_c_min < arc_meta_limit / 2 && zfs_arc_min == 0)
+				arc_c_min = arc_meta_limit / 2;
+
+			printf("ZFS: set arc_meta_limit %llu, arc_c_min %llu, zfs_arc_meta_limit %lu\n",
+				arc_meta_limit, arc_c_min, zfs_arc_meta_limit);
+		}
+
+		if (ks->arc_zfs_arc_meta_min.value.ui64 != zfs_arc_meta_min) {
+			zfs_arc_meta_min  = ks->arc_zfs_arc_meta_min.value.ui64;
+			if (zfs_arc_meta_min >= arc_c_min) {
+				printf("ZFS: probable error, zfs_arc_meta_min %llu >= arc_c_min %llu\n",
+				    zfs_arc_meta_min, arc_c_min);
+			}
+			if (zfs_arc_meta_min > 0 && zfs_arc_meta_min <= arc_meta_limit)
+				arc_meta_min = zfs_arc_meta_min;
+			printf("ZFS: set arc_meta_min %llu\n", arc_meta_min);
+		}
+
+		zfs_arc_grow_retry        = ks->arc_zfs_arc_grow_retry.value.ui64;
+        arc_grow_retry = zfs_arc_grow_retry;
+		zfs_arc_shrink_shift      = ks->arc_zfs_arc_shrink_shift.value.ui64;
+		zfs_arc_p_min_shift       = ks->arc_zfs_arc_p_min_shift.value.ui64;
+		zfs_arc_average_blocksize = ks->arc_zfs_arc_average_blocksize.value.ui64;
+
+	} else {
+
+		ks->arc_zfs_arc_max.value.ui64        = zfs_arc_max;
+		ks->arc_zfs_arc_min.value.ui64        = zfs_arc_min;
+
+		/* Valid range: 1 - N ms */
+//		if (zfs_arc_min_prefetch_ms)
+//			arc_min_prefetch_ms = zfs_arc_min_prefetch_ms;
+
+		/* Valid range: 1 - N ms */
+//		if (zfs_arc_min_prescient_prefetch_ms) {
+//                        arc_min_prescient_prefetch_ms =
+//							zfs_arc_min_prescient_prefetch_ms;
+//		}
+
+		ks->arc_zfs_arc_meta_limit.value.ui64 = zfs_arc_meta_limit;
+		ks->arc_zfs_arc_meta_min.value.ui64 =   zfs_arc_meta_min;
+
+		ks->arc_zfs_arc_grow_retry.value.ui64        =
+			zfs_arc_grow_retry ? zfs_arc_grow_retry : arc_grow_retry;
+		ks->arc_zfs_arc_shrink_shift.value.ui64      = zfs_arc_shrink_shift;
+		ks->arc_zfs_arc_p_min_shift.value.ui64       = zfs_arc_p_min_shift;
+		ks->arc_zfs_arc_average_blocksize.value.ui64 = zfs_arc_average_blocksize;
+	}
+	return 0;
+}
+
+/*
+ * Helper function for arc_prune_async() it is responsible for safely
+ * handling the execution of a registered arc_prune_func_t.
+ */
+static void
+arc_prune_task(void *ptr)
+{
+	arc_prune_t *ap = (arc_prune_t *)ptr;
+	arc_prune_func_t *func = ap->p_pfunc;
+
+	if (func != NULL)
+		func(ap->p_adjust, ap->p_private);
+
+	zfs_refcount_remove(&ap->p_refcnt, func);
+}
+
+/*
+ * Notify registered consumers they must drop holds on a portion of the ARC
+ * buffered they reference.  This provides a mechanism to ensure the ARC can
+ * honor the arc_meta_limit and reclaim otherwise pinned ARC buffers.  This
+ * is analogous to dnlc_reduce_cache() but more generic.
+ *
+ * This operation is performed asynchronously so it may be safely called
+ * in the context of the arc_reclaim_thread().  A reference is taken here
+ * for each registered arc_prune_t and the arc_prune_task() is responsible
+ * for releasing it once the registered arc_prune_func_t has completed.
+ */
+void
+arc_prune_async(int64_t adjust)
+{
+	arc_prune_t *ap;
+
+	mutex_enter(&arc_prune_mtx);
+	for (ap = list_head(&arc_prune_list); ap != NULL;
+		 ap = list_next(&arc_prune_list, ap)) {
+
+		if (zfs_refcount_count(&ap->p_refcnt) >= 2)
+			continue;
+
+		zfs_refcount_add(&ap->p_refcnt, ap->p_pfunc);
+		ap->p_adjust = adjust;
+		if (taskq_dispatch(arc_prune_taskq, arc_prune_task,
+				ap, TQ_SLEEP) == TASKQID_INVALID) {
+			zfs_refcount_remove(&ap->p_refcnt, ap->p_pfunc);
+			continue;
+		}
+		ARCSTAT_BUMP(arcstat_prune);
+	}
+	mutex_exit(&arc_prune_mtx);
+}
 
 #else /* KERNEL */
 

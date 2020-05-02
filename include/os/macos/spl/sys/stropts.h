@@ -202,6 +202,10 @@ kmemchr(const void *s, int c, size_t n)
     return (NULL);
 }
 
+#ifndef memchr
+#define memchr kmemchr
+#endif
+
 #define IDX(c)  ((u_char)(c) / LONG_BIT)
 #define BIT(c)  ((u_long)1 << ((u_char)(c) % LONG_BIT))
 

@@ -39,11 +39,15 @@ int zfs_devdisk_get_path(void *, char *, int);
 
 #ifdef __cplusplus
 } /* extern "C" */
+#endif	/* __cplusplus */
 
+
+
+#ifdef __cplusplus
 #include <IOKit/IOService.h>
 bool zfs_boot_init(IOService *);
 void zfs_boot_fini();
-
 #endif	/* __cplusplus */
+
 
 #endif /* ZFS_BOOT_H_INCLUDED */

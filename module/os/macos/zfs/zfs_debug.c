@@ -36,6 +36,8 @@ int zfs_dbgmsg_size;
 kmutex_t zfs_dbgmsgs_lock;
 int zfs_dbgmsg_maxsize = 4<<20; /* 4MB */
 
+int zfs_dbgmsg_enable = 1;
+
 /*
  * Debug logging is enabled by default for production kernel builds.
  * The overhead for this is negligible and the logs can be valuable when

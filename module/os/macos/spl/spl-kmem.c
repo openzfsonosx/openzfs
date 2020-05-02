@@ -3760,6 +3760,18 @@ kmem_adjust_reclaim_threshold(kmem_defrag_t *kmd, int direction)
 	}
 }
 
+uint64_t
+spl_kmem_cache_inuse(kmem_cache_t *cache)
+{
+	return (cache->cache_buftotal);
+}
+
+uint64_t
+spl_kmem_cache_entry_size(kmem_cache_t *cache)
+{
+	return (cache->cache_bufsize);
+}
+
 void
 kmem_cache_set_move(kmem_cache_t *cp,
 					kmem_cbrc_t (*move)(void *, void *, size_t, void *))
@@ -6174,6 +6186,17 @@ spl_vm_pool_low(void)
 // ===============================================================
 // String handling
 // ===============================================================
+
+char *
+kmem_strdup(const char *str)
+{
+	char *buf;
+	int len;
+	len = strlen(str) + 1;
+	buf = kmem_alloc(len, KM_SLEEP);
+	strlcpy(buf, str, len);
+	return (buf);
+}
 
 void
 kmem_strfree(char *str)

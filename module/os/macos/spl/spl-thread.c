@@ -22,7 +22,7 @@
 /*
  *
  * Copyright (C) 2008 MacZFS
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  *
  */
 

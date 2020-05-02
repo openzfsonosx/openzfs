@@ -198,9 +198,8 @@ extern int    ace_trivial_common(void *acep, int aclcnt,
                                          uint16_t *, uint16_t *, uint32_t *));
 extern void   acl_trivial_access_masks(mode_t mode, boolean_t isdir,
                                        trivial_acl_t *masks);
-extern int    zfs_obtain_xattr(znode_t *dzp, const char *name, mode_t mode,
-                               cred_t *cr, struct vnode **vpp, int flag);
-
+extern int    zpl_obtain_xattr(struct znode *, const char *name, mode_t mode,
+    cred_t *cr, struct vnode **vpp, int flag);
 
 extern void  commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
                             const char *name, ino64_t objnum, enum vtype vtype,

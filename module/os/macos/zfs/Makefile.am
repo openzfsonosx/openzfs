@@ -67,6 +67,7 @@ zfs_ASM_SOURCES_AS = \
 	../../../icp/asm-x86_64/os/macos/aes/aes_amd64.S \
 	../../../icp/asm-x86_64/os/macos/aes/aes_aesni.S \
 	../../../icp/asm-x86_64/os/macos/modes/gcm_pclmulqdq.S \
+	../../../icp/asm-x86_64/os/macos/sha1/sha1-x86_64.S \
 	../../../icp/asm-x86_64/os/macos/sha2/sha256_impl.S \
 	../../../icp/asm-x86_64/os/macos/sha2/sha512_impl.S
 else
@@ -182,11 +183,13 @@ zfs_SOURCES = \
 	zfs_acl.c \
 	zfs_boot.cpp \
 	../../../zfs/zfs_byteswap.c \
+	zfs_ctldir.c \
 	zfs_debug.c \
 	zfs_dir.c \
 	../../../zfs/zfs_fm.c \
 	zfs_file_os.c \
 	../../../zfs/zfs_fuid.c \
+	zfs_fuid_os.c \
 	../../../zfs/zfs_ioctl.c \
 	zfs_ioctl_os.c \
 	zfs_kstat_osx.c \
@@ -258,7 +261,6 @@ zfs_SOURCES = \
 	../../../icp/algs/modes/gcm_generic.c \
 	../../../icp/algs/modes/gcm.c \
 	../../../icp/algs/modes/modes.c \
-	../../../icp/algs/sha1/sha1.c \
 	../../../icp/algs/sha2/sha2.c \
 	../../../icp/algs/skein/skein.c \
 	../../../icp/algs/skein/skein_block.c \
@@ -304,7 +306,6 @@ zfs.kext$(EXEEXT): zfs $(PLIST_STRING) $(INFO_PLIST)
 	@echo ""
 	@mkdir -p zfs.kext/Contents/Resources/English.lproj zfs.kext/Contents/MacOS
 	@cp -f $(INFO_PLIST) zfs.kext/Contents/
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(ZFS_META_VERSION)" zfs.kext/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(ZFS_META_VERSION)" zfs.kext/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Delete :OSBundleLibraries:net.lundman.kernel.dependencies" zfs.kext/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :OSBundleLibraries:net.lundman.kernel.dependencies.$(ZFS_META_VERSION) string 12.5.0" zfs.kext/Contents/Info.plist
@@ -316,7 +317,7 @@ zfs.kext$(EXEEXT): zfs $(PLIST_STRING) $(INFO_PLIST)
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier net.lundman.kernel.dependencies.$(ZFS_META_VERSION)" zfs.kext/Contents/PlugIns/KernelExports.kext/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :OSBundleRequired string Root" zfs.kext/Contents/Info.plist
 	cp -f $(top_srcdir)/module/os/macos/kernel/version.plist zfs.kext/Contents/PlugIns/KernelExports.kext/
-	@kextlibs -unsupported -undef-symbols -xml zfs.kext/ || echo "Ignoring errors..(Most of these are expected)"
+	@kextlibs -unsupported -undef-symbols -xml zfs.kext/ || echo "Ignoring errors..(Most of these are expected)" | grep -v -f $(top_srcdir)/module/os/macos/kernel/zfs.exports
 
 install-exec-local: zfs.kext
 	rm -rf $(KERNEL_MODDIR)

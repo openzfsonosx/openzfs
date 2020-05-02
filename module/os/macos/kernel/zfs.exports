@@ -34,3 +34,5 @@ _decmpfs_cnode_free
 _decmpfs_cnode_init
 _decmpfs_cnode_destroy
 _cpuid_info
+_vnode_iocount
+_kx_qsort

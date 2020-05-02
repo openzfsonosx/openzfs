@@ -22,7 +22,7 @@
 /*
  *
  * Copyright (C) 2008 MacZFS
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  *
  */
 
@@ -41,6 +41,7 @@ typedef void (*dtor_func_t)(void *);
 
 extern int tsd_set(uint_t, void *);
 extern void *tsd_get(uint_t);
+extern void *tsd_get_by_thread(uint_t, thread_t);
 extern void tsd_create(uint_t *, dtor_func_t);
 extern void tsd_destroy(uint_t *);
 extern void tsd_exit(void);

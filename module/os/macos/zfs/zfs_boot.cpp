@@ -136,7 +136,6 @@ _NOTE(CONSTCOND) } while (0)
 #endif /* if DEBUG or ZFS_DEBUG */
 #endif /* ifndef dprintf */
 
-#ifdef ZFS_BOOT
 /* Most of this is only built when configured with --enable-boot */
 
 /* block size is 512 B, count is 512 M blocks */
@@ -2161,7 +2160,6 @@ error:
 	return (false);
 }
 
-#endif /* ZFS_BOOT */
 /* Include these functions in all builds */
 
 /*
