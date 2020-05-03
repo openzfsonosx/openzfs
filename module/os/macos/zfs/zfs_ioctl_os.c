@@ -42,6 +42,7 @@
 #include <sys/dsl_crypt.h>
 
 #include <sys/zfs_ioctl_impl.h>
+#include <sys/zfs_ioctl_compat.h>
 #include <sys/zvol_os.h>
 
 int zfs_major				= 0;
@@ -177,23 +178,49 @@ static int
 zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
     struct proc *p)
 {
-	uint_t vecnum;
+	uint_t len, vecnum;
+	zfs_iocparm_t *zit;
 	zfs_cmd_t *zc;
 	int error, rc;
+	user_addr_t uaddr;
 
 	/* Translate XNU ioctl to enum table: */
-	vecnum = cmd - _IOWR('Z', 0, struct zfs_cmd);
+	len = IOCPARM_LEN(cmd);
+	vecnum = cmd - _IOWR('Z', ZFS_IOC_FIRST, zfs_iocparm_t);
+	zit = (void *)arg;
+	uaddr = (user_addr_t)zit->zfs_cmd;
+
+	if (len != sizeof (zfs_iocparm_t)) {
+		printf("len %d vecnum: %d sizeof (zfs_cmd_t) %lu\n",
+			len, vecnum, sizeof (zfs_cmd_t));
+		return (EINVAL);
+	}
+
+	printf("%s: incoming vecnum %d\n", __func__, vecnum);
 
 	zc = kmem_zalloc(sizeof (zfs_cmd_t), KM_SLEEP);
 
-	if (ddi_copyin((void *)(uintptr_t)arg, zc, sizeof (zfs_cmd_t), 0)) {
-		error = -SET_ERROR(EFAULT);
+	if (copyin(uaddr, zc, sizeof (zfs_cmd_t))) {
+		error = SET_ERROR(EFAULT);
 		goto out;
 	}
+
+	printf("copyin ok\n");
+
 	error = -zfsdev_ioctl_common(vecnum, zc);
-	rc = ddi_copyout(zc, (void *)(uintptr_t)arg, sizeof (zfs_cmd_t), 0);
+
+	printf("copyout.. %d\n", error);
+
+	rc = copyout(zc, uaddr, sizeof (*zc));
+
 	if (error == 0 && rc != 0)
 		error = -SET_ERROR(EFAULT);
+
+	/* OSX must return(0) or XNU doesn't copyout(). Save the real
+	 * rc to userland */
+	zit->zfs_ioc_error = error;
+	error = 0;
+
 out:
 	kmem_free(zc, sizeof (zfs_cmd_t));
 	return (error);

@@ -65,6 +65,11 @@ typedef struct zfs_iocparm {
 	uint32_t	zfs_ioctl_version;
 	uint64_t	zfs_cmd;
 	uint64_t	zfs_cmd_size;
+
+	/* ioctl() return codes can not be used to communicate -
+	 * as XNU will skip copyout() if there is an error, so it
+	 * is passed along in this wrapping structure.*/
+	int			zfs_ioc_error;	/* ioctl error value */
 } zfs_iocparm_t;
 
 typedef struct zfs_cmd_1_9_4
@@ -112,7 +117,6 @@ typedef struct zfs_cmd_1_9_4
 	zfs_stat_t	zc_stat;
     int             zc_ioc_error; /* ioctl error value */
     uint64_t        zc_dev;      /* OSX doesn't have ddi_driver_major*/
-
 } zfs_cmd_1_9_4_t;
 
 // Figure this out

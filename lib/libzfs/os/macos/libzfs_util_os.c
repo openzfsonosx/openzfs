@@ -46,24 +46,11 @@
 
 #define	ZDIFF_SHARESDIR		"/.zfs/shares/"
 
+
 int
 zfs_ioctl(libzfs_handle_t *hdl, int request, zfs_cmd_t *zc)
 {
-	int error;
-	int original_errno = errno;
-	errno = 0;
-
-	error = ioctl(hdl->libzfs_fd, request, zc);
-
-	/* normal path, zfsdev_ioctl returns the real error in zc_ioc_error */
-	if ((error == 0) && zc->zc_ioc_error) {
-		error = -1;
-		errno = zc->zc_ioc_error;
-	} else if (error != -1) {
-		errno = original_errno;
-	}
-
-	return (error);
+	return (zfs_ioctl_fd(hdl->libzfs_fd, request, zc));
 }
 
 const char *
@@ -94,7 +81,7 @@ libzfs_error_init(int error)
 static int
 libzfs_module_loaded(const char *module)
 {
-	const char path_prefix[] = "/sys/module/";
+	const char path_prefix[] = "/dev/";
 	char path[256];
 
 	memcpy(path, path_prefix, sizeof (path_prefix) - 1);
