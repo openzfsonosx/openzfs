@@ -46,6 +46,11 @@ libzutil_la_LIBADD += \
         $(top_builddir)/lib/libefi/libefi.la
 endif
 
+if BUILD_MACOS
+libzutil_la_LIBADD += \
+        $(top_builddir)/lib/libefi/libefi.la
+endif
+
 libzutil_la_LIBADD += -lm $(LIBBLKID) $(LIBUDEV)
 
 EXTRA_DIST = $(USER_C)
