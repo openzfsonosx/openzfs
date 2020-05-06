@@ -6,6 +6,10 @@ if BUILD_LINUX
 SUBDIRS += libefi
 endif
 
+if BUILD_MACOS
+SUBDIRS += libefi
+endif
+
 # libzutil depends on libefi if present
 SUBDIRS += libzutil libunicode
 
