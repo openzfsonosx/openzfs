@@ -299,7 +299,7 @@ is_shared_impl(libzfs_handle_t *hdl, const char *mountpoint,
  * http://www.kernel.org/pub/linux/utils/util-linux/libmount-docs/index.html
  */
 int
-do_mount(const char *src, const char *mntpt, char *opts, int flags)
+do_mount_impl(const char *src, const char *mntpt, char *opts, int flags)
 {
 	char *argv[9] = {
 	    "/bin/mount",
@@ -331,6 +331,12 @@ do_mount(const char *src, const char *mntpt, char *opts, int flags)
 	}
 
 	return (0);
+}
+
+int
+do_mount(zfs_handle_t *zhp, const char *mntpt, char *opts, int flags)
+{
+	return (do_mount_impl(zfs_get_name(zhp), mntpt, opts, flags));
 }
 
 int

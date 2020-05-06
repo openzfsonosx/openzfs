@@ -173,7 +173,7 @@ zfsvfs_parse_options(char *mntopts, vfs_t *vfsp)
 	return (error);
 }
 
-zfs_is_readonly(zfsvfs_t *zfsvfs)
+int zfs_is_readonly(zfsvfs_t *zfsvfs)
 {
 	return (!!(vfs_isrdonly(zfsvfs->z_vfs)));
 }
