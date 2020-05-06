@@ -522,8 +522,8 @@ zfs_prop_init(void)
 	    "COM.APPLE.IGNOREOWNER", boolean_table);
 	zprop_register_hidden(ZFS_PROP_LASTUNMOUNT, "COM.APPLE.LASTUNMOUNT",
 	    PROP_TYPE_NUMBER, PROP_READONLY, ZFS_TYPE_DATASET, "LASTUNMOUNT");
-	zprop_register_index(ZFS_PROP_MIMIC, "com.apple.mimic_hfs", 0,
-	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "on | off",
+	zprop_register_index(ZFS_PROP_MIMIC, "com.apple.mimic", 0,
+	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "off | hfs | apfs",
 	    "COM.APPLE.MIMIC_HFS", mimic_table);
 	zprop_register_index(ZFS_PROP_DEVDISK, "com.apple.devdisk", 0,
 	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "poolonly | on | off",
@@ -648,7 +648,7 @@ zfs_prop_init(void)
 	 * that we don't have to change the values of the zfs_prop_t enum, or
 	 * have NULL pointers in the zfs_prop_table[].
 	 */
-#ifdef __FreeBSD__
+#if defined (__FreeBSD__) || defined (__APPLE__)
 	zprop_register_impl(ZFS_PROP_ACLTYPE, "acltype", PROP_TYPE_INDEX,
 	    ZFS_ACLTYPE_OFF, NULL, PROP_INHERIT,
 	    ZFS_TYPE_FILESYSTEM | ZFS_TYPE_SNAPSHOT,
