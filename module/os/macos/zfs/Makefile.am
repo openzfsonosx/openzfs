@@ -249,8 +249,10 @@ zfs_SOURCES = \
 	../../../icp/core/kcf_prov_lib.c \
 	../../../icp/spi/kcf_spi.c \
 	../../../icp/io/aes.c \
+	../../../icp/io/edonr_mod.c \
 	../../../icp/io/sha2_mod.c \
 	../../../icp/io/sha1_mod.c \
+	../../../icp/io/skein_mod.c \
 	../../../icp/os/modhash.c \
 	../../../icp/os/modconf.c \
 	../../../icp/algs/edonr/edonr.c \
@@ -270,6 +272,7 @@ zfs_SOURCES = \
 	../../../icp/algs/aes/aes_impl_x86-64.c \
 	../../../icp/algs/aes/aes_impl.c \
 	../../../icp/algs/aes/aes_modes.c \
+	../../../icp/illumos-crypto.c \
 	../../../lua/lapi.c \
 	../../../lua/lauxlib.c \
 	../../../lua/lbaselib.c \

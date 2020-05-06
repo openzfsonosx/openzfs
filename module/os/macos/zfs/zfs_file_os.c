@@ -79,20 +79,31 @@ zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
 	loff_t *off, ssize_t *resid)
 {
 	int error;
+	ssize_t local_resid = count;
 
 	/* If we came with a 'fd' use it, as it can handle pipes. */
 	if (fp->f_fd == FILE_FD_NOTUSED)
-		error = spl_vn_rdwr(UIO_WRITE, fp, (caddr_t)buf, count,
-		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
-		    kcred, resid);
-	else
 		error = zfs_vn_rdwr(UIO_WRITE, fp->f_vnode, (caddr_t)buf, count,
 		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
-		    kcred, resid);
+		    kcred, &local_resid);
+	else
+		error = spl_vn_rdwr(UIO_WRITE, fp, (caddr_t)buf, count,
+		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    kcred, &local_resid);
+
+	if (error != 0)
+		return (SET_ERROR(error));
 
 	fp->f_writes = 1;
-	*off += count - *resid;
-	return error;
+
+	if (resid != NULL)
+		*resid = local_resid;
+	else if (local_resid != 0)
+		return (SET_ERROR(EIO));
+
+	*off += count - local_resid;
+
+	return 0;
 }
 
 /*
@@ -142,21 +153,25 @@ zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off,
 	ssize_t *resid)
 {
 	int error;
+	ssize_t local_resid = count;
 
 	/* If we have realvp, it's faster to call its spl_vn_rdwr */
 	if (fp->f_fd == FILE_FD_NOTUSED)
-		error = spl_vn_rdwr(UIO_READ, fp, buf, count,
-		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
-		    kcred, resid);
-	else
 		error = zfs_vn_rdwr(UIO_READ, fp->f_vnode, buf, count,
 		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
-		    kcred, resid);
+		    kcred, &local_resid);
+	else
+		error = spl_vn_rdwr(UIO_READ, fp, buf, count,
+		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    kcred, &local_resid);
 
 	if (error)
 		return SET_ERROR(error);
 
-	*off += count - *resid;
+	*off += count - local_resid;
+	if (resid != NULL)
+		*resid = local_resid;
+
 	return SET_ERROR(0);
 }
 

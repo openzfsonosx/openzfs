@@ -71,33 +71,33 @@ typedef	int	fstrans_cookie_t;
 #define	spl_fstrans_mark()		(0)
 #define	spl_fstrans_unmark(x)	(x = 0)
 
-#define zuio_segflg(U)		(uio_isuserspace((U))?UIO_USERSPACE:UIO_SYSSPACE)
-#define	zuio_offset(U)		uio_offset((U))
-#define	zuio_resid(U)		uio_resid((U))
-#define	zuio_iovcnt(U)		uio_iovcnt((U))
-#define	zuio_update(U, N)	uio_update((U), (N))
-#define	zuio_nonemptyindex(U, O, I)							\
-	do {													\
-	uint64_t _len;											\
-	for ((I) = 0;											\
-	    !uio_getiov((U), (I), NULL, &_len) &&				\
-	    (I) < uio_iovcnt((U)) &&							\
-	    (O) >= _len;										\
-	    (O) -= _len, (I)++)									\
-		;													\
+#define zuio_segflg(U)		(uio_isuserspace((struct uio *)(U))?UIO_USERSPACE:UIO_SYSSPACE)
+#define	zuio_offset(U)		uio_offset((struct uio *)(U))
+#define	zuio_resid(U)		uio_resid((struct uio *)(U))
+#define	zuio_iovcnt(U)		uio_iovcnt((struct uio *)(U))
+#define	zuio_update(U, N)	uio_update((struct uio *)(U), (N))
+#define	zuio_nonemptyindex(U, O, I)									\
+	do {															\
+		uint64_t _len;												\
+		for ((I) = 0;												\
+		    !uio_getiov((struct uio *)(U), (I), NULL, &_len) &&		\
+		    (I) < uio_iovcnt((struct uio *)(U)) &&					\
+		    (O) >= _len;											\
+		    (O) -= _len, (I)++)										\
+			;														\
 	} while(0)
 
-static inline uint64_t zuio_iovlen(struct uio *u, uint_t i)
+static inline uint64_t zuio_iovlen(const struct uio *u, uint_t i)
 {
 	user_size_t iov_len;
-	VERIFY0(uio_getiov(u, i, NULL, &iov_len));
+	VERIFY0(uio_getiov((struct uio *)u, i, NULL, &iov_len));
 	return iov_len;
 }
 
-static inline void *zuio_iovbase(struct uio *u, uint_t i)
+static inline void *zuio_iovbase(const struct uio *u, uint_t i)
 {
 	user_addr_t iov_base;
-	VERIFY0(uio_getiov(u, i, &iov_base, NULL));
+	VERIFY0(uio_getiov((struct uio *)u, i, &iov_base, NULL));
 	return (void *)iov_base;
 }
 

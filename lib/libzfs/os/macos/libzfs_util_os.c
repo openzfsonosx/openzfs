@@ -201,3 +201,134 @@ zfs_version_kernel(char *version, int len)
 
 	return (0);
 }
+
+static int
+execvPe(const char *name, const char *path, char * const *argv,
+    char * const *envp)
+{
+	const char **memp;
+	size_t cnt, lp, ln;
+	int eacces, save_errno;
+	char *cur, buf[MAXPATHLEN];
+	const char *p, *bp;
+	struct stat sb;
+
+	eacces = 0;
+
+	/* If it's an absolute or relative path name, it's easy. */
+	if (strchr(name, '/')) {
+		bp = name;
+		cur = NULL;
+		goto retry;
+	}
+	bp = buf;
+
+	/* If it's an empty path name, fail in the usual POSIX way. */
+	if (*name == '\0') {
+		errno = ENOENT;
+		return (-1);
+	}
+
+	cur = alloca(strlen(path) + 1);
+	if (cur == NULL) {
+		errno = ENOMEM;
+		return (-1);
+	}
+	strcpy(cur, path);
+	while ((p = strsep(&cur, ":")) != NULL) {
+		/*
+		 * It's a SHELL path -- double, leading and trailing colons
+		 * mean the current directory.
+		 */
+		if (*p == '\0') {
+			p = ".";
+			lp = 1;
+		} else
+			lp = strlen(p);
+		ln = strlen(name);
+
+		/*
+		 * If the path is too long complain.  This is a possible
+		 * security issue; given a way to make the path too long
+		 * the user may execute the wrong program.
+		 */
+		if (lp + ln + 2 > sizeof (buf)) {
+			(void) write(STDERR_FILENO, "execvP: ", 8);
+			(void) write(STDERR_FILENO, p, lp);
+			(void) write(STDERR_FILENO, ": path too long\n",
+				16);
+			continue;
+		}
+		bcopy(p, buf, lp);
+		buf[lp] = '/';
+		bcopy(name, buf + lp + 1, ln);
+		buf[lp + ln + 1] = '\0';
+
+	  retry:          (void) execve(bp, argv, envp);
+		switch (errno) {
+			case E2BIG:
+				goto done;
+			case ELOOP:
+			case ENAMETOOLONG:
+			case ENOENT:
+				break;
+			case ENOEXEC:
+				for (cnt = 0; argv[cnt]; ++cnt)
+					;
+				memp = alloca((cnt + 2) * sizeof (char *));
+				if (memp == NULL) {
+					/* errno = ENOMEM; XXX override ENOEXEC? */
+					goto done;
+				}
+				memp[0] = "sh";
+				memp[1] = bp;
+				bcopy(argv + 1, memp + 2, cnt * sizeof (char *));
+				execve(_PATH_BSHELL, __DECONST(char **, memp), envp);
+				goto done;
+			case ENOMEM:
+				goto done;
+			case ENOTDIR:
+				break;
+			case ETXTBSY:
+				/*
+				 * We used to retry here, but sh(1) doesn't.
+				 */
+				goto done;
+			default:
+				/*
+				 * EACCES may be for an inaccessible directory or
+				 * a non-executable file.  Call stat() to decide
+				 * which.  This also handles ambiguities for EFAULT
+				 * and EIO, and undocumented errors like ESTALE.
+				 * We hope that the race for a stat() is unimportant.
+				 */
+				save_errno = errno;
+				if (stat(bp, &sb) != 0)
+					break;
+				if (save_errno == EACCES) {
+					eacces = 1;
+					continue;
+				}
+				errno = save_errno;
+				goto done;
+		}
+	}
+	if (eacces)
+		errno = EACCES;
+	else
+		errno = ENOENT;
+  done:
+	return (-1);
+}
+
+int
+execvpe(const char *name, char * const argv[], char * const envp[])
+{
+	const char *path;
+
+	/* Get the path we're searching. */
+	if ((path = getenv("PATH")) == NULL)
+		path = _PATH_DEFPATH;
+
+	return (execvPe(name, path, argv, envp));
+}

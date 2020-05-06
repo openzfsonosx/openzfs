@@ -19,6 +19,10 @@
  * CDDL HEADER END
  */
 
+/*
+ * Copyright (c) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
+ */
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/errno.h>
@@ -333,12 +337,26 @@ zfsdev_attach(void)
 		return (-1);
 	}
 
+	wrap_avl_init();
+	wrap_unicode_init();
+	wrap_nvpair_init();
+	wrap_zcommon_init();
+	wrap_icp_init();
+	wrap_lua_init();
+
 	return (0);
 }
 
 void
 zfsdev_detach(void)
 {
+	wrap_lua_fini();
+    wrap_icp_fini();
+    wrap_zcommon_fini();
+    wrap_nvpair_fini();
+    wrap_unicode_fini();
+    wrap_avl_fini();
+
 	if (zfs_devnode) {
 		devfs_remove(zfs_devnode);
 		zfs_devnode = NULL;

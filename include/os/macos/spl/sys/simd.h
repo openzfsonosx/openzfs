@@ -97,6 +97,9 @@ extern uint64_t spl_cpuid_leaf7_features(void);
 
 #endif
 
+#define	kfpu_init()		(0)
+#define	kfpu_fini()		do {} while (0)
+
 #define kfpu_begin()  ((void)0)
 #define kfpu_end()    ((void)0)
 

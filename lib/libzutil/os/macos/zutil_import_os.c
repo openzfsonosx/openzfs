@@ -270,45 +270,88 @@ zpool_default_search_paths(size_t *count)
 	return ((const char * const *)zpool_default_import_path);
 }
 
-/*
- * Given a full path to a device determine if that device appears in the
- * import search path.  If it does return the first match and store the
- * index in the passed 'order' variable, otherwise return an error.
- */
-static int
-zfs_path_order(char *name, int *order)
+int
+zpool_find_import_blkid(libpc_handle_t *hdl, pthread_mutex_t *lock,
+    avl_tree_t **slice_cache)
 {
-	int i = 0, error = ENOENT;
-	char *dir, *env, *envdup;
+	int i, dirs;
+	struct dirent *dp;
+	char path[MAXPATHLEN];
+	char *end, **dir;
+	size_t pathleft;
+	avl_index_t where;
+	rdsk_node_t *slice;
 
-	env = getenv("ZPOOL_IMPORT_PATH");
-	if (env) {
-		envdup = strdup(env);
-		dir = strtok(envdup, ":");
-		while (dir) {
-			if (strncmp(name, dir, strlen(dir)) == 0) {
-				*order = i;
-				error = 0;
-				break;
-			}
-			dir = strtok(NULL, ":");
-			i++;
+	dir = zpool_default_import_path;
+	dirs = DEFAULT_IMPORT_PATH_SIZE;
+
+	/*
+	 * Go through and read the label configuration information from every
+	 * possible device, organizing the information according to pool GUID
+	 * and toplevel GUID.
+	 */
+	for (i = 0; i < dirs; i++) {
+		char rdsk[MAXPATHLEN];
+		int dfd;
+		DIR *dirp;
+
+		/* use realpath to normalize the path */
+		if (realpath(dir[i], path) == 0) {
+
+			/* it is safe to skip missing search paths */
+			if (errno == ENOENT)
+				continue;
+
+			return EPERM;
 		}
-		free(envdup);
-	} else {
-		for (i = 0; i < DEFAULT_IMPORT_PATH_SIZE; i++) {
-			if (strncmp(name, zpool_default_import_path[i],
-			    strlen(zpool_default_import_path[i])) == 0) {
-				*order = i;
-				error = 0;
-				break;
-			}
+		end = &path[strlen(path)];
+		*end++ = '/';
+		*end = 0;
+		pathleft = &path[sizeof (path)] - end;
+
+		(void) strlcpy(rdsk, path, sizeof (rdsk));
+
+		if ((dfd = open(rdsk, O_RDONLY)) < 0 ||
+			(dirp = fdopendir(dfd)) == NULL) {
+			if (dfd >= 0)
+				(void) close(dfd);
+			return ENOENT;
 		}
+
+        *slice_cache = zutil_alloc(hdl, sizeof (avl_tree_t));
+		avl_create(*slice_cache, slice_cache_compare,
+			sizeof (rdsk_node_t), offsetof(rdsk_node_t, rn_node));
+
+		while ((dp = readdir(dirp)) != NULL) {
+			const char *name = dp->d_name;
+			if (name[0] == '.' &&
+				(name[1] == 0 || (name[1] == '.' && name[2] == 0)))
+				continue;
+
+			slice = zutil_alloc(hdl, sizeof (rdsk_node_t));
+			slice->rn_name = zutil_strdup(hdl, path);
+			slice->rn_vdev_guid = 0;
+			slice->rn_lock = lock;
+			slice->rn_avl = *slice_cache;
+			slice->rn_hdl = hdl;
+			slice->rn_labelpaths = B_FALSE;
+			slice->rn_order = IMPORT_ORDER_DEFAULT;
+
+			pthread_mutex_lock(lock);
+			if (avl_find(*slice_cache, slice, &where)) {
+				free(slice->rn_name);
+				free(slice);
+			} else {
+				avl_insert(*slice_cache, slice, where);
+			}
+			pthread_mutex_unlock(lock);
+		}
+
+		(void) closedir(dirp);
 	}
 
-	return (error);
+	return (0);
 }
-
 
 /*
  * Linux persistent device strings for vdev labels
@@ -321,185 +364,6 @@ typedef struct vdev_dev_strs {
 	char	vds_devphys[128];
 } vdev_dev_strs_t;
 
-#ifdef HAVE_LIBUDEV
-
-/*
- * Obtain the persistent device id string (describes what)
- *
- * used by ZED vdev matching for auto-{online,expand,replace}
- */
-int
-zfs_device_get_devid(struct udev_device *dev, char *bufptr, size_t buflen)
-{
-	struct udev_list_entry *entry;
-	const char *bus;
-	char devbyid[MAXPATHLEN];
-
-	/* The bus based by-id path is preferred */
-	bus = udev_device_get_property_value(dev, "ID_BUS");
-
-	if (bus == NULL) {
-		const char *dm_uuid;
-
-		/*
-		 * For multipath nodes use the persistent uuid based identifier
-		 *
-		 * Example: /dev/disk/by-id/dm-uuid-mpath-35000c5006304de3f
-		 */
-		dm_uuid = udev_device_get_property_value(dev, "DM_UUID");
-		if (dm_uuid != NULL) {
-			(void) snprintf(bufptr, buflen, "dm-uuid-%s", dm_uuid);
-			return (0);
-		}
-
-		/*
-		 * For volumes use the persistent /dev/zvol/dataset identifier
-		 */
-		entry = udev_device_get_devlinks_list_entry(dev);
-		while (entry != NULL) {
-			const char *name;
-
-			name = udev_list_entry_get_name(entry);
-			if (strncmp(name, ZVOL_ROOT, strlen(ZVOL_ROOT)) == 0) {
-				(void) strlcpy(bufptr, name, buflen);
-				return (0);
-			}
-			entry = udev_list_entry_get_next(entry);
-		}
-
-		/*
-		 * NVME 'by-id' symlinks are similar to bus case
-		 */
-		struct udev_device *parent;
-
-		parent = udev_device_get_parent_with_subsystem_devtype(dev,
-		    "nvme", NULL);
-		if (parent != NULL)
-			bus = "nvme";	/* continue with bus symlink search */
-		else
-			return (ENODATA);
-	}
-
-	/*
-	 * locate the bus specific by-id link
-	 */
-	(void) snprintf(devbyid, sizeof (devbyid), "%s%s-", DEV_BYID_PATH, bus);
-	entry = udev_device_get_devlinks_list_entry(dev);
-	while (entry != NULL) {
-		const char *name;
-
-		name = udev_list_entry_get_name(entry);
-		if (strncmp(name, devbyid, strlen(devbyid)) == 0) {
-			name += strlen(DEV_BYID_PATH);
-			(void) strlcpy(bufptr, name, buflen);
-			return (0);
-		}
-		entry = udev_list_entry_get_next(entry);
-	}
-
-	return (ENODATA);
-}
-
-/*
- * Obtain the persistent physical location string (describes where)
- *
- * used by ZED vdev matching for auto-{online,expand,replace}
- */
-int
-zfs_device_get_physical(struct udev_device *dev, char *bufptr, size_t buflen)
-{
-	const char *physpath = NULL;
-	struct udev_list_entry *entry;
-
-	/*
-	 * Normal disks use ID_PATH for their physical path.
-	 */
-	physpath = udev_device_get_property_value(dev, "ID_PATH");
-	if (physpath != NULL && strlen(physpath) > 0) {
-		(void) strlcpy(bufptr, physpath, buflen);
-		return (0);
-	}
-
-	/*
-	 * Device mapper devices are virtual and don't have a physical
-	 * path. For them we use ID_VDEV instead, which is setup via the
-	 * /etc/vdev_id.conf file.  ID_VDEV provides a persistent path
-	 * to a virtual device.  If you don't have vdev_id.conf setup,
-	 * you cannot use multipath autoreplace with device mapper.
-	 */
-	physpath = udev_device_get_property_value(dev, "ID_VDEV");
-	if (physpath != NULL && strlen(physpath) > 0) {
-		(void) strlcpy(bufptr, physpath, buflen);
-		return (0);
-	}
-
-	/*
-	 * For ZFS volumes use the persistent /dev/zvol/dataset identifier
-	 */
-	entry = udev_device_get_devlinks_list_entry(dev);
-	while (entry != NULL) {
-		physpath = udev_list_entry_get_name(entry);
-		if (strncmp(physpath, ZVOL_ROOT, strlen(ZVOL_ROOT)) == 0) {
-			(void) strlcpy(bufptr, physpath, buflen);
-			return (0);
-		}
-		entry = udev_list_entry_get_next(entry);
-	}
-
-	/*
-	 * For all other devices fallback to using the by-uuid name.
-	 */
-	entry = udev_device_get_devlinks_list_entry(dev);
-	while (entry != NULL) {
-		physpath = udev_list_entry_get_name(entry);
-		if (strncmp(physpath, "/dev/disk/by-uuid", 17) == 0) {
-			(void) strlcpy(bufptr, physpath, buflen);
-			return (0);
-		}
-		entry = udev_list_entry_get_next(entry);
-	}
-
-	return (ENODATA);
-}
-
-/*
- * A disk is considered a multipath whole disk when:
- *	DEVNAME key value has "dm-"
- *	DM_NAME key value has "mpath" prefix
- *	DM_UUID key exists
- *	ID_PART_TABLE_TYPE key does not exist or is not gpt
- */
-static boolean_t
-udev_mpath_whole_disk(struct udev_device *dev)
-{
-	const char *devname, *type, *uuid;
-
-	devname = udev_device_get_property_value(dev, "DEVNAME");
-	type = udev_device_get_property_value(dev, "ID_PART_TABLE_TYPE");
-	uuid = udev_device_get_property_value(dev, "DM_UUID");
-
-	if ((devname != NULL && strncmp(devname, "/dev/dm-", 8) == 0) &&
-	    ((type == NULL) || (strcmp(type, "gpt") != 0)) &&
-	    (uuid != NULL)) {
-		return (B_TRUE);
-	}
-
-	return (B_FALSE);
-}
-
-static int
-udev_device_is_ready(struct udev_device *dev)
-{
-#ifdef HAVE_LIBUDEV_UDEV_DEVICE_GET_IS_INITIALIZED
-	return (udev_device_get_is_initialized(dev));
-#else
-	/* wait for DEVLINKS property to be initialized */
-	return (udev_device_get_property_value(dev, "DEVLINKS") != NULL);
-#endif
-}
-
-#else
-
 /* ARGSUSED */
 int
 zfs_device_get_devid(struct udev_device *dev, char *bufptr, size_t buflen)
@@ -513,8 +377,6 @@ zfs_device_get_physical(struct udev_device *dev, char *bufptr, size_t buflen)
 {
 	return (ENODATA);
 }
-
-#endif /* HAVE_LIBUDEV */
 
 /*
  * Encode the persistent devices strings
@@ -524,73 +386,7 @@ static int
 encode_device_strings(const char *path, vdev_dev_strs_t *ds,
     boolean_t wholedisk)
 {
-#ifdef HAVE_LIBUDEV
-	struct udev *udev;
-	struct udev_device *dev = NULL;
-	char nodepath[MAXPATHLEN];
-	char *sysname;
-	int ret = ENODEV;
-	hrtime_t start;
-
-	if ((udev = udev_new()) == NULL)
-		return (ENXIO);
-
-	/* resolve path to a runtime device node instance */
-	if (realpath(path, nodepath) == NULL)
-		goto no_dev;
-
-	sysname = strrchr(nodepath, '/') + 1;
-
-	/*
-	 * Wait up to 3 seconds for udev to set up the device node context
-	 */
-	start = gethrtime();
-	do {
-		dev = udev_device_new_from_subsystem_sysname(udev, "block",
-		    sysname);
-		if (dev == NULL)
-			goto no_dev;
-		if (udev_device_is_ready(dev))
-			break;  /* udev ready */
-
-		udev_device_unref(dev);
-		dev = NULL;
-
-		if (NSEC2MSEC(gethrtime() - start) < 10)
-			(void) sched_yield();	/* yield/busy wait up to 10ms */
-		else
-			(void) usleep(10 * MILLISEC);
-
-	} while (NSEC2MSEC(gethrtime() - start) < (3 * MILLISEC));
-
-	if (dev == NULL)
-		goto no_dev;
-
-	/*
-	 * Only whole disks require extra device strings
-	 */
-	if (!wholedisk && !udev_mpath_whole_disk(dev))
-		goto no_dev;
-
-	ret = zfs_device_get_devid(dev, ds->vds_devid, sizeof (ds->vds_devid));
-	if (ret != 0)
-		goto no_dev_ref;
-
-	/* physical location string (optional) */
-	if (zfs_device_get_physical(dev, ds->vds_devphys,
-	    sizeof (ds->vds_devphys)) != 0) {
-		ds->vds_devphys[0] = '\0'; /* empty string --> not available */
-	}
-
-no_dev_ref:
-	udev_device_unref(dev);
-no_dev:
-	udev_unref(udev);
-
-	return (ret);
-#else
 	return (ENOENT);
-#endif
 }
 
 /*

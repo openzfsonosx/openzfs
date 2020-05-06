@@ -2039,6 +2039,9 @@ taskq_create_common(const char *name, int instance, int nthreads, pri_t pri,
 	uint_t bsize;	/* # of buckets - always power of 2 */
 	int max_nthreads;
 
+	/* There is a bug with DYNAMIC - disable for now */
+	flags &= ~TASKQ_DYNAMIC;
+
 	/*
 	 * TASKQ_DYNAMIC, TASKQ_CPR_SAFE and TASKQ_THREADS_CPU_PCT are all
 	 * mutually incompatible.

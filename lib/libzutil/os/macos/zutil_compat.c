@@ -35,9 +35,6 @@ zcmd_ioctl_compat(int fd, int request, zfs_cmd_t *zc, const int cflag)
 
 	switch (cflag) {
 	case ZFS_CMD_COMPAT_NONE:
-
-		fprintf(stderr, "sending ioctl %d to kernel\r\n", request);
-
 		ncmd = _IOWR('Z', request, zfs_iocparm_t);
 		zp.zfs_cmd = (uint64_t)zc;
 		zp.zfs_cmd_size = sizeof (zfs_cmd_t);
@@ -46,8 +43,6 @@ zcmd_ioctl_compat(int fd, int request, zfs_cmd_t *zc, const int cflag)
 
 		ret = ioctl(fd, ncmd, &zp);
 
-		fprintf(stderr, "ioctl rc %d / ioc_error %d\r\n",
-			ret, zp.zfs_ioc_error);
 		if (ret == 0) /* If ioctl worked, get actual rc from kernel */
 			ret = zp.zfs_ioc_error;
 

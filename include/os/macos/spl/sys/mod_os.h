@@ -22,6 +22,10 @@
 #ifndef _SPL_MOD_H
 #define	_SPL_MOD_H
 
+#define MODULE_INIT(s)
+#define MODULE_AUTHOR(s)
+#define MODULE_LICENSE(s)
+#define MODULE_VERSION(s)
 #define	ZFS_MODULE_DESCRIPTION(s)
 #define	ZFS_MODULE_AUTHOR(s)
 #define	ZFS_MODULE_LICENSE(s)
@@ -32,8 +36,20 @@
 #define __init __attribute__((unused))
 #define __exit __attribute__((unused))
 
-#define module_init(fn)
-#define module_exit(fn)
+/*
+ * The init/fini functions need to be called, but they are all static
+ */
+#define module_init(fn)	   \
+	int wrap_ ## fn(void)  \
+	{					   \
+		return fn();	   \
+	}
+
+#define module_exit(fn)	   \
+	void wrap_ ## fn(void) \
+	{					   \
+		fn();			   \
+	}
 
 #define	ZFS_MODULE_PARAM_ARGS	void
 
