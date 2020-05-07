@@ -211,7 +211,7 @@ zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
 
 	printf("copyin ok\n");
 
-	error = -zfsdev_ioctl_common(vecnum, zc);
+	error = zfsdev_ioctl_common(vecnum, zc);
 
 	printf("copyout.. %d\n", error);
 

@@ -58,7 +58,7 @@ extern int zfs_link_create(zfs_dirlock_t *, znode_t *, dmu_tx_t *, int);
 extern int zfs_link_destroy(zfs_dirlock_t *, znode_t *, dmu_tx_t *, int,
     boolean_t *);
 
-extern int zfs_dirlook(znode_t *, const char *name, znode_t **, int,
+extern int zfs_dirlook(znode_t *, char *name, znode_t **, int,
     int *deflg, pathname_t *rpnp);
 
 extern void zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,

@@ -2900,7 +2900,7 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp, __unused vfs_context_
 		if (zfsvfs->z_ctldir == NULL)
 			return ENOENT;
 		error = zfsctl_root_lookup(zfsvfs->z_ctldir, "snapshot", vpp,
-			NULL, 0, NULL, NULL, NULL, NULL, NULL);
+		    0, NULL, NULL, NULL);
 		ZFS_EXIT(zfsvfs);
 		return error;
 	}
