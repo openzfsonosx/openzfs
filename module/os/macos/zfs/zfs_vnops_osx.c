@@ -98,7 +98,7 @@ unsigned int zfs_vnop_create_negatives = 1;
 #undef dprintf
 #define	dprintf if (debug_vnop_osx_printf) printf
 //#define	dprintf if (debug_vnop_osx_printf) kprintf
-//#define dprintf kprintf
+#define dprintf printf
 
 //#define	dprintf(...) if (debug_vnop_osx_printf) {printf(__VA_ARGS__);delay(hz>>2);}
 
@@ -1160,6 +1160,8 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	char *filename = NULL;
 	int negative_cache = 0;
 	int filename_num_bytes = 0;
+	znode_t *zp = NULL;
+	int direntflags = 0;
 
 	*ap->a_vpp = NULL;	/* In case we return an error */
 
@@ -1171,8 +1173,6 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	if (cnp->cn_nameptr[cnp->cn_namelen] != 0) {
 		filename_num_bytes = cnp->cn_namelen + 1;
 		filename = (char*)kmem_alloc(filename_num_bytes, KM_SLEEP);
-		if (filename == NULL)
-			return (ENOMEM);
 		bcopy(cnp->cn_nameptr, filename, cnp->cn_namelen);
 		filename[cnp->cn_namelen] = '\0';
 	}
@@ -1207,9 +1207,6 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	dprintf("+vnop_lookup '%s' %s\n", filename ? filename : cnp->cn_nameptr,
 			negative_cache ? "negative_cache":"");
 
-	znode_t *zp = NULL;
-	int direntflags = 0;
-
 	error = zfs_lookup(VTOZ(ap->a_dvp), filename ? filename : cnp->cn_nameptr,
 	    &zp, /* flags */ 0, cr, &direntflags, cnp);
 	/* flags can be LOOKUP_XATTR | FIGNORECASE */
@@ -1238,10 +1235,13 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 
 exit:
 
-	if (error == 0) {
+	if (error == 0 && (zp != NULL)) {
+		printf("back with zp %p\n", zp);
+
 		*ap->a_vpp = ZTOV(zp);
 		zfs_cache_name(*ap->a_vpp, ap->a_dvp,
 					   filename ? filename : cnp->cn_nameptr);
+		VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(*ap->a_vpp)));
 	}
 
 	dprintf("-vnop_lookup %d : dvp %llu '%s'\n", error, VTOZ(ap->a_dvp)->z_id,
@@ -1529,6 +1529,10 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 		*ap->a_vpp = ZTOV(zp);
 		cache_purge_negatives(ap->a_dvp);
 		vnode_update_identity (*ap->a_vpp, ap->a_dvp, (const char *)ap->a_cnp->cn_nameptr, ap->a_cnp->cn_namelen, 0, VNODE_UPDATE_NAME);
+
+		VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(*ap->a_vpp)));
+
+
 	} else {
 		dprintf("%s error %d\n", __func__, error);
 	}
@@ -1671,6 +1675,7 @@ zfs_vnop_getattr(struct vnop_getattr_args *ap)
 	DECLARE_CRED_AND_CONTEXT(ap);
 
 	/* dprintf("+vnop_getattr zp %p vp %p\n", VTOZ(ap->a_vp), ap->a_vp); */
+	VERIFY3P(VTOZ(ap->a_vp)->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(ap->a_vp)));
 
 	error = zfs_getattr(ap->a_vp, ap->a_vap, /* flags */0, cr, ct);
 
@@ -3004,7 +3009,10 @@ zfs_vnop_inactive(struct vnop_inactive_args *ap)
 
 	zfsvfs = zp->z_zfsvfs;
 
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
+
 	if (vnode_isrecycled(ap->a_vp)) {
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
 		/*
 		 * We can not call inactive at this time, as we are inside
 		 * vnode_create()->vclean() path. But since we are only here to
@@ -3015,6 +3023,7 @@ zfs_vnop_inactive(struct vnop_inactive_args *ap)
 		 * node around for the syncing case
 		 */
 		rw_enter(&zfsvfs->z_teardown_inactive_lock, RW_READER);
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
 		if (zp->z_sa_hdl == NULL) {
 			/*
 			 * The fs has been unmounted, or we did a
@@ -3031,17 +3040,21 @@ zfs_vnop_inactive(struct vnop_inactive_args *ap)
 			 */
 			mutex_exit(&zp->z_lock);
 			rw_exit(&zfsvfs->z_teardown_inactive_lock);
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
 			return 0;
 		}
 		mutex_exit(&zp->z_lock);
 		rw_exit(&zfsvfs->z_teardown_inactive_lock);
 
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
 		return (0);
 	}
 
 
 	/* We can call it directly, huzzah! */
-	zfs_inactive(vp);
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
+	zfs_zinactive(zp);
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
 
 	/* dprintf("-vnop_inactive\n"); */
 	return (0);
@@ -3120,16 +3133,17 @@ zfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	 */
 	if (fastpath == B_FALSE) {
 		rw_enter(&zfsvfs->z_teardown_inactive_lock, RW_READER);
-		if (zp->z_sa_hdl == NULL)
+		if (zp->z_sa_hdl == NULL) {
 			zfs_znode_free(zp);
-		else
+		} else {
 			zfs_zinactive(zp);
+			zfs_znode_free(zp);
+		}
 		rw_exit(&zfsvfs->z_teardown_inactive_lock);
 	}
 
 	/* Direct zfs_remove? We are done */
 	if (fastpath == B_TRUE) goto out;
-
 
 #ifdef _KERNEL
 	atomic_inc_64(&vnop_num_reclaims);
@@ -4894,18 +4908,6 @@ zfs_znode_getvnode(znode_t *zp, zfsvfs_t *zfsvfs)
 	vfsp.vnfs_fsnode = zp;
 	vfsp.vnfs_flags = VNFS_ADDFSREF;
 
-	/*
-	 * XXX HACK - workaround missing vnode_setnoflush() KPI...
-	 */
-	/* Tag system files */
-#if 0
-	if ((zp->z_flags & ZFS_XATTR) &&
-	    (zfsvfs->z_last_unmount_time == 0xBADC0DE) &&
-	    (zfsvfs->z_last_mtime_synced == zp->z_parent)) {
-		vfsp.vnfs_marksystem = 1;
-	}
-#endif
-
 	/* Tag root directory */
 	if (zp->z_id == zfsvfs->z_root) {
 		vfsp.vnfs_markroot = 1;
@@ -4957,13 +4959,12 @@ zfs_znode_getvnode(znode_t *zp, zfsvfs_t *zfsvfs)
 	 * vnop_fsync(), which can create havok as we are already holding locks.
 	 */
 
-	/* So pageout can know if it is called recursively, add this thread to list*/
 	while (vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &vp) != 0) {
 		kpreempt(KPREEMPT_SYNC);
 	}
 	atomic_inc_64(&vnop_num_vnodes);
 
-	dprintf("Assigned zp %p with vp %p\n", zp, vp);
+	printf("Assigned zp %p with vp %p zfsvfs %p\n", zp, vp, zp->z_zfsvfs);
 
 	/*
 	 * Unfortunately, when it comes to IOCTL_GET_BOOT_INFO and getting

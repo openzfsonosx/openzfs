@@ -171,15 +171,11 @@ extern minor_t zfsdev_minor_alloc(void);
 /*
  * Macros for dealing with dmu_buf_hold
  */
-#define	ZFS_OBJ_HASH(obj_num)	((obj_num) & (ZFS_OBJ_MTX_SZ - 1))
-#define	ZFS_OBJ_MUTEX(zfsvfs, obj_num)	\
-	(&(zfsvfs)->z_hold_mtx[ZFS_OBJ_HASH(obj_num)])
-#define	ZFS_OBJ_HOLD_ENTER(zfsvfs, obj_num) \
-	mutex_enter(ZFS_OBJ_MUTEX((zfsvfs), (obj_num)))
-#define	ZFS_OBJ_HOLD_TRYENTER(zfsvfs, obj_num) \
-	mutex_tryenter(ZFS_OBJ_MUTEX((zfsvfs), (obj_num)))
-#define	ZFS_OBJ_HOLD_EXIT(zfsvfs, obj_num) \
-	mutex_exit(ZFS_OBJ_MUTEX((zfsvfs), (obj_num)))
+#define ZFS_OBJ_MTX_SZ				64
+#define ZFS_OBJ_MTX_MAX				(1024 * 1024)
+#define ZFS_OBJ_HASH(zfsvfs, obj)	((obj) & ((zfsvfs->z_hold_size) - 1))
+
+extern unsigned int zfs_object_mutex_size;
 
 /* Encode ZFS stored time values from a struct timespec */
 #define	ZFS_TIME_ENCODE(tp, stmp)		\

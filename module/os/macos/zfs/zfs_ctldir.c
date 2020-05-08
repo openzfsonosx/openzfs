@@ -92,6 +92,7 @@ zfsctl_destroy(zfsvfs_t *zfsvfs)
 struct vnode *
 zfsctl_root(znode_t *zp)
 {
+	return NULL;
 	return (zp->z_zfsvfs->z_ctldir);
 }
 

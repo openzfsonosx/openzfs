@@ -75,6 +75,7 @@ spl_panic(const char *file, const char *func, int line, const char *fmt, ...)
 	(void) vsnprintf(msg, sizeof (msg), fmt, ap);
 	va_end(ap);
 
+	printf("%s", msg);
 	panic("%s", msg);
 
 	/* Unreachable */

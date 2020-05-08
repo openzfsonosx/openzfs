@@ -74,6 +74,9 @@
 
 int zfs_vnop_force_formd_normalized_output = 0; /* disabled by default */
 
+#undef dprintf
+#define dprintf printf
+
 /*
  * Programming rules.
  *
@@ -1255,74 +1258,17 @@ zfs_lookup(znode_t *zdp, char *nm, znode_t **zpp, int flags,
 	zfsvfs_t *zfsvfs = ZTOZSB(zdp);
 	int error = 0;
 
-#if 0
-	/*
-	 * Fast path lookup, however we must skip DNLC lookup
-	 * for case folding or normalizing lookups because the
-	 * DNLC code only stores the passed in name.  This means
-	 * creating 'a' and removing 'A' on a case insensitive
-	 * file system would work, but DNLC still thinks 'a'
-	 * exists and won't let you create it again on the next
-	 * pass through fast path.
-	 */
-	if (!(flags & (LOOKUP_XATTR | FIGNORECASE))) {
-
-		if (!S_ISDIR(zdp->z_mode)) {
-			return (SET_ERROR(ENOTDIR));
-		} else if (zdp->z_sa_hdl == NULL) {
-			return (SET_ERROR(EIO));
-		}
-
-		if (nm[0] == 0 || (nm[0] == '.' && nm[1] == '\0')) {
-			error = zfs_fastaccesschk_execute(zdp, cr);
-			if (!error) {
-				*zpp = zdp;
-				zhold(*zpp);
-				return (0);
-			}
-			return (error);
-		}
-	}
-#endif
-
 	ZFS_ENTER(zfsvfs);
 	ZFS_VERIFY_ZP(zdp);
+
+	printf("%s enter\n", __func__);
 
 	*zpp = NULL;
 
 	/*
 	 * OsX has separate vnops for XATTR activity
 	 */
-#if 0
-	if (flags & LOOKUP_XATTR) {
-		/*
-		 * We don't allow recursive attributes..
-		 * Maybe someday we will.
-		 */
-		if (zdp->z_pflags & ZFS_XATTR) {
-			ZFS_EXIT(zfsvfs);
-			return (SET_ERROR(EINVAL));
-		}
 
-		if ((error = zfs_get_xattrdir(zdp, zpp, cr, flags))) {
-			ZFS_EXIT(zfsvfs);
-			return (error);
-		}
-
-		/*
-		 * Do we have permission to get into attribute directory?
-		 */
-
-		if ((error = zfs_zaccess(*zpp, ACE_EXECUTE, 0,
-		    B_FALSE, cr))) {
-			zrele(*zpp);
-			*zpp = NULL;
-		}
-
-		ZFS_EXIT(zfsvfs);
-		return (error);
-	}
-#endif
 
 	if (!S_ISDIR(zdp->z_mode)) {
 		ZFS_EXIT(zfsvfs);
@@ -1345,6 +1291,9 @@ zfs_lookup(znode_t *zdp, char *nm, znode_t **zpp, int flags,
 	}
 
 	error = zfs_dirlook(zdp, nm, zpp, flags, direntflags, realpnp);
+
+	printf("dirlook returned %d with zp %p\n",
+		error, error == 0 ? *zpp : NULL);
 
 	ZFS_EXIT(zfsvfs);
 	return (error);
@@ -2564,6 +2513,8 @@ zfs_getattr(vnode_t *vp, vattr_t *vap, int flags, cred_t *cr,
 	boolean_t skipaclchk = /*(flags & ATTR_NOACLCHECK) ? B_TRUE :*/ B_FALSE;
 	sa_bulk_attr_t bulk[4];
 	int count = 0;
+
+	VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(vp)));
 
 	ZFS_ENTER(zfsvfs);
 	ZFS_VERIFY_ZP(zp);

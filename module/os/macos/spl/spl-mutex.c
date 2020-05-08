@@ -22,7 +22,7 @@
 /*
  *
  * Copyright (C) 2008 MacZFS
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2013,2020 Jorgen Lundman <lundman@lundman.net>
  *
  */
 
@@ -131,6 +131,7 @@ int spl_mutex_subsystem_init(void)
 	list_create(&mutex_list, sizeof (struct leak),
 				offsetof(struct leak, mutex_leak_node));
 	lck_mtx_init((lck_mtx_t *)&mutex_list_mutex.m_lock, zfs_mutex_group, zfs_lock_attr);
+	mutex_list_mutex.m_initialised = MUTEX_INIT;
 
 	(void)thread_create(NULL, 0, spl_wdlist_check, 0, 0, 0, 0, 92);
 #endif
@@ -219,12 +220,19 @@ void spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type, void *ibc)
 {
     ASSERT(type != MUTEX_SPIN);
     ASSERT(ibc == NULL);
+
+#ifdef SPL_DEBUG_MUTEX
+	VERIFY3U(mp->m_initialised, !=, MUTEX_INIT);
+#endif
+
 	lck_mtx_init((lck_mtx_t *)&mp->m_lock, zfs_mutex_group, zfs_lock_attr);
     mp->m_owner = NULL;
 
 	atomic_inc_64(&zfs_active_mutex);
 
 #ifdef SPL_DEBUG_MUTEX
+	mp->m_initialised = MUTEX_INIT;
+
 	struct leak *leak;
 
 	MALLOC(leak, struct leak *,
@@ -253,6 +261,10 @@ void spl_mutex_destroy(kmutex_t *mp)
 {
     if (!mp) return;
 
+#ifdef SPL_DEBUG_MUTEX
+	VERIFY3U(mp->m_initialised, ==, MUTEX_INIT);
+#endif
+
 	if (mp->m_owner != 0) panic("SPL: releasing held mutex");
 
 	lck_mtx_destroy((lck_mtx_t *)&mp->m_lock, zfs_mutex_group);
@@ -260,6 +272,8 @@ void spl_mutex_destroy(kmutex_t *mp)
 	atomic_dec_64(&zfs_active_mutex);
 
 #ifdef SPL_DEBUG_MUTEX
+	mp->m_initialised = MUTEX_DESTROYED;
+
 	if (mp->leak) {
 		struct leak *leak = (struct leak *)mp->leak;
 		mutex_enter(&mutex_list_mutex);
@@ -279,6 +293,10 @@ void spl_mutex_enter(kmutex_t *mp, char *file, int line)
 void spl_mutex_enter(kmutex_t *mp)
 #endif
 {
+#ifdef SPL_DEBUG_MUTEX
+	VERIFY3U(mp->m_initialised, ==, MUTEX_INIT);
+#endif
+
     if (mp->m_owner == current_thread())
         panic("mutex_enter: locking against myself!");
 
@@ -311,6 +329,10 @@ void spl_mutex_exit(kmutex_t *mp)
 #endif
 
 #ifdef SPL_DEBUG_MUTEX
+	VERIFY3U(mp->m_initialised, ==, MUTEX_INIT);
+#endif
+
+#ifdef SPL_DEBUG_MUTEX
 	if (mp->leak) {
 		struct leak *leak = (struct leak *)mp->leak;
 		uint64_t locktime = leak->wdlist_locktime;
@@ -334,6 +356,10 @@ void spl_mutex_exit(kmutex_t *mp)
 int spl_mutex_tryenter(kmutex_t *mp)
 {
     int held;
+
+#ifdef SPL_DEBUG_MUTEX
+	VERIFY3U(mp->m_initialised, ==, MUTEX_INIT);
+#endif
 
     if (mp->m_owner == current_thread())
         panic("mutex_tryenter: locking against myself!");

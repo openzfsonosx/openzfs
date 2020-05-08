@@ -384,8 +384,12 @@ ddi_copyout(const void *from, void *to, size_t len, int flags)
 int ddi_copyinstr(const void *uaddr, void *kaddr, size_t len, size_t *done)
 {
 	int ret;
+	size_t local_done;
 
-	ret = copyinstr((user_addr_t)uaddr, kaddr, len, done);
+#undef copyinstr
+	ret = copyinstr((user_addr_t)uaddr, kaddr, len, &local_done);
+	if (done != NULL)
+		*done = local_done;
 	return ret;
 }
 

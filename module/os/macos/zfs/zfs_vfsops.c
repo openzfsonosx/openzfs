@@ -823,18 +823,31 @@ zfsvfs_create_impl(zfsvfs_t **zfvp, zfsvfs_t *zfsvfs, objset_t *os)
 	    offsetof(znode_t, z_link_node));
 
 	rrm_init(&zfsvfs->z_teardown_lock, B_FALSE);
+
+	printf("zfsvfs %p rrm_init of %p\n",
+		zfsvfs, &zfsvfs->z_teardown_lock);
+
 	rw_init(&zfsvfs->z_teardown_inactive_lock, NULL, RW_DEFAULT, NULL);
 	rw_init(&zfsvfs->z_fuid_lock, NULL, RW_DEFAULT, NULL);
-#ifdef __APPLE__
+
+	int size = MIN(1 << (highbit64(zfs_object_mutex_size) - 1),
+		ZFS_OBJ_MTX_MAX);
+	zfsvfs->z_hold_size = size;
+	zfsvfs->z_hold_trees = vmem_zalloc(sizeof (avl_tree_t) * size,
+		KM_SLEEP);
+	zfsvfs->z_hold_locks = vmem_zalloc(sizeof (kmutex_t) * size, KM_SLEEP);
+	for (int i = 0; i != size; i++) {
+		avl_create(&zfsvfs->z_hold_trees[i], zfs_znode_hold_compare,
+			sizeof (znode_hold_t), offsetof(znode_hold_t, zh_node));
+		mutex_init(&zfsvfs->z_hold_locks[i], NULL, MUTEX_DEFAULT, NULL);
+	}
+
 	rw_init(&zfsvfs->z_hardlinks_lock, NULL, RW_DEFAULT, NULL);
 	avl_create(&zfsvfs->z_hardlinks, hardlinks_compare,
 			   sizeof (hardlinks_t), offsetof(hardlinks_t, hl_node));
 	avl_create(&zfsvfs->z_hardlinks_linkid, hardlinks_compare_linkid,
 			   sizeof (hardlinks_t), offsetof(hardlinks_t, hl_node_linkid));
 	zfsvfs->z_rdonly = 0;
-#endif
-	for (int i = 0; i != ZFS_OBJ_MTX_SZ; i++)
-		mutex_init(&zfsvfs->z_hold_mtx[i], NULL, MUTEX_DEFAULT, NULL);
 
 	mutex_init(&zfsvfs->z_drain_lock, NULL, MUTEX_DEFAULT, NULL);
     cv_init(&zfsvfs->z_drain_cv, NULL, CV_DEFAULT, NULL);
@@ -952,16 +965,9 @@ extern krwlock_t zfsvfs_lock; /* in zfs_znode.c */
 void
 zfsvfs_free(zfsvfs_t *zfsvfs)
 {
-	int i;
+	int i, size = zfsvfs->z_hold_size;
+
     dprintf("+zfsvfs_free\n");
-	/*
-	 * This is a barrier to prevent the filesystem from going away in
-	 * zfs_znode_move() until we can safely ensure that the filesystem is
-	 * not unmounted. We consider the filesystem valid before the barrier
-	 * and invalid after the barrier.
-	 */
-	//rw_enter(&zfsvfs_lock, RW_READER);
-	//rw_exit(&zfsvfs_lock);
 
 	zfs_fuid_destroy(zfsvfs);
 
@@ -973,6 +979,12 @@ zfsvfs_free(zfsvfs_t *zfsvfs)
 	rrm_destroy(&zfsvfs->z_teardown_lock);
 	rw_destroy(&zfsvfs->z_teardown_inactive_lock);
 	rw_destroy(&zfsvfs->z_fuid_lock);
+
+	for (i = 0; i != size; i++) {
+		avl_destroy(&zfsvfs->z_hold_trees[i]);
+		mutex_destroy(&zfsvfs->z_hold_locks[i]);
+	}
+
 #ifdef __APPLE__
 	dprintf("ZFS: Unloading hardlink AVLtree: %lu\n",
 		   avl_numnodes(&zfsvfs->z_hardlinks));
@@ -988,8 +1000,7 @@ zfsvfs_free(zfsvfs_t *zfsvfs)
 	avl_destroy(&zfsvfs->z_hardlinks);
 	avl_destroy(&zfsvfs->z_hardlinks_linkid);
 #endif
-	for (i = 0; i != ZFS_OBJ_MTX_SZ; i++)
-		mutex_destroy(&zfsvfs->z_hold_mtx[i]);
+
 	kmem_free(zfsvfs, sizeof (zfsvfs_t));
     dprintf("-zfsvfs_free\n");
 }

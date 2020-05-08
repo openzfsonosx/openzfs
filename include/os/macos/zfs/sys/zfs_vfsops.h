@@ -142,10 +142,13 @@ struct zfsvfs {
 #endif
 	uint64_t	    z_replay_eof;	/* New end of file - replay only */
 	sa_attr_type_t  *z_attr_table;  /* SA attr mapping->id */
-#define ZFS_OBJ_MTX_SZ  256
-	kmutex_t        z_hold_mtx[ZFS_OBJ_MTX_SZ];     /* znode hold locks */
-};
 
+	uint64_t        z_hold_size;    /* znode hold array size */
+	avl_tree_t      *z_hold_trees;  /* znode hold trees */
+	kmutex_t        *z_hold_locks;  /* znode hold locks */
+	taskqid_t       z_drain_task;   /* task id for the unlink drain task */
+};
+#define	ZFS_OBJ_MTX_SZ	64
 
 #ifdef __APPLE__
 struct hardlinks_struct {

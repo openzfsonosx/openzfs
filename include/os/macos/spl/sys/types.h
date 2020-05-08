@@ -42,7 +42,7 @@
 extern "C" {
 #endif
 
-  extern unsigned long  strnlen(const char *, unsigned long);
+extern unsigned long  strnlen(const char *, unsigned long);
 
 #ifdef     __cplusplus
 }
@@ -50,10 +50,7 @@ extern "C" {
 
 #include <libkern/libkern.h>
 
-
 #include <sys/stropts.h>
-
-
 
 #if 0
 #ifndef HAVE_UINTPTR_T

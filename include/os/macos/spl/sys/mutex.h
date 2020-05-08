@@ -56,11 +56,15 @@ typedef enum {
  */
 typedef struct {
         uint32_t  opaque[4];
-} mutex_t;
+} wrapper_mutex_t;
 
 /* To enable watchdog to keep an eye on mutex being held for too long
  * define this debug variable.
  */
+
+#define SPL_DEBUG_MUTEX
+
+
 
 #ifdef SPL_DEBUG_MUTEX
 #define SPL_MUTEX_WATCHDOG_SLEEP   10 /* How long to sleep between checking */
@@ -76,11 +80,14 @@ typedef struct {
  */
 
 typedef struct kmutex {
-    void           *m_owner;
-	mutex_t m_lock;
+    void				*m_owner;
+	wrapper_mutex_t		m_lock;
 
 #ifdef SPL_DEBUG_MUTEX
-	void *leak;
+	void 				*leak;
+	uint64_t			m_initialised;
+#define MUTEX_INIT			0x123456789abcdef0ULL
+#define MUTEX_DESTROYED		0xaabbccddaabbccddULL
 #endif
 
 } kmutex_t;
@@ -114,7 +121,7 @@ void spl_mutex_enter(kmutex_t *mp, char *file, int line);
 void spl_mutex_enter(kmutex_t *mp);
 #endif
 
-#define	mutex_enter_nested(A,B)	spl_mutex_enter(A)
+#define	mutex_enter_nested(A,B)	mutex_enter(A)
 
 #define	mutex_destroy spl_mutex_destroy
 #define	mutex_exit spl_mutex_exit

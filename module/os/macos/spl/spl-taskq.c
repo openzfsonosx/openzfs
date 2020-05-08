@@ -28,7 +28,7 @@
  */
 
 /*
- * Copyright (C) 2015 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2015, 2020 Jorgen Lundman <lundman@lundman.net>
  */
 
 /*
@@ -861,12 +861,19 @@ spl_taskq_init(void)
 
 	list_create(&taskq_cpupct_list, sizeof (taskq_t),
 	    offsetof(taskq_t, tq_cpupct_link));
+
+	mutex_init(&taskq_kstat_lock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&taskq_d_kstat_lock, NULL, MUTEX_DEFAULT, NULL);
+
 	return 0;
 }
 
 void
 spl_taskq_fini(void)
 {
+	mutex_destroy(&taskq_d_kstat_lock);
+	mutex_destroy(&taskq_kstat_lock);
+
 	if (taskq_cache) {
 		kmem_cache_destroy(taskq_cache);
 		taskq_cache = NULL;
@@ -1361,15 +1368,23 @@ taskqid_t
 taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg,
     uint_t flags, clock_t expire_time)
 {
-    return taskq_dispatch(tq, func, arg, flags);
+	clock_t timo;
+
+	/* If it has already expired, just dispatch */
+	timo = expire_time - ddi_get_lbolt();
+	if (timo <= 0)
+		return (taskq_dispatch(tq, func, arg, flags));
+
+	/* Insert delayed code here: */
+    return 0;
 }
 
 void
 taskq_init_ent(taskq_ent_t *t)
 {
 	memset(t, 0, sizeof(*t));
+	taskq_ent_constructor(t, NULL, 0);
 }
-
 
 void
 taskq_dispatch_ent(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
@@ -1564,8 +1579,13 @@ taskq_of_curthread(void)
 int
 taskq_cancel_id(taskq_t *tq, taskqid_t id)
 {
-	/* Something goes in here */
-	return -1;
+	//taskq_t *task = (taskq_t *) id;
+
+	/* So we want to tell task to stop, and wait until it does */
+	if (!EMPTY_TASKQ(tq))
+		taskq_wait(tq);
+
+	return 0;
 }
 
 /*
@@ -2039,7 +2059,9 @@ taskq_create_common(const char *name, int instance, int nthreads, pri_t pri,
 	uint_t bsize;	/* # of buckets - always power of 2 */
 	int max_nthreads;
 
-	/* There is a bug with DYNAMIC - disable for now */
+	/* We are not allowed to use TASKQ_DYNAMIC with taskq_dispatch_ent()
+	 * but that is done by spa.c - so we will simply mask DYNAMIC out.
+	 */
 	flags &= ~TASKQ_DYNAMIC;
 
 	/*

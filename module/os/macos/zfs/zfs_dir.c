@@ -391,6 +391,7 @@ zfs_dirlook(znode_t *dzp, char *name, znode_t **zpp, int flags,
 	if (name[0] == 0 || (name[0] == '.' && name[1] == 0)) {
 		*zpp = dzp;
 		zhold(*zpp);
+		printf("%s 1\n", __func__);
 	} else if (name[0] == '.' && name[1] == '.' && name[2] == 0) {
 		zfsvfs_t *zfsvfs = ZTOZSB(dzp);
 
@@ -405,7 +406,9 @@ zfs_dirlook(znode_t *dzp, char *name, znode_t **zpp, int flags,
 		if (parent == dzp->z_id && zfsvfs->z_parent != zfsvfs) {
 			error = zfsctl_root_lookup(zfsvfs->z_parent->z_ctldir,
 			    "snapshot", &vp, 0, kcred, NULL, NULL);
-			*zpp = VTOZ(vp);
+			if (error == 0)
+				*zpp = VTOZ(vp);
+			printf("%s 2\n", __func__);
 			return (error);
 		}
 		rw_enter(&dzp->z_parent_lock, RW_READER);
@@ -413,9 +416,14 @@ zfs_dirlook(znode_t *dzp, char *name, znode_t **zpp, int flags,
 		if (error == 0)
 			*zpp = zp;
 		rw_exit(&dzp->z_parent_lock);
+		printf("%s 3\n", __func__);
 	} else if (zfs_has_ctldir(dzp) && strcmp(name, ZFS_CTLDIR_NAME) == 0) {
 		vp = zfsctl_root(dzp);
-		*zpp = VTOZ(vp);
+		if (vp != NULL)
+			*zpp = VTOZ(vp);
+		else
+			error = ENOENT;
+		printf("%s 4\n", __func__);
 	} else {
 		int zf;
 
@@ -428,6 +436,7 @@ zfs_dirlook(znode_t *dzp, char *name, znode_t **zpp, int flags,
 			*zpp = zp;
 			zfs_dirent_unlock(dl);
 			dzp->z_zn_prefetch = B_TRUE; /* enable prefetching */
+			printf("%s 5\n", __func__);
 		}
 		rpnp = NULL;
 	}
@@ -653,19 +662,20 @@ zfs_rmnode(znode_t *zp)
 	uint64_t	xattr_obj;
 	int		error;
 
-	ASSERT(ZTOI(zp)->i_nlink == 0);
-	ASSERT(atomic_read(&ZTOI(zp)->i_count) == 0);
+	printf("%s 1 %p\n", __func__, zp->z_zfsvfs);
 
 	/*
 	 * If this is an attribute directory, purge its contents.
 	 */
 	if (S_ISDIR(zp->z_mode) && (zp->z_pflags & ZFS_XATTR)) {
 		if (zfs_purgedir(zp) != 0) {
+			printf("%s 2 %p\n", __func__, zp->z_zfsvfs);
 			/*
 			 * Not enough space to delete some xattrs.
 			 * Leave it in the unlinked set.
 			 */
 			zfs_znode_dmu_fini(zp);
+			printf("%s 3 %p\n", __func__, zp->z_zfsvfs);
 
 			return;
 		}
@@ -680,12 +690,14 @@ zfs_rmnode(znode_t *zp)
 	 */
 	if (S_ISREG(zp->z_mode)) {
 		error = dmu_free_long_range(os, zp->z_id, 0, DMU_OBJECT_END);
+		printf("%s 4 %p\n", __func__, zp->z_zfsvfs);
 		if (error) {
 			/*
 			 * Not enough space or we were interrupted by unmount.
 			 * Leave the file in the unlinked set.
 			 */
 			zfs_znode_dmu_fini(zp);
+			printf("%s 5 %p\n", __func__, zp->z_zfsvfs);
 			return;
 		}
 	}
@@ -696,10 +708,12 @@ zfs_rmnode(znode_t *zp)
 	 */
 	error = sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zfsvfs),
 	    &xattr_obj, sizeof (xattr_obj));
+	printf("%s 6 %p\n", __func__, zp->z_zfsvfs);
 	if (error == 0 && xattr_obj) {
 		error = zfs_zget(zfsvfs, xattr_obj, &xzp);
 		ASSERT(error == 0);
 	}
+	printf("%s 7 %p\n", __func__, zp->z_zfsvfs);
 
 	acl_obj = zfs_external_acl(zp);
 
@@ -729,6 +743,7 @@ zfs_rmnode(znode_t *zp)
 		goto out;
 	}
 
+	printf("%s 8 %p\n", __func__, zp->z_zfsvfs);
 	if (xzp) {
 		ASSERT(error == 0);
 		mutex_enter(&xzp->z_lock);
@@ -737,9 +752,11 @@ zfs_rmnode(znode_t *zp)
 		VERIFY(0 == sa_update(xzp->z_sa_hdl, SA_ZPL_LINKS(zfsvfs),
 		    &xzp->z_links, sizeof (xzp->z_links), tx));
 		mutex_exit(&xzp->z_lock);
+		printf("%s 9 %p\n", __func__, zp->z_zfsvfs);
 		zfs_unlinked_add(xzp, tx);
 	}
 
+	printf("%s 10 %p\n", __func__, zp->z_zfsvfs);
 	mutex_enter(&os->os_dsl_dataset->ds_dir->dd_activity_lock);
 
 	/*
@@ -752,6 +769,7 @@ zfs_rmnode(znode_t *zp)
 	    zp->z_id, tx);
 	VERIFY(error == 0 || error == ENOENT);
 
+	printf("%s 11 %p\n", __func__, zp->z_zfsvfs);
 	uint64_t count;
 	if (zap_count(os, zfsvfs->z_unlinkedobj, &count) == 0 && count == 0) {
 		cv_broadcast(&os->os_dsl_dataset->ds_dir->dd_activity_cv);
@@ -759,6 +777,7 @@ zfs_rmnode(znode_t *zp)
 
 	mutex_exit(&os->os_dsl_dataset->ds_dir->dd_activity_lock);
 
+	printf("%s 12 %p\n", __func__, zp->z_zfsvfs);
 	zfs_znode_delete(zp, tx);
 
 	dmu_tx_commit(tx);
