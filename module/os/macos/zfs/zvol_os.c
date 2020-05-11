@@ -116,6 +116,19 @@ zvol_os_register_device(zvol_state_t *zv)
 		zvol_os_register_device_cb, zvr, 0, &zvr->ent);
 }
 
+/* Helper function for C++ */
+void zvol_os_lock_zv(zvol_state_t *zv)
+{
+	rw_enter(&zvol_state_lock, RW_READER);
+	mutex_enter(&zv->zv_state_lock);
+	rw_exit(&zvol_state_lock);
+}
+
+void zvol_os_unlock_zv(zvol_state_t *zv)
+{
+	mutex_exit(&zv->zv_state_lock);
+}
+
 int zvol_os_write(dev_t dev, struct uio *uio, int p)
 {
 

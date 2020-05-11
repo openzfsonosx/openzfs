@@ -56,6 +56,9 @@ extern int zvol_os_unmap(zvol_state_t *zv, uint64_t off, uint64_t bytes);
 extern void zvol_os_strategy(struct buf *bp);
 extern int zvol_os_get_volume_blocksize(dev_t dev);
 
+extern void zvol_os_lock_zv(zvol_state_t *zv);
+extern void zvol_os_unlock_zv(zvol_state_t *zv);
+
 extern int zvolRemoveDevice(zvol_iokit_t *iokitdev);
 extern int zvolCreateNewDevice(zvol_state_t *zv);
 extern int zvolRegisterDevice(zvol_state_t *zv);

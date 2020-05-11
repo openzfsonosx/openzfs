@@ -1443,6 +1443,9 @@ taskq_wait(taskq_t *tq)
 	ASSERT(tq != curthread->t_taskq);
 #endif
 
+	if (tq == NULL)
+		return;
+
 	mutex_enter(&tq->tq_lock);
 	while (tq->tq_task.tqent_next != &tq->tq_task || tq->tq_active != 0)
 		cv_wait(&tq->tq_wait_cv, &tq->tq_lock);
