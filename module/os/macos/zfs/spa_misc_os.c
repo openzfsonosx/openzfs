@@ -40,6 +40,9 @@
 #include <sys/dsl_scan.h>
 #include <sys/fs/zfs.h>
 #include <sys/kstat.h>
+#include <sys/ZFSPool.h>
+#include <sys/zfs_vfsops.h>
+#include <sys/zfs_boot.h>
 #include "zfs_prop.h"
 
 const char *
@@ -47,3 +50,49 @@ spa_history_zone(void)
 {
 	return ("macos");
 }
+
+void spa_create_os(void *arg)
+{
+	spa_t *spa = (spa_t *)arg;
+	int haslock = 0;
+	int error;
+
+	haslock = mutex_owned(&spa_namespace_lock);
+
+	/* Increase open refcount */
+	spa_open_ref(spa, FTAG);
+
+	if (haslock) {
+		mutex_exit(&spa_namespace_lock);
+	}
+
+	/* Create IOKit pool proxy */
+	if ((error = spa_iokit_pool_proxy_create(spa)) != 0) {
+		printf("%s spa_iokit_pool_proxy_create error %d\n",
+			__func__, error);
+		/* spa_create succeeded, ignore proxy error */
+	}
+
+	/* Cache vdev info, needs open ref above, and pool proxy */
+
+	if (error == 0 && (error = zfs_boot_update_bootinfo(spa)) != 0) {
+		printf("%s update_bootinfo error %d\n", __func__, error);
+		/* create succeeded, ignore error from bootinfo */
+	}
+
+	/* Drop open refcount */
+	if (haslock) {
+		mutex_enter(&spa_namespace_lock);
+	}
+
+	spa_close(spa, FTAG);
+}
+
+void spa_export_os(void *arg)
+{
+	spa_t *spa = (spa_t *)arg;
+
+	/* Remove IOKit pool proxy */
+	spa_iokit_pool_proxy_destroy(spa);
+}
+

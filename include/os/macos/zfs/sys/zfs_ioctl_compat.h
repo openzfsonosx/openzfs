@@ -191,6 +191,19 @@ nvlist_t *zfs_ioctl_compat_outnvl(zfs_cmd_t *, nvlist_t *, const int,
 void zfs_cmd_compat_get(zfs_cmd_t *, caddr_t, const int);
 void zfs_cmd_compat_put(zfs_cmd_t *, caddr_t, const int, const int);
 
+int	wrap_avl_init(void);
+int	wrap_unicode_init(void);
+int	wrap_nvpair_init(void);
+int	wrap_zcommon_init(void);
+int	wrap_icp_init(void);
+int	wrap_lua_init(void);
+void wrap_avl_fini(void);
+void wrap_unicode_fini(void);
+void wrap_nvpair_fini(void);
+void wrap_zcommon_fini(void);
+void wrap_icp_fini(void);
+void wrap_lua_fini(void);
+
 #ifdef	__cplusplus
 }
 #endif

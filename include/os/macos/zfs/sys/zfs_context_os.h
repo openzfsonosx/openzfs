@@ -207,6 +207,10 @@ extern void kx_qsort (void *array, size_t nm, size_t member_size,
 
 #define strstr kmem_strstr
 
+void spa_create_os(void *spa);
+void spa_export_os(void *spa);
+
+
 #endif // _KERNEL
 
 #endif

@@ -34,6 +34,7 @@
 #include <sys/zfs_ioctl.h>
 #include <sys/zfs_znode.h>
 #include <sys/zvol.h>
+#include <sys/zvol_os.h>
 #include <sys/zfs_boot.h>
 #include <sys/spa_impl.h>
 
@@ -46,7 +47,7 @@
 /*
  * ZVOL Device
  */
-
+#define DEBUG
 #if defined(DEBUG) || defined(ZFS_DEBUG)
 #ifdef	dprintf
 #undef	dprintf
@@ -80,11 +81,11 @@ bool
 net_lundman_zfs_zvol_device::init(zvol_state_t *c_zv,
     OSDictionary *properties)
 {
-//	zvol_iokit_t *iokitdev = NULL;
+	zvol_iokit_t *iokitdev = NULL;
 
 	dprintf("zvolIO_device:init\n");
-#if 0
-	if (!c_zv || c_zv->zv_iokitdev != NULL) {
+
+	if (!c_zv || c_zv->zv_zso->zvo_iokitdev != NULL) {
 		dprintf("zvol %s invalid c_zv\n", __func__);
 		return (false);
 	}
@@ -107,13 +108,13 @@ net_lundman_zfs_zvol_device::init(zvol_state_t *c_zv,
 	iokitdev->dev = this;
 
 	/* Assign to zv once completely initialized */
-	zv->zv_iokitdev = iokitdev;
+	zv->zv_zso->zvo_iokitdev = iokitdev;
 
 	/* Apply the name from the full dataset path */
 	if (strlen(zv->zv_name) != 0) {
 		setName(zv->zv_name);
 	}
-#endif
+
 	return (true);
 }
 
@@ -384,7 +385,7 @@ net_lundman_zfs_zvol_device::renameDevice(void)
 	deviceDict = 0;
 
 	/* Apply the name from the full dataset path */
-//	setName(zv->zv_name);
+	setName(zv->zv_name);
 
 	return (0);
 }
@@ -468,18 +469,18 @@ net_lundman_zfs_zvol_device::getBSDName(void)
 
 	IOLog("zvol: bsd name is '%s'\n",
 	    bsdnameosstr->getCStringNoCopy());
-#if 0
+
 	if (!zv)
 		return (-1);
 
-	zv->zv_bsdname[0] = 'r'; // for 'rdiskX'.
-	strlcpy(&zv->zv_bsdname[1],
+	zv->zv_zso->zvo_bsdname[0] = 'r'; // for 'rdiskX'.
+	strlcpy(&zv->zv_zso->zvo_bsdname[1],
 	    bsdnameosstr->getCStringNoCopy(),
-	    sizeof (zv->zv_bsdname)-1);
+	    sizeof (zv->zv_zso->zvo_bsdname)-1);
 	/*
-	 * IOLog("name assigned '%s'\n", zv->zv_bsdname);
+	 * IOLog("name assigned '%s'\n", zv->zv_zso->zvo_bsdname);
 	 */
-#endif
+
 	return (0);
 }
 
@@ -493,43 +494,37 @@ bool
 net_lundman_zfs_zvol_device::handleOpen(IOService *client,
     IOOptionBits options, void *argument)
 {
-//	IOStorageAccess access = ( uintptr_t )argument;
+	IOStorageAccess access = ( uintptr_t )argument;
 	bool ret = false;
-	int locked = 0;
 
 	if (super::handleOpen(client, options, argument) == false)
 		return (false);
 
-	if (!mutex_owned(&spa_namespace_lock)) {
-		mutex_enter(&spa_namespace_lock);
-		locked = 1;
-	}
-#if 0
 	if (access & kIOStorageAccessReaderWriter) {
-		zv->zv_openflags = FWRITE | ZVOL_EXCL;
+		zv->zv_zso->zvo_openflags = FWRITE | ZVOL_EXCL;
 	} else {
-		zv->zv_openflags = FREAD;
+		zv->zv_zso->zvo_openflags = FREAD;
 	}
 
-	if (zvol_open_impl(zv, zv->zv_openflags, 0, NULL) == 0) {
+	mutex_enter(&zv->zv_state_lock);
+
+	if (zvol_os_open_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL) == 0) {
 		ret = true;
 	} else {
-		zv->zv_openflags = FREAD;
-		if (zvol_open_impl(zv, FREAD /* ZVOL_EXCL */, 0, NULL) == 0)
+		zv->zv_zso->zvo_openflags = FREAD;
+		if (zvol_os_open_zv(zv, FREAD /* ZVOL_EXCL */, 0, NULL) == 0)
 			ret = true;
 	}
 
-	if (locked)
-		mutex_exit(&spa_namespace_lock);
-
+	mutex_exit(&zv->zv_state_lock);
 
 	dprintf("Open %s (openflags %llx)\n", (ret ? "done" : "failed"),
-		zv->zv_openflags);
+		zv->zv_zso->zvo_openflags);
 
 	if (ret == false) {
 		super::handleClose(client, options);
 	}
-#endif
+
 	return (ret);
 }
 
@@ -543,16 +538,9 @@ net_lundman_zfs_zvol_device::handleClose(IOService *client,
 
 	super::handleClose(client, options);
 
-	// IOLog("handleClose\n");
-	if (!mutex_owned(&spa_namespace_lock)) {
-		mutex_enter(&spa_namespace_lock);
-		locked = 1;
-	}
-
-//	zvol_close_impl(zv, zv->zv_openflags, 0, NULL);
-
-	if (locked)
-		mutex_exit(&spa_namespace_lock);
+	mutex_enter(&zv->zv_state_lock);
+	zvol_os_close_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL);
+	mutex_exit(&zv->zv_state_lock);
 
 }
 
@@ -561,8 +549,8 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
     IOMemoryDescriptor *buffer, UInt64 block, UInt64 nblks,
     IOStorageAttributes *attributes, IOStorageCompletion *completion)
 {
-//	IODirection direction;
-//	IOByteCount actualByteCount;
+	IODirection direction;
+	IOByteCount actualByteCount;
 #if 0
 	struct iomem *iomem = 0;
 	// struct io_context *context = 0;
@@ -576,7 +564,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 	struct iomem iomem;
 	iomem.buf = NULL;
 #endif
-#if 0
+
 	// Return errors for incoming I/O if we have been terminated.
 	if (isInactive() == true) {
 		dprintf("asyncReadWrite notActive fail\n");
@@ -640,7 +628,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 		if (zvol_read_iokit(zv, (block*(ZVOL_BSIZE)),
 		    actualByteCount, iomem)) {
 #else
-		if (zvol_read_iokit(zv, (block*(ZVOL_BSIZE)),
+		if (zvol_os_read_zv(zv, (block*(ZVOL_BSIZE)),
 		    actualByteCount, &iomem)) {
 #endif
 
@@ -653,7 +641,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 		if (zvol_write_iokit(zv, (block*(ZVOL_BSIZE)),
 		    actualByteCount, iomem)) {
 #else
-		if (zvol_write_iokit(zv, (block*(ZVOL_BSIZE)),
+		if (zvol_os_write_zv(zv, (block*(ZVOL_BSIZE)),
 		    actualByteCount, &iomem)) {
 #endif
 			actualByteCount = 0;
@@ -678,7 +666,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 	// Call the completion function.
 	(completion->action)(completion->target, completion->parameter,
 	    kIOReturnSuccess, actualByteCount);
-#endif
+
 	return (kIOReturnSuccess);
 }
 
@@ -695,11 +683,10 @@ net_lundman_zfs_zvol_device::doDiscard(UInt64 block, UInt64 nblks)
 	bytes =	nblks * ZVOL_BSIZE;
 	dprintf("calling zvol_unmap with offset, bytes (%llu, %llu)\n",
 	    off, bytes);
-#if 0
-	if (zvol_unmap(zv, off, bytes) == 0)
+
+	if (zvol_os_unmap(zv, off, bytes) == 0)
 		return (kIOReturnSuccess);
 	else
-#endif
 		return (kIOReturnError);
 }
 
@@ -988,20 +975,20 @@ zvolCreateNewDevice(zvol_state_t *zv)
 int
 zvolRegisterDevice(zvol_state_t *zv)
 {
-//	net_lundman_zfs_zvol_device *zvol;
-//	OSDictionary *matching;
-//	IOService *service = 0;
-//	IOMedia *media = 0;
-//	OSString *nameStr = 0, *bsdName = 0;
-//	uint64_t timeout = (5ULL * kSecondScale);
+	net_lundman_zfs_zvol_device *zvol;
+	OSDictionary *matching;
+	IOService *service = 0;
+	IOMedia *media = 0;
+	OSString *nameStr = 0, *bsdName = 0;
+	uint64_t timeout = (5ULL * kSecondScale);
 	bool ret = false;
-#if 0
-	if (!zv || !zv->zv_iokitdev || zv->zv_name[0] == 0) {
+
+	if (!zv || !zv->zv_zso->zvo_iokitdev || zv->zv_name[0] == 0) {
 		dprintf("%s missing zv, iokitdev, or name\n", __func__);
 		return (EINVAL);
 	}
 
-	if ((zvol = zv->zv_iokitdev->dev) == NULL) {
+	if ((zvol = zv->zv_zso->zvo_iokitdev->dev) == NULL) {
 		dprintf("%s couldn't get zvol device\n", __func__);
 		return (EINVAL);
 	}
@@ -1057,13 +1044,13 @@ zvolRegisterDevice(zvol_state_t *zv)
 		const char *str = bsdName->getCStringNoCopy();
 		dprintf("%s Got bsd name [%s]\n",
 		    __func__, str);
-		zv->zv_bsdname[0] = 'r';
-		snprintf(zv->zv_bsdname+1, sizeof(zv->zv_bsdname)-1,
+		zv->zv_zso->zvo_bsdname[0] = 'r';
+		snprintf(zv->zv_zso->zvo_bsdname+1, sizeof(zv->zv_zso->zvo_bsdname)-1,
 		    "%s", str);
 		dprintf("%s zvol bsdname set to %s\n", __func__,
-		    zv->zv_bsdname);
-		zvol_add_symlink(zv, zv->zv_bsdname+1,
-		    zv->zv_bsdname);
+		    zv->zv_zso->zvo_bsdname);
+//		zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname+1,
+//		    zv->zv_zso->zvo_bsdname);
 		ret = true;
 	} else {
 		dprintf("%s couldn't get BSD Name\n", __func__);
@@ -1071,7 +1058,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 
 	/* Release retain held by waitForMatchingService */
 	service->release();
-#endif
+
+	printf("%s complete\n", __func__);
 	return (ret);
 }
 
@@ -1123,15 +1111,15 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 int
 zvolRenameDevice(zvol_state_t *zv)
 {
-//	net_lundman_zfs_zvol_device *zvol = NULL;
-//	int error;
+	net_lundman_zfs_zvol_device *zvol = NULL;
+	int error;
 
 	if (!zv || strnlen(zv->zv_name, 1) == 0) {
 		dprintf("%s missing argument\n", __func__);
 		return (EINVAL);
 	}
-#if 0
-	if ((zvol = zv->zv_iokitdev->dev) == NULL) {
+
+	if ((zvol = zv->zv_zso->zvo_iokitdev->dev) == NULL) {
 		dprintf("%s couldn't get zvol device\n", __func__);
 		return (EINVAL);
 	}
@@ -1154,7 +1142,7 @@ zvolRenameDevice(zvol_state_t *zv)
 		dprintf("%s media reset failed\n", __func__);
 		return (ENXIO);
 	}
-#endif
+
 	return (0);
 }
 
@@ -1162,19 +1150,18 @@ zvolRenameDevice(zvol_state_t *zv)
 int
 zvolSetVolsize(zvol_state_t *zv)
 {
-//	net_lundman_zfs_zvol_device *zvol;
-//	int error;
+	net_lundman_zfs_zvol_device *zvol;
+	int error;
 
 	dprintf("%s\n", __func__);
 
-#if 0
-	if (!zv || !zv->zv_iokitdev) {
+	if (!zv || !zv->zv_zso->zvo_iokitdev) {
 		dprintf("%s invalid zvol\n", __func__);
 		return (EINVAL);
 	}
 
 	/* Cast to correct type */
-	if ((zvol = zv->zv_iokitdev->dev) == NULL) {
+	if ((zvol = zv->zv_zso->zvo_iokitdev->dev) == NULL) {
 		dprintf("%s couldn't cast IOKit handle\n", __func__);
 		return (ENXIO);
 	}
@@ -1188,7 +1175,6 @@ zvolSetVolsize(zvol_state_t *zv)
 		dprintf("%s refreshDevice error %d\n", __func__, error);
 		return (error);
 	}
-#endif
 
 	return (0);
 }
