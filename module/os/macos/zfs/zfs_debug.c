@@ -140,16 +140,19 @@ __dprintf(boolean_t dprint, const char *file, const char *func,
 
 	size += snprintf(NULL, 0, "%s%s:%d:%s(): ", prefix, newfile, line, func);
 
+	size++; /* null byte in the "buf" string */
+
 	/*
 	 * There is one byte of string in sizeof (zfs_dbgmsg_t), used
 	 * for the terminating null.
 	 */
 	buf = kmem_alloc(size, KM_SLEEP);
+	int roger = 0;
 
 	va_start(adx, fmt);
 	i = snprintf(buf, size + 1, "%s%s:%d:%s(): ",
 		prefix, newfile, line, func);
-	(void) vsnprintf(buf + i, size -i + 1, fmt, adx);
+	roger = vsnprintf(buf + i, size -i + 1, fmt, adx);
 	va_end(adx);
 
 	/*

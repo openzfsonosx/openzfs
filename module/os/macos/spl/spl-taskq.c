@@ -1383,7 +1383,6 @@ void
 taskq_init_ent(taskq_ent_t *t)
 {
 	memset(t, 0, sizeof(*t));
-	taskq_ent_constructor(t, NULL, 0);
 }
 
 void

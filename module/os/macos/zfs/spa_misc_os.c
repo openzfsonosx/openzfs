@@ -43,6 +43,8 @@
 #include <sys/ZFSPool.h>
 #include <sys/zfs_vfsops.h>
 #include <sys/zfs_boot.h>
+#include <libkern/OSKextLib.h>
+
 #include "zfs_prop.h"
 
 const char *
@@ -96,3 +98,15 @@ void spa_export_os(void *arg)
 	spa_iokit_pool_proxy_destroy(spa);
 }
 
+void spa_activate_os(void *arg)
+{
+	/* spa_t *spa = (spa_t *)arg; */
+	/* Lock kext in kernel while mounted */
+	OSKextRetainKextWithLoadTag(OSKextGetCurrentLoadTag());
+}
+
+void spa_deactivate_os(void *arg)
+{
+	/* spa_t *spa = (spa_t *)arg; */
+	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
+}

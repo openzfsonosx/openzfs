@@ -41,7 +41,6 @@
 #include <sys/zvol_os.h>
 
 static uint32_t zvol_major = ZVOL_MAJOR;
-static uint32_t zvol_minors = 1;
 
 unsigned int zvol_request_sync = 0;
 unsigned int zvol_prefetch_bytes = (128 * 1024);
@@ -131,12 +130,12 @@ void zvol_os_unlock_zv(zvol_state_t *zv)
 
 int zvol_os_write(dev_t dev, struct uio *uio, int p)
 {
-
+	return ENOTSUP;
 }
 
 int zvol_os_read(dev_t dev, struct uio *uio, int p)
 {
-
+	return ENOTSUP;
 }
 
 int
@@ -507,10 +506,8 @@ zvol_os_create_minor(const char *name)
 	objset_t *os;
 	dmu_object_info_t *doi;
 	uint64_t volsize;
-	uint64_t len;
 	unsigned minor = 0;
 	int error = 0;
-	int idx;
 	uint64_t hash = zvol_name_hash(name);
 
 	printf("%s\n", __func__);
