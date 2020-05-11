@@ -128,3 +128,13 @@ is_mpath_whole_disk(const char *path)
 {
 	return (B_FALSE);
 }
+
+/*
+ * Return B_TRUE if device is a device mapper or multipath device.
+ * Return B_FALSE if not.
+ */
+boolean_t
+zfs_dev_is_dm(const char *dev_name)
+{
+	return (B_FALSE);
+}
