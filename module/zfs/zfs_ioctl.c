@@ -7333,6 +7333,7 @@ zfsdev_ioctl_common(uint_t vecnum, zfs_cmd_t *zc)
 	int error, cmd, flag = 0;
 	const zfs_ioc_vec_t *vec;
 	char *saved_poolname = NULL;
+	size_t saved_poolname_len = 0;
 	nvlist_t *innvl = NULL;
 	fstrans_cookie_t cookie;
 
@@ -7432,11 +7433,22 @@ zfsdev_ioctl_common(uint_t vecnum, zfs_cmd_t *zc)
 		goto out;
 
 	/* legacy ioctls can modify zc_name */
-	saved_poolname = kmem_strdup(zc->zc_name);
+	/*
+	 * Can't use kmem_strup() as we might truncate the string and
+	 * kmem_strfree() would then free with incorrect size.
+	 * Further complicated by that it is used with tsd_set() and
+	 * freed over in zfs_ioc_log_history(kmem_strfree()) so the
+	 * size of saved_poolname has to be the exact truncated version
+	 */
+	saved_poolname_len = strlen(zc->zc_name) + 1;
+	saved_poolname = kmem_alloc(saved_poolname_len, KM_SLEEP);
+
+	/* All platforms use KM_SLEEP so NULL shouldn't happen? */
 	if (saved_poolname == NULL) {
 		error = SET_ERROR(ENOMEM);
 		goto out;
 	} else {
+		strlcpy(saved_poolname, zc->zc_name, saved_poolname_len);
 		saved_poolname[strcspn(saved_poolname, "/@#")] = '\0';
 	}
 
@@ -7515,11 +7527,11 @@ out:
 		char *s = tsd_get(zfs_allow_log_key);
 		if (s != NULL)
 			kmem_strfree(s);
-		(void) tsd_set(zfs_allow_log_key, saved_poolname);
-	} else {
-		if (saved_poolname != NULL)
-			kmem_strfree(saved_poolname);
+		(void) tsd_set(zfs_allow_log_key, kmem_strdup(saved_poolname));
 	}
+	if (saved_poolname != NULL)
+		kmem_free(saved_poolname, saved_poolname_len);
+
 	return (error);
 }
 
