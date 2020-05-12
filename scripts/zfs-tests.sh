@@ -323,6 +323,8 @@ constrain_path() {
 		ln -fs /usr/local/bin/ksh93 "$STF_PATH/ksh"
 	elif [ "$UNAME" = "Darwin" ] ; then
 		ln -fs /bin/ksh "$STF_PATH/ksh"
+		ln -fs /sbin/fsck_hfs "$STF_PATH/fsck"
+		ln -fs /sbin/newfs_hfs "$STF_PATH/newfs"
 	fi
 
 	if [ -L "$STF_PATH/arc_summary3" ]; then
@@ -729,6 +731,9 @@ elif [ "$UNAME" = "Darwin" ] ; then
 	mkdir -p "$FILEDIR" || true
 	RESULTS_FILE=$(mktemp -u "${FILEDIR}/zts-results.XXXX")
 	REPORT_FILE=$(mktemp -u "${FILEDIR}/zts-report.XXXX")
+	# This feels a little hacky, better way?
+	DYLD_LIBRARY_PATH=$STF_SUITE/cmd/librt/.libs:$DYLD_LIBRARY_PATH
+	export DYLD_LIBRARY_PATH
 else
 	RESULTS_FILE=$(mktemp -u -t zts-results.XXXX -p "$FILEDIR")
 	REPORT_FILE=$(mktemp -u -t zts-report.XXXX -p "$FILEDIR")

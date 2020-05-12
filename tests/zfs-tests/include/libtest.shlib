@@ -1686,7 +1686,7 @@ function setup_nfs_server
 #
 function is_global_zone
 {
-	if is_linux || is_freebsd; then
+	if is_linux || is_freebsd || is_macos; then
 		return 0
 	else
 		typeset cur_zone=$(zonename 2>/dev/null)
@@ -4076,6 +4076,8 @@ function md5digest
 
 	case $(uname) in
 	FreeBSD)
+		md5 -q $file
+		;;
 	Darwin)
 		md5 -q $file
 		;;
@@ -4127,6 +4129,8 @@ function stat_size #<path>
 
 	case $(uname) in
 	FreeBSD)
+		stat -f %z "$path"
+		;;
 	Darwin)
 		stat -f %z "$path"
 		;;
@@ -4261,6 +4265,8 @@ function get_arcstat # stat
 	typeset stat=$1
 	case $(uname) in
 	FreeBSD)
+		sysctl -n kstat.zfs.misc.arcstats.$stat
+		;;
 	Darwin)
 		sysctl -n kstat.zfs.misc.arcstats.$stat
 		;;
