@@ -54,6 +54,10 @@ if [ "$UNAME" = "FreeBSD" ] ; then
 	TESTFAIL_CALLBACKS=${TESTFAIL_CALLBACKS:-"$ZFS_DMESG"}
 	LOSETUP=/sbin/mdconfig
 	DMSETUP=/sbin/gpart
+elif [ "$UNAME" = "Darwin" ] ; then
+	TESTFAIL_CALLBACKS=${TESTFAIL_CALLBACKS:-"$ZFS_DMESG"}
+	LOSETUP=/usr/bin/hdiutil
+	DMSETUP=/sbin/something2
 else
 	ZFS_MMP="$STF_SUITE/callbacks/zfs_mmp.ksh"
 	TESTFAIL_CALLBACKS=${TESTFAIL_CALLBACKS:-"$ZFS_DBGMSG:$ZFS_DMESG:$ZFS_MMP"}
@@ -83,6 +87,15 @@ cleanup_freebsd_loopback() {
 	for TEST_LOOPBACK in ${LOOPBACKS}; do
 		if [ -c "/dev/${TEST_LOOPBACK}" ]; then
 			sudo "${LOSETUP}" -d -u "${TEST_LOOPBACK}" ||
+			    echo "Failed to destroy: ${TEST_LOOPBACK}"
+		fi
+	done
+}
+
+cleanup_macos_loopback() {
+	for TEST_LOOPBACK in ${LOOPBACKS}; do
+		if [ -b "${TEST_LOOPBACK}" ]; then
+			sudo "${LOSETUP}" detach "${TEST_LOOPBACK}" ||
 			    echo "Failed to destroy: ${TEST_LOOPBACK}"
 		fi
 	done
@@ -120,6 +133,8 @@ cleanup() {
 	if [ "$LOOPBACK" = "yes" ]; then
 		if [ "$UNAME" = "FreeBSD" ] ; then
 			cleanup_freebsd_loopback
+		elif [ "$UNAME" = "Darwin" ] ; then
+			cleanup_macos_loopback
 		else
 			cleanup_linux_loopback
 		fi
@@ -147,6 +162,8 @@ cleanup_all() {
 	local TEST_LOOPBACKS
 	if [ "$UNAME" = "FreeBSD" ] ; then
 		TEST_LOOPBACKS=$(sudo "${LOSETUP}" -l)
+	elif [ "$UNAME" = "Darwin" ] ; then
+		TEST_LOOPBACKS=$(sudo "${LOSETUP}" info|grep /dev/disk)
 	else
 		TEST_LOOPBACKS=$(sudo "${LOSETUP}" -a|grep file-vdev|cut -f1 -d:)
 	fi
@@ -170,6 +187,8 @@ cleanup_all() {
 	for TEST_LOOPBACK in $TEST_LOOPBACKS; do
 		if [ "$UNAME" = "FreeBSD" ] ; then
 			sudo "${LOSETUP}" -d -u "${TEST_LOOPBACK}"
+		elif [ "$UNAME" = "Darwin" ] ; then
+			sudo "${LOSETUP}" detach "${TEST_LOOPBACK}"
 		else
 			sudo "${LOSETUP}" -d "${TEST_LOOPBACK}"
 		fi
@@ -284,6 +303,8 @@ constrain_path() {
 	SYSTEM_FILES="$SYSTEM_FILES_COMMON"
 	if [ "$UNAME" = "FreeBSD" ] ; then
 		SYSTEM_FILES+=" $SYSTEM_FILES_FREEBSD"
+	elif [ "$UNAME" = "Darwin" ] ; then
+		SYSTEM_FILES+=" $SYSTEM_FILES_MACOS"
 	else
 		SYSTEM_FILES+=" $SYSTEM_FILES_LINUX"
 	fi
@@ -300,6 +321,11 @@ constrain_path() {
 		ln -fs "$STF_PATH/exportfs" "$STF_PATH/unshare"
 	elif [ "$UNAME" = "FreeBSD" ] ; then
 		ln -fs /usr/local/bin/ksh93 "$STF_PATH/ksh"
+	elif [ "$UNAME" = "Darwin" ] ; then
+		ln -fs /bin/ksh "$STF_PATH/ksh"
+		ln -fs /sbin/fsck_hfs "$STF_PATH/fsck"
+		ln -fs /sbin/newfs_hfs "$STF_PATH/newfs"
+		ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
 	fi
 
 	if [ -L "$STF_PATH/arc_summary3" ]; then
@@ -594,8 +620,15 @@ if [ -z "${DISKS}" ]; then
 	#
 	for TEST_FILE in ${FILES}; do
 		[ -f "$TEST_FILE" ] && fail "Failed file exists: ${TEST_FILE}"
-		truncate -s "${FILESIZE}" "${TEST_FILE}" ||
-		    fail "Failed creating: ${TEST_FILE} ($?)"
+
+		if [ "$UNAME" = "Darwin" ] ; then
+			mkfile -n "${FILESIZE}" "${TEST_FILE}" ||
+		    	fail "Failed creating: ${TEST_FILE} ($?)"
+		else
+			truncate -s "${FILESIZE}" "${TEST_FILE}" ||
+		    	fail "Failed creating: ${TEST_FILE} ($?)"
+		fi
+
 		if [[ "$DISKS" ]]; then
 			DISKS="$DISKS $TEST_FILE"
 		else
@@ -614,6 +647,17 @@ if [ -z "${DISKS}" ]; then
 		for TEST_FILE in ${FILES}; do
 			if [ "$UNAME" = "FreeBSD" ] ; then
 				MDDEVICE=$(sudo "${LOSETUP}" -a -t vnode -f "${TEST_FILE}")
+				if [ -z "$MDDEVICE" ] ; then
+					fail "Failed: ${TEST_FILE} -> loopback"
+				fi
+				LOOPBACKS="${LOOPBACKS}${MDDEVICE} "
+				if [[ "$DISKS" ]]; then
+					DISKS="$DISKS $MDDEVICE"
+				else
+					DISKS="$MDDEVICE"
+				fi
+			elif [ "$UNAME" = "Darwin" ] ; then
+				MDDEVICE=$(sudo "${LOSETUP}" attach -imagekey diskimage-class=CRawDiskImage -nomount "${TEST_FILE}")
 				if [ -z "$MDDEVICE" ] ; then
 					fail "Failed: ${TEST_FILE} -> loopback"
 				fi
@@ -684,6 +728,16 @@ if [ "$UNAME" = "FreeBSD" ] ; then
 	mkdir -p "$FILEDIR" || true
 	RESULTS_FILE=$(mktemp -u "${FILEDIR}/zts-results.XXXX")
 	REPORT_FILE=$(mktemp -u "${FILEDIR}/zts-report.XXXX")
+elif [ "$UNAME" = "Darwin" ] ; then
+	mkdir -p "$FILEDIR" || true
+	RESULTS_FILE=$(mktemp -u "${FILEDIR}/zts-results.XXXX")
+	REPORT_FILE=$(mktemp -u "${FILEDIR}/zts-report.XXXX")
+	# This feels a little hacky, better way?
+	DYLD_LIBRARY_PATH=$STF_SUITE/cmd/librt/.libs:$DYLD_LIBRARY_PATH
+	export DYLD_LIBRARY_PATH
+	# Tell ZFS to not to use /Volumes
+	__ZFS_MAIN_MOUNTPOINT_DIR=/
+	export __ZFS_MAIN_MOUNTPOINT_DIR
 else
 	RESULTS_FILE=$(mktemp -u -t zts-results.XXXX -p "$FILEDIR")
 	REPORT_FILE=$(mktemp -u -t zts-report.XXXX -p "$FILEDIR")
