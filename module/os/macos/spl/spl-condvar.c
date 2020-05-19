@@ -101,9 +101,12 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 
 	timenow = zfs_lbolt();
 
-	// Check for events already in the past
-	if (tim < timenow)
-		return -1; // timedout
+	/* Check for events already in the past
+	 * change it to small wait, so we don't spin without
+	 * ever releasing the mutex */
+	if (tim < timenow) {
+		tim = 1000;
+	}
 
 	// Compute the delta
 	tim = tim - timenow;
@@ -112,7 +115,8 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 	ts.tv_sec = (tim / hz);
     ts.tv_nsec = (tim % hz) * NSEC_PER_SEC / hz;
 
-	// Both sec and nsec zero is a blocking call. (Not poll)
+	// Both sec and nsec zero is a blocking call in XNU. (Not poll)
+	// So we need to change it to be poll()ish.
 	if (ts.tv_sec == 0 &&
 		ts.tv_nsec == 0)
 		ts.tv_nsec = 1000;
@@ -125,6 +129,8 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, 0);
 #endif
+
+again:
     mp->m_owner = NULL;
     result = msleep(cvp, (lck_mtx_t *)&mp->m_lock, flags, msg, &ts);
 
@@ -134,7 +140,23 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, gethrestime_sec());
 #endif
-	return (result == EWOULDBLOCK ? -1 : 0);
+
+	switch(result) {
+
+		case EINTR:			/* Signal */
+			/* Return time remaining, nobody is using that yet - so
+			 * we just need to return a positive number: this is only
+			 * triggered if (flags&PCATCH) */
+			return 1;
+
+		case ERESTART:		/* Unrelated return, we should loop */
+			goto again;
+
+		case EWOULDBLOCK:	/* Timeout */
+			return -1;
+	}
+
+	return (0);
 }
 
 
@@ -160,13 +182,24 @@ cv_timedwait_hires(kcondvar_t *cvp, kmutex_t *mp, hrtime_t tim,
 
     if ((flag & CALLOUT_FLAG_ABSOLUTE)) {
 		time_left = tim - gethrtime();
-		if (time_left <= 0)
-			return (-1);
+
+		/* Check for events already in the past
+		 * change it to small wait, so we don't spin without
+		 * ever releasing the mutex */
+		if (time_left <= 1000) {
+			time_left = 1000;
+		}
 		tim = time_left;
 	}
 
     ts.tv_sec = 0;
     ts.tv_nsec = tim;
+
+	// Both sec and nsec zero is a blocking call in XNU. (Not poll)
+	// So we need to change it to be poll()ish.
+	if (ts.tv_sec == 0 &&
+		ts.tv_nsec == 0)
+		ts.tv_nsec = 1000;
 
     if (ts.tv_nsec <= 100) {
 		printf("cv_timedwait_hires: warning, sleep is less that 100nsec %lds\n",
@@ -183,13 +216,33 @@ cv_timedwait_hires(kcondvar_t *cvp, kmutex_t *mp, hrtime_t tim,
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, 0);
 #endif
+
+again:
+
     mp->m_owner = NULL;
-    result = msleep(cvp, (lck_mtx_t *)&mp->m_lock, PRIBIO, "cv_timedwait_hires", &ts);
+    result = msleep(cvp, (lck_mtx_t *)&mp->m_lock,
+		flag, "cv_timedwait_hires", &ts);
     mp->m_owner = current_thread();
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, gethrestime_sec());
 #endif
 
-    return (result == EWOULDBLOCK ? -1 : 0);
+
+	switch(result) {
+
+		case EINTR:			/* Signal */
+			/* Return time remaining, nobody is using that yet - so
+			 * we just need to return a positive number: this is only
+			 * triggered if (flags&PCATCH) */
+			return 1;
+
+		case ERESTART:		/* Unrelated return, we should loop */
+			goto again;
+
+		case EWOULDBLOCK:	/* Timeout */
+			return -1;
+	}
+
+    return 0;
 
 }
