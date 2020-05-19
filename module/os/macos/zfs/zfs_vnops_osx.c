@@ -128,19 +128,8 @@ static struct vfsops zfs_vfsops_template = {
 	{NULL}
 #endif
 };
-extern struct vnodeopv_desc zfs_dvnodeop_opv_desc;
-extern struct vnodeopv_desc zfs_fvnodeop_opv_desc;
-extern struct vnodeopv_desc zfs_symvnodeop_opv_desc;
-extern struct vnodeopv_desc zfs_xdvnodeop_opv_desc;
-extern struct vnodeopv_desc zfs_evnodeop_opv_desc;
-extern struct vnodeopv_desc zfs_fifonodeop_opv_desc;
 
-extern struct vnodeopv_desc zfsctl_ops_root;
-extern struct vnodeopv_desc zfsctl_ops_snapdir;
-extern struct vnodeopv_desc zfsctl_ops_snapshot;
-
-#define	ZFS_VNOP_TBL_CNT	5
-
+#define	ZFS_VNOP_TBL_CNT	6
 
 static struct vnodeopv_desc *zfs_vnodeop_opv_desc_list[ZFS_VNOP_TBL_CNT] =
 {
@@ -148,11 +137,8 @@ static struct vnodeopv_desc *zfs_vnodeop_opv_desc_list[ZFS_VNOP_TBL_CNT] =
 	&zfs_fvnodeop_opv_desc,
 	&zfs_symvnodeop_opv_desc,
 	&zfs_xdvnodeop_opv_desc,
-	//&zfs_evnodeop_opv_desc,
 	&zfs_fifonodeop_opv_desc,
-//	&zfsctl_ops_root,
-//	&zfsctl_ops_snapdir,
-//	&zfsctl_ops_snapshot,
+	&zfs_ctldir_opv_desc,
 };
 
 static vfstable_t zfs_vfsconf;
@@ -1504,14 +1490,14 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 
 	dprintf("vnop_mkdir '%s'\n", ap->a_cnp->cn_nameptr);
 
-#if 0
+#if 1
 	/* Let's deny OS X fseventd for now */
 	if (ap->a_cnp->cn_nameptr &&
 	    strcmp(ap->a_cnp->cn_nameptr, ".fseventsd") == 0)
 		return (EINVAL);
 #endif
 
-#if 0
+#if 1
 	/* spotlight for now */
 	if (ap->a_cnp->cn_nameptr &&
 	    strcmp(ap->a_cnp->cn_nameptr, ".Spotlight-V100") == 0)
@@ -4864,24 +4850,27 @@ struct vnodeopv_desc zfs_fifonodeop_opv_desc =
 	{ &zfs_fifonodeops, zfs_fifonodeops_template };
 
 
-
-
-
-
 /*
- * Alas, OS X does not let us create a vnode, and assign the vtype later and we
- * do not know what type we want here. Is there a way around this? We could
- * allocate any old vnode, then recycle it to ensure a vnode is spare?
+ * .zfs/snapdir vnops
  */
-void
-getnewvnode_reserve(int num)
-{
-}
-
-void
-getnewvnode_drop_reserve()
-{
-}
+int (**zfs_ctldirops) (void *);
+struct vnodeopv_entry_desc zfs_ctldir_template[] = {
+	{&vnop_default_desc, 	(VOPFUNC)vn_default_error },
+	{&vnop_lookup_desc,		(VOPFUNC)zfsctl_vnop_lookup},
+	{&vnop_getattr_desc,	(VOPFUNC)zfsctl_vnop_getattr},
+	{&vnop_readdir_desc,	(VOPFUNC)zfsctl_vnop_readdir},
+	{&vnop_mkdir_desc,		(VOPFUNC)zfsctl_vnop_mkdir},
+	{&vnop_rmdir_desc,		(VOPFUNC)zfsctl_vnop_rmdir},
+	/* We also need to define these for the top ones to work */
+	{&vnop_open_desc,       (VOPFUNC)zfsctl_vnop_open},
+	{&vnop_close_desc,      (VOPFUNC)zfsctl_vnop_close},
+	{&vnop_access_desc,     (VOPFUNC)zfsctl_vnop_access},
+	{&vnop_inactive_desc,   (VOPFUNC)zfsctl_vnop_inactive},
+	{&vnop_reclaim_desc,    (VOPFUNC)zfsctl_vnop_reclaim},
+	{NULL, (VOPFUNC)NULL }
+};
+struct vnodeopv_desc zfs_ctldir_opv_desc =
+{ &zfs_ctldirops, zfs_ctldir_template };
 
 /*
  * Get new vnode for znode.

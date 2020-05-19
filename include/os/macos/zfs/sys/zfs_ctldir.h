@@ -40,37 +40,33 @@
 #define	ZFS_SNAPDIR_NAME	"snapshot"
 #define	ZFS_SHAREDIR_NAME	"shares"
 
-#define zfs_has_ctldir(zdp)     \
-        ((zdp)->z_id == (zdp)->z_zfsvfs->z_root && \
-        ((zdp)->z_zfsvfs->z_ctldir != NULL))
+#define	zfs_has_ctldir(zdp)	\
+	((zdp)->z_id == ZTOZSB(zdp)->z_root && \
+	(ZTOZSB(zdp)->z_ctldir != NULL))
+#define	zfs_show_ctldir(zdp)	\
+	(zfs_has_ctldir(zdp) && \
+	(ZTOZSB(zdp)->z_show_ctldir))
 
-#define zfs_show_ctldir(zdp)    \
-        (zfs_has_ctldir(zdp) && \
-        ((zdp)->z_zfsvfs->z_show_ctldir))
+struct path;
 
+extern int zfs_expire_snapshot;
 
 /* zfsctl generic functions */
-//extern int snapentry_compare(const void *a, const void *b);
+extern int zfsctl_create(zfsvfs_t *);
+extern void zfsctl_destroy(zfsvfs_t *);
+extern struct vnode *zfsctl_root(znode_t *);
+extern void zfsctl_init(void);
+extern void zfsctl_fini(void);
 extern boolean_t zfsctl_is_node(struct vnode *ip);
 extern boolean_t zfsctl_is_snapdir(struct vnode *ip);
-extern void zfsctl_inode_inactive(struct vnode *ip);
-extern void zfsctl_inode_destroy(struct vnode *ip);
-extern void zfsctl_create(zfsvfs_t *zsb);
-extern void zfsctl_destroy(zfsvfs_t *zsb);
-//extern struct inode *zfsctl_root(znode_t *zp);
 extern int zfsctl_fid(struct vnode *ip, fid_t *fidp);
-
-
-
 
 /* zfsctl '.zfs' functions */
 extern int zfsctl_root_lookup(struct vnode *dip, char *name,
     struct vnode **ipp, int flags, cred_t *cr, int *direntflags,
     pathname_t *realpnp);
-extern struct vnode *zfsctl_root(znode_t *zp);
 
 /* zfsctl '.zfs/snapshot' functions */
-#if 0
 extern int zfsctl_snapdir_lookup(struct vnode *dip, char *name,
     struct vnode **ipp, int flags, cred_t *cr, int *direntflags,
     pathname_t *realpnp);
@@ -78,37 +74,43 @@ extern int zfsctl_snapdir_rename(struct vnode *sdip, char *sname,
     struct vnode *tdip, char *tname, cred_t *cr, int flags);
 extern int zfsctl_snapdir_remove(struct vnode *dip, char *name, cred_t *cr,
     int flags);
-extern void zfsctl_snapdir_inactive(struct vnode *ip);
-extern int zfsctl_unmount_snapshot(zfsvfs_t *zsb, char *name, int flags);
-extern int zfsctl_unmount_snapshots(zfsvfs_t *zsb, int flags, int *count);
-//extern int zfsctl_mount_snapshot(struct path *path, int flags);
-extern int zfsctl_lookup_objset(struct mount *sb, uint64_t objsetid,
-    zfsvfs_t **zsb);
+extern int zfsctl_snapdir_mkdir(struct vnode *dip, char *dirname, vattr_t *vap,
+    struct vnode **ipp, cred_t *cr, int flags);
+extern int zfsctl_snapshot_mount(struct path *path, int flags);
+extern int zfsctl_snapshot_unmount(char *snapname, int flags);
+extern int zfsctl_snapshot_unmount_delay(spa_t *spa, uint64_t objsetid,
+    int delay);
+extern int zfsctl_snapdir_vget(struct mount *sb, uint64_t objsetid,
+    int gen, struct vnode **ipp);
 
 /* zfsctl '.zfs/shares' functions */
 extern int zfsctl_shares_lookup(struct vnode *dip, char *name,
     struct vnode **ipp, int flags, cred_t *cr, int *direntflags,
     pathname_t *realpnp);
-#endif
 
-/* zfsctl_init/fini functions */
-extern void zfsctl_init(void);
-extern void zfsctl_fini(void);
-
-extern int zfsctl_umount_snapshots(vfs_t *vfsp, int fflags, cred_t *cr);
-extern void zfs_ereport_snapshot_post(const char *subclass, spa_t *spa, const char *name);
+extern int zfsctl_vnop_lookup(struct vnop_lookup_args *);
+extern int zfsctl_vnop_getattr(struct vnop_getattr_args *);
+extern int zfsctl_vnop_readdir(struct vnop_readdir_args *);
+extern int zfsctl_vnop_mkdir(struct vnop_mkdir_args *);
+extern int zfsctl_vnop_rmdir(struct vnop_rmdir_args *);
+extern int zfsctl_vnop_access(struct vnop_access_args *ap);
+extern int zfsctl_vnop_open(struct vnop_open_args *ap);
+extern int zfsctl_vnop_close(struct vnop_close_args *ap);
+extern int zfsctl_vnop_inactive(struct vnop_inactive_args *ap);
+extern int zfsctl_vnop_reclaim(struct vnop_reclaim_args *ap);
 
 /*
- * These inodes numbers are reserved for the .zfs control directory.
+ * These vnodes numbers are reserved for the .zfs control directory.
  * It is important that they be no larger that 48-bits because only
  * 6 bytes are reserved in the NFS file handle for the object number.
  * However, they should be as large as possible to avoid conflicts
  * with the objects which are assigned monotonically by the dmu.
  */
-
 #define	ZFSCTL_INO_ROOT		0x0000FFFFFFFFFFFFULL
 #define	ZFSCTL_INO_SHARES	0x0000FFFFFFFFFFFEULL
 #define	ZFSCTL_INO_SNAPDIR	0x0000FFFFFFFFFFFDULL
 #define	ZFSCTL_INO_SNAPDIRS	0x0000FFFFFFFFFFFCULL
+
+#define	ZFSCTL_EXPIRE_SNAPSHOT	300
 
 #endif	/* _ZFS_CTLDIR_H */

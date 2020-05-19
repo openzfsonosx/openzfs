@@ -524,7 +524,7 @@ zfs_vnode_destroy(struct vnode *vp)
 
 			if (zp->z_xattr_cached) {
 				nvlist_free(zp->z_xattr_cached);
-		zp->z_xattr_cached = NULL;
+				zp->z_xattr_cached = NULL;
 			}
 
 			kmem_cache_free(znode_cache, zp);
@@ -1065,8 +1065,6 @@ zfs_zget_ext(zfsvfs_t *zfsvfs, uint64_t obj_num, znode_t **zpp,
 	int err;
 
 	dprintf("+zget %lld\n", obj_num);
-
-	getnewvnode_reserve(1);
 
 	*zpp = NULL;
 

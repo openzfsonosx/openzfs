@@ -239,6 +239,14 @@ extern void nfsacl_set_wellknown(int wkg, guid_t *guid);
 extern int  zfs_addacl_trivial(znode_t *zp, ace_t *aces, int *nentries,
 							   int seen_type);
 
+extern struct vnodeopv_desc zfs_dvnodeop_opv_desc;
+extern struct vnodeopv_desc zfs_fvnodeop_opv_desc;
+extern struct vnodeopv_desc zfs_symvnodeop_opv_desc;
+extern struct vnodeopv_desc zfs_xdvnodeop_opv_desc;
+extern struct vnodeopv_desc zfs_evnodeop_opv_desc;
+extern struct vnodeopv_desc zfs_fifonodeop_opv_desc;
+extern struct vnodeopv_desc zfs_ctldir_opv_desc;
+extern int (**zfs_ctldirops) (void *);
 
 #ifdef	__cplusplus
 }

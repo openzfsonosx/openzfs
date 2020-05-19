@@ -822,6 +822,8 @@ zfsvfs_create_impl(zfsvfs_t **zfvp, zfsvfs_t *zfsvfs, objset_t *os)
 	list_create(&zfsvfs->z_all_znodes, sizeof (znode_t),
 	    offsetof(znode_t, z_link_node));
 
+	zfsvfs->z_ctldir_startid = ZFSCTL_INO_SNAPDIRS;
+
 	rrm_init(&zfsvfs->z_teardown_lock, B_FALSE);
 
 	printf("zfsvfs %p rrm_init of %p\n",
@@ -2400,9 +2402,6 @@ zfsvfs_teardown(zfsvfs_t *zfsvfs, boolean_t unmounting)
 		 * 'z_parent' is self referential for non-snapshots.
 		 */
 		(void) dnlc_purge_vfsp(zfsvfs->z_parent->z_vfs, 0);
-#ifdef FREEBSD_NAMECACHE
-		cache_purgevfs(zfsvfs->z_parent->z_vfs);
-#endif
 	}
 
 	/*
@@ -2889,6 +2888,58 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp, __unused vfs_context_
 
 	ZFS_ENTER(zfsvfs);
 
+	/* We also need to handle (.zfs) and (.zfs/snapshot). */
+	if ((ino == ZFSCTL_INO_ROOT) && (zfsvfs->z_ctldir != NULL)) {
+
+		if (VN_HOLD(zfsvfs->z_ctldir) == 0) {
+			*vpp = zfsvfs->z_ctldir;
+			error = 0;
+		} else {
+			error = ENOENT;
+		}
+		ZFS_EXIT(zfsvfs);
+		return error;
+	}
+
+	/* This one is trickier, we have no reference to it, but it is
+	 * in the all list. A little expensive to search list, but at
+	 * least "snapshot" is infrequently accessed
+	 * We also need to check if it is a ".zfs/snapshot/$name" entry -
+	 * luckily we keep the "lowest" ID seen, so we only need to check
+	 * when it is in the range.
+	 */
+	if (zfsvfs->z_ctldir != NULL) {
+
+		/* Either it is the snapdir itself, or one of the snapshot
+		 * directories inside it */
+		if ((ino == ZFSCTL_INO_SNAPDIR) ||
+			((ino >= zfsvfs->z_ctldir_startid) &&
+			 (ino <= ZFSCTL_INO_SNAPDIRS))) {
+			znode_t *zp;
+
+			mutex_enter(&zfsvfs->z_znodes_lock);
+			for (zp = list_head(&zfsvfs->z_all_znodes); zp;
+				 zp = list_next(&zfsvfs->z_all_znodes, zp)) {
+				if (zp->z_id == ino)
+					break;
+				if (zp->z_id == ZFSCTL_INO_SHARES - ino)
+					break;
+			}
+			mutex_exit(&zfsvfs->z_znodes_lock);
+
+			error = ENOENT;
+			if (zp != NULL) {
+				if (VN_HOLD(ZTOV(zp)) == 0) {
+					*vpp = ZTOV(zp);
+					error = 0;
+				}
+			}
+
+			ZFS_EXIT(zfsvfs);
+			return error;
+		}
+	}
+
 	/*
 	 * On Mac OS X we always export the root directory id as 2.
 	 * So we don't expect to see the real root directory id
@@ -2896,25 +2947,6 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp, __unused vfs_context_
 	 * already 2).
 	 */
 	ino = INO_XNUTOZFS(ino, zfsvfs->z_root);
-
-	// We also need to handle (.zfs) and (.zfs/snapshot).
-	if (ino == ZFSCTL_INO_ROOT) {
-		if (zfsvfs->z_ctldir == NULL)
-			return ENOENT;
-		*vpp = zfsvfs->z_ctldir;
-		error = VN_HOLD(*vpp);
-		ZFS_EXIT(zfsvfs);
-		return error;
-	}
-
-	if (ino == ZFSCTL_INO_SNAPDIR) {
-		if (zfsvfs->z_ctldir == NULL)
-			return ENOENT;
-		error = zfsctl_root_lookup(zfsvfs->z_ctldir, "snapshot", vpp,
-		    0, NULL, NULL, NULL);
-		ZFS_EXIT(zfsvfs);
-		return error;
-	}
 
 	error = zfs_vget_internal(zfsvfs, ino, vpp);
 

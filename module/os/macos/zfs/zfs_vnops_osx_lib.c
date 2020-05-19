@@ -2231,7 +2231,7 @@ zfs_vfs_uuid_gen(const char *osname, uuid_t uuid)
 int
 uio_prefaultpages(ssize_t n, struct uio *uio)
 {
-
+	return 0;
 }
 
 /* No #pragma weaks here! */
