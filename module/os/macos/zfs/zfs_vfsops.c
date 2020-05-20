@@ -1040,14 +1040,8 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 {
 	int error = 0;
 	zfsvfs_t *zfsvfs;
-#ifndef __APPLE__
-	uint64_t recordsize, fsid_guid;
-	vnode_t *vp;
-#else
-	//char *mountpoint = 0;
 	uint64_t mimic = 0;
 	struct timeval tv;
-#endif
 
 	ASSERT(vfsp);
 	ASSERT(osname);
@@ -1060,18 +1054,6 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 	error = zfsvfs_parse_options(options, zfsvfs->z_vfs);
 	if (error)
 		goto out;
-
-#ifdef illumos
-	/* Initialize the generic filesystem structure. */
-	vfsp->vfs_bcount = 0;
-	vfsp->vfs_data = NULL;
-
-	if (zfs_create_unique_device(&mount_dev) == -1) {
-		error = ENODEV;
-		goto out;
-	}
-	ASSERT(vfs_devismounted(mount_dev) == 0);
-#endif
 
 	zfsvfs->z_rdev = mount_dev;
 
@@ -1147,7 +1129,7 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 
 	if (dmu_objset_is_snapshot(zfsvfs->z_os)) {
 		uint64_t pval;
-		char fsname[MAXNAMELEN];
+		char fsname[ZFS_MAX_DATASET_NAME_LEN];
 		zfsvfs_t *fs_zfsvfs;
 
 		dmu_fsname(osname, fsname);
@@ -1175,6 +1157,8 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 		mutex_enter(&zfsvfs->z_os->os_user_ptr_lock);
 		dmu_objset_set_user(zfsvfs->z_os, zfsvfs);
 		mutex_exit(&zfsvfs->z_os->os_user_ptr_lock);
+
+		zfsctl_mount_signal(osname);
 
 	} else {
 		if ((error = zfsvfs_setup(zfsvfs, B_TRUE)))
@@ -1589,11 +1573,10 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /*devvp*/,
 	* Get the objset name (the "special" mount argument).
 	*/
 	if (data) {
-		// 10a286 renames fspec to datasetpath
 
 		// Clear the struct, so that "flags" is null if only given path.
 		bzero(&mnt_args, sizeof(mnt_args));
-		// Allocate string area
+
 		osname = kmem_alloc(MAXPATHLEN, KM_SLEEP);
 
 		if (vfs_context_is64bit(context)) {
@@ -1682,34 +1665,6 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /*devvp*/,
 	}
 
 	vfs_setflags(vfsp, (uint64_t)flags);
-
-#ifdef illumos
-	if (mvp->v_type != VDIR)
-		return (ENOTDIR);
-
-	mutex_enter(&mvp->v_lock);
-	if ((uap->flags & MS_REMOUNT) == 0 &&
-	    (uap->flags & MS_OVERLAY) == 0 &&
-	    (mvp->v_count != 1 || (mvp->v_flag & VROOT))) {
-		mutex_exit(&mvp->v_lock);
-		return (EBUSY);
-	}
-	mutex_exit(&mvp->v_lock);
-
-	/*
-	 * ZFS does not support passing unparsed data in via MS_DATA.
-	 * Users should use the MS_OPTIONSTR interface; this means
-	 * that all option parsing is already done and the options struct
-	 * can be interrogated.
-	 */
-	if ((uap->flags & MS_DATA) && uap->datalen > 0)
-#endif
-
-#ifdef SECLABEL
-	error = zfs_mount_label_policy(vfsp, osname);
-	if (error)
-		goto out;
-#endif
 
 	/*
 	 * When doing a remount, we simply refresh our temporary properties

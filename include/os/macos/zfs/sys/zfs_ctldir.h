@@ -76,8 +76,8 @@ extern int zfsctl_snapdir_remove(struct vnode *dip, char *name, cred_t *cr,
     int flags);
 extern int zfsctl_snapdir_mkdir(struct vnode *dip, char *dirname, vattr_t *vap,
     struct vnode **ipp, cred_t *cr, int flags);
-extern int zfsctl_snapshot_mount(struct path *path, int flags);
-extern int zfsctl_snapshot_unmount(char *snapname, int flags);
+extern int zfsctl_snapshot_mount(struct vnode *, int flags);
+extern int zfsctl_snapshot_unmount(struct vnode *, int flags);
 extern int zfsctl_snapshot_unmount_delay(spa_t *spa, uint64_t objsetid,
     int delay);
 extern int zfsctl_snapdir_vget(struct mount *sb, uint64_t objsetid,
@@ -98,6 +98,12 @@ extern int zfsctl_vnop_open(struct vnop_open_args *ap);
 extern int zfsctl_vnop_close(struct vnop_close_args *ap);
 extern int zfsctl_vnop_inactive(struct vnop_inactive_args *ap);
 extern int zfsctl_vnop_reclaim(struct vnop_reclaim_args *ap);
+
+extern void zfs_ereport_snapshot_post(const char *subclass, spa_t *spa,
+    const char *name);
+
+extern void	zfsctl_mount_signal(char *);
+
 
 /*
  * These vnodes numbers are reserved for the .zfs control directory.

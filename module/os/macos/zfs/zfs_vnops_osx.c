@@ -4867,6 +4867,8 @@ struct vnodeopv_entry_desc zfs_ctldir_template[] = {
 	{&vnop_access_desc,     (VOPFUNC)zfsctl_vnop_access},
 	{&vnop_inactive_desc,   (VOPFUNC)zfsctl_vnop_inactive},
 	{&vnop_reclaim_desc,    (VOPFUNC)zfsctl_vnop_reclaim},
+	{&vnop_revoke_desc,		(VOPFUNC)err_revoke},
+	{&vnop_fsync_desc,		(VOPFUNC)nop_fsync},
 	{NULL, (VOPFUNC)NULL }
 };
 struct vnodeopv_desc zfs_ctldir_opv_desc =

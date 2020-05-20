@@ -68,6 +68,7 @@ zfs_vfs_ref(zfsvfs_t **zfvp)
 	if (*zfvp == NULL || (*zfvp)->z_vfs == NULL)
 		return (SET_ERROR(ESRCH));
 
+	printf("%s: busy\n", __func__);
 	error = vfs_busy((*zfvp)->z_vfs, LK_NOWAIT);
 	if (error != 0) {
 		*zfvp = NULL;
@@ -79,8 +80,11 @@ zfs_vfs_ref(zfsvfs_t **zfvp)
 void
 zfs_vfs_rele(zfsvfs_t *zfsvfs)
 {
+	printf("%s: unbusy\n", __func__);
 	vfs_unbusy(zfsvfs->z_vfs);
 }
+
+static uint_t zfsdev_private_tsd;
 
 static int
 zfsdev_state_init(dev_t dev)
@@ -91,7 +95,7 @@ zfsdev_state_init(dev_t dev)
 
 	ASSERT(MUTEX_HELD(&zfsdev_state_lock));
 
-	minor = zfsdev_minor_alloc();
+	minor = minor(dev);
 	if (minor == 0)
 		return (SET_ERROR(ENXIO));
 
@@ -105,6 +109,10 @@ zfsdev_state_init(dev_t dev)
 		zs = kmem_zalloc(sizeof (zfsdev_state_t), KM_SLEEP);
 		newzs = B_TRUE;
 	}
+
+	/* Store this dev_t in tsd, so zfs_get_private() can retrieve it */
+	printf("%s: saving dev x%x (minor %d) for later\n", __func__, dev, minor);
+	tsd_set(zfsdev_private_tsd, (void *)(uintptr_t)dev);
 
 	//zs->zs_dev = dev;
 	//filp->f_private = zs;
@@ -130,6 +138,11 @@ zfsdev_state_init(dev_t dev)
 	return (0);
 }
 
+dev_t zfsdev_get_dev(void)
+{
+	return (dev_t)tsd_get(zfsdev_private_tsd);
+}
+
 static int
 zfsdev_state_destroy(dev_t dev)
 {
@@ -137,9 +150,20 @@ zfsdev_state_destroy(dev_t dev)
 
 	ASSERT(MUTEX_HELD(&zfsdev_state_lock));
 
+	printf("%s: clearing dev\n", __func__);
+	tsd_set(zfsdev_private_tsd, NULL);
+
 	zs = zfsdev_get_state(minor(dev), ZST_ALL);
-	if (!zs)
+
+	printf("%s: zs %p\n", __func__, zs);
+
+	if (!zs) {
+		printf("%s: no cleanup for minor x%x\n", __func__,
+			minor(dev));
 		return (0);
+	}
+
+	printf("%s: minor %d\n", __func__, zs->zs_minor);
 
 	ASSERT(zs != NULL);
 	if (zs->zs_minor != -1) {
@@ -344,12 +368,15 @@ zfsdev_attach(void)
 	wrap_icp_init();
 	wrap_lua_init();
 
+	tsd_create(&zfsdev_private_tsd, NULL);
 	return (0);
 }
 
 void
 zfsdev_detach(void)
 {
+	tsd_destroy(&zfsdev_private_tsd);
+
 	wrap_lua_fini();
     wrap_icp_fini();
     wrap_zcommon_fini();

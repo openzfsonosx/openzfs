@@ -23,6 +23,7 @@
 #include <sys/zfs_file.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <sys/zfs_ioctl.h>
 
 #define FILE_FD_NOTUSED -1
 
@@ -338,10 +339,26 @@ zfs_file_off(zfs_file_t *fp)
  *
  * Returns pointer to file private data.
  */
+extern kmutex_t zfsdev_state_lock;
+dev_t zfsdev_get_dev(void);
+
 void *
 zfs_file_private(zfs_file_t *fp)
 {
-	return (fp->f_private);
+	dev_t dev;
+	void *zs;
+
+	dev = zfsdev_get_dev();
+	printf("%s: fetching dev x%x\n", __func__, dev);
+	if (dev == 0)
+		return NULL;
+
+	mutex_enter(&zfsdev_state_lock);
+	zs = zfsdev_get_state(minor(dev), ZST_ALL);
+	mutex_exit(&zfsdev_state_lock);
+	printf("%s: searching minor %d %p\n", __func__, minor(dev), zs);
+
+	return (zs);
 }
 
 /*
