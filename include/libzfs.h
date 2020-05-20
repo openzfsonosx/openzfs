@@ -879,6 +879,12 @@ int zfs_smb_acl_rename(libzfs_handle_t *, char *, char *, char *, char *);
 extern int zpool_enable_datasets(zpool_handle_t *, const char *, int);
 extern int zpool_disable_datasets(zpool_handle_t *, boolean_t);
 
+/*
+ * Manual mounting of snapshots.
+ */
+extern int zfs_snapshot_mount(zfs_handle_t *, const char *, int);
+extern int zfs_snapshot_unmount(zfs_handle_t *, int);
+
 #ifdef	__cplusplus
 }
 #endif
