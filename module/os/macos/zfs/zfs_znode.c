@@ -1182,8 +1182,8 @@ again:
 			printf("ZFS: the vids do not match\n");
 		mutex_exit(&zp->z_lock);
 
-		printf("zget 1\n");
 		*zpp = zp;
+
 		return (0);
 	} // if vnode != NULL
 
@@ -1208,7 +1208,8 @@ again:
 		dprintf("zget returning %d\n", err);
 		return (err);
 	}
-	printf("zget 2: setting to %p\n", zp);
+
+	printf("zget create: setting to %p\n", zp);
 	*zpp = zp;
 
 	// Spawn taskq to attach while we are locked
@@ -1219,9 +1220,7 @@ again:
 	zfs_znode_hold_exit(zfsvfs, zh);
 
 	/* Attach a vnode to our new znode */
-	if (flags & ZGET_FLAG_ASYNC) {
-		//zfs_znode_asyncgetvnode(zp, zfsvfs);
-	} else {
+	if (!(flags & ZGET_FLAG_ASYNC)) {
 		zfs_znode_getvnode(zp, zfsvfs);
 	}
 

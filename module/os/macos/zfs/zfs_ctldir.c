@@ -123,6 +123,7 @@ typedef struct zfsctl_mounts_waiting zfsctl_mounts_waiting_t;
  */
 int zfs_expire_snapshot = ZFSCTL_EXPIRE_SNAPSHOT;
 int zfs_admin_snapshot = 1;
+int zfs_auto_snapshot = 1;
 
 /*
  * Check if the given vnode is a part of the virtual .zfs directory.
@@ -285,6 +286,8 @@ zfsctl_create(zfsvfs_t *zfsvfs)
 	vnode_ref(zfsvfs->z_ctldir);
 	VN_RELE(zfsvfs->z_ctldir);
 
+	printf("%s: done %p\n", __func__, zfsvfs->z_ctldir);
+
 	return (0);
 }
 
@@ -326,6 +329,8 @@ zfs_root_dotdot(struct vnode *vp)
 	zfsvfs_t *zfsvfs = ZTOZSB(zp);
 	znode_t *rootzp = NULL;
 	struct vnode *retvp = NULL;
+
+	printf("%s: for id %llu\n", __func__, zp->z_id);
 
 	if (zp->z_id == ZFSCTL_INO_ROOT)
 		zfs_zget(zfsvfs, zfsvfs->z_root, &rootzp);
@@ -982,13 +987,16 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 {
 	znode_t *zp = VTOZ(vp);
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
-	int ret;
+	int ret = 0;
 	/*
 	 * If we are here for a snapdirs directory, attempt to get zed
 	 * to mount the snapshot for the user. If successful, forward the
 	 * vnop_open() to them (ourselves).
 	 * Use a timeout in case zed is not running.
 	 */
+
+	if (zfs_auto_snapshot == 0)
+		return 0;
 
 	ZFS_ENTER(zfsvfs);
 	if (((zp->z_id >= zfsvfs->z_ctldir_startid) &&
@@ -1057,16 +1065,18 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 				 * If we mounted, make it re-open it so the process
 				 * that issued the access will see the mounted content
 				 */
-				if (ret >= 0)
-					return ERESTART;
-
+				if (ret >= 0) {
+					/* Remove the cache entry */
+					cache_purge(vp);
+					ret = ERESTART;
+				}
 			}
 		}
 	}
 
 	ZFS_EXIT(zfsvfs);
 
-	return 0;
+	return ret;
 }
 
 /* Called whenever zfs_vfs_mount() is called with a snapshot */
@@ -1098,7 +1108,96 @@ void zfsctl_mount_signal(char *osname)
 int
 zfsctl_snapshot_unmount(struct vnode *vp, int flags)
 {
-	return ENOENT;
+	znode_t *zp = VTOZ(vp);
+	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
+	int ret = ENOENT;
+	/*
+	 * If we are here for a snapdirs directory, attempt to get zed
+	 * to mount the snapshot for the user. If successful, forward the
+	 * vnop_open() to them (ourselves).
+	 * Use a timeout in case zed is not running.
+	 */
+
+	printf("%s: vp %p\n", __func__, vp);
+
+	ZFS_ENTER(zfsvfs);
+	if (((zp->z_id >= zfsvfs->z_ctldir_startid) &&
+			(zp->z_id <= ZFSCTL_INO_SNAPDIRS))) {
+		hrtime_t now;
+		now = gethrtime();
+
+		/*
+		 * If z_snap_mount_time is set, check if it is old enough to
+		 * retry, if so, set z_snap_mount_time to zero.
+		 */
+		if (now - zp->z_snap_mount_time > SEC2NSEC(60))
+			atomic_cas_64((uint64_t *)&zp->z_snap_mount_time,
+				(uint64_t)zp->z_snap_mount_time,
+				0ULL);
+
+		/*
+		 * Attempt unmount, make sure only to issue one request, by
+		 * attempting to CAS in current time in place of zero.
+		 */
+		if (atomic_cas_64((uint64_t *)&zp->z_snap_mount_time, 0ULL,
+		    (uint64_t)now) == 0ULL) {
+			char full_name[ZFS_MAX_DATASET_NAME_LEN];
+
+			/* First! */
+			ret = zfsctl_snapshot_name(zfsvfs, zp->z_name_cache,
+				ZFS_MAX_DATASET_NAME_LEN, full_name);
+
+			if (ret == 0) {
+				zfsctl_mounts_waiting_t *zcm;
+
+				printf("%s: snap '%s'\n", __func__, full_name);
+
+				/* Create condvar to wait for mount to happen */
+
+				zcm = kmem_alloc(sizeof(zfsctl_mounts_waiting_t), KM_SLEEP);
+				mutex_init(&zcm->zcm_lock, NULL, MUTEX_DEFAULT, NULL);
+				cv_init(&zcm->zcm_cv, NULL, CV_DEFAULT, NULL);
+				strlcpy(zcm->zcm_name, full_name,
+					sizeof(zcm->zcm_name));
+
+				printf("%s: requesting mount for '%s'\n",
+				    __func__, full_name);
+
+				mutex_enter(&zfsctl_mounts_lock);
+                list_insert_tail(&zfsctl_mounts_list, zcm);
+				mutex_exit(&zfsctl_mounts_lock);
+
+				mutex_enter(&zcm->zcm_lock);
+				zfs_ereport_snapshot_post(FM_EREPORT_ZFS_SNAPSHOT_UNMOUNT,
+					dmu_objset_spa(zfsvfs->z_os), full_name);
+
+				/* Now we wait hoping zed comes back to us */
+				ret = cv_timedwait(&zcm->zcm_cv, &zcm->zcm_lock,
+					ddi_get_lbolt() + (hz * 3));
+
+				printf("%s: finished waiting %d\n", __func__, ret);
+
+				mutex_exit(&zcm->zcm_lock);
+
+				mutex_enter(&zfsctl_mounts_lock);
+                list_remove(&zfsctl_mounts_list, zcm);
+				mutex_exit(&zfsctl_mounts_lock);
+
+				kmem_free(zcm, sizeof(zfsctl_mounts_waiting_t));
+
+				/*
+				 * If we unmounted, alert caller
+				 */
+				if (ret >= 0)
+					ret = 0;
+
+			}
+		}
+	}
+
+	ZFS_EXIT(zfsvfs);
+
+	return ret;
 }
 
 int
@@ -1195,15 +1294,14 @@ zfsctl_vnop_rmdir(struct vnop_rmdir_args *ap)
 		goto out;
 
 	error = zfsctl_snapshot_unmount(ap->a_vp, MNT_FORCE);
-	if ((error == 0) || (error == ENOENT))
+	if ((error == 0) || (error == ENOENT)) {
 		error = dsl_destroy_snapshot(snapname, B_FALSE);
 
-	/* Destroy the vnode */
-	if ((error == 0) && (ap->a_vp != NULL)) {
-		printf("%s: releasing vp\n", __func__);
-		//znode_t *zp = VTOZ(ap->a_vp);
-		//zp->z_unlinked = B_TRUE;
-		vnode_recycle(ap->a_vp);
+		/* Destroy the vnode */
+		if (ap->a_vp != NULL) {
+			printf("%s: releasing vp\n", __func__);
+			vnode_recycle(ap->a_vp);
+		}
 	}
 
   out:

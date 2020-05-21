@@ -93,11 +93,11 @@ extern int zfsctl_vnop_getattr(struct vnop_getattr_args *);
 extern int zfsctl_vnop_readdir(struct vnop_readdir_args *);
 extern int zfsctl_vnop_mkdir(struct vnop_mkdir_args *);
 extern int zfsctl_vnop_rmdir(struct vnop_rmdir_args *);
-extern int zfsctl_vnop_access(struct vnop_access_args *ap);
-extern int zfsctl_vnop_open(struct vnop_open_args *ap);
-extern int zfsctl_vnop_close(struct vnop_close_args *ap);
-extern int zfsctl_vnop_inactive(struct vnop_inactive_args *ap);
-extern int zfsctl_vnop_reclaim(struct vnop_reclaim_args *ap);
+extern int zfsctl_vnop_access(struct vnop_access_args *);
+extern int zfsctl_vnop_open(struct vnop_open_args *);
+extern int zfsctl_vnop_close(struct vnop_close_args *);
+extern int zfsctl_vnop_inactive(struct vnop_inactive_args *);
+extern int zfsctl_vnop_reclaim(struct vnop_reclaim_args *);
 
 extern void zfs_ereport_snapshot_post(const char *subclass, spa_t *spa,
     const char *name);

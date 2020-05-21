@@ -149,6 +149,10 @@ typedef struct osx_kstat {
 	kstat_named_t icp_gcm_impl;
 	kstat_named_t icp_aes_impl;
 	kstat_named_t zfs_fletcher_4_impl;
+
+	kstat_named_t zfs_expire_snapshot;
+	kstat_named_t zfs_admin_snapshot;
+	kstat_named_t zfs_auto_snapshot;
 } osx_kstat_t;
 
 extern unsigned int debug_vnop_osx_printf;
@@ -258,6 +262,11 @@ extern int zfs_vnop_force_formd_normalized_output;
 
 extern int zfs_arc_min_prefetch_ms;
 extern int zfs_arc_min_prescient_prefetch_ms;
+
+extern int zfs_expire_snapshot;
+extern int zfs_admin_snapshot;
+extern int zfs_auto_snapshot;
+
 
 int        kstat_osx_init(void);
 void       kstat_osx_fini(void);

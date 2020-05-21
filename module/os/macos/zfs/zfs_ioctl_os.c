@@ -369,12 +369,16 @@ zfsdev_attach(void)
 	wrap_lua_init();
 
 	tsd_create(&zfsdev_private_tsd, NULL);
+
+	kstat_osx_init();
 	return (0);
 }
 
 void
 zfsdev_detach(void)
 {
+	kstat_osx_fini();
+
 	tsd_destroy(&zfsdev_private_tsd);
 
 	wrap_lua_fini();

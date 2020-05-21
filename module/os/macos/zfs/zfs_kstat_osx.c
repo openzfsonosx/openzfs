@@ -178,6 +178,10 @@ osx_kstat_t osx_kstat = {
 	{"icp_aes_impl",		KSTAT_DATA_STRING  },
 	{"zfs_fletcher_4_impl",		KSTAT_DATA_STRING  },
 
+	{"zfs_expire_snapshot",		KSTAT_DATA_UINT64  },
+	{"zfs_admin_snapshot",		KSTAT_DATA_UINT64  },
+	{"zfs_auto_snapshot",		KSTAT_DATA_UINT64  },
+
 };
 
 
@@ -411,6 +415,13 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			zfs_fletcher_4_impl_set(ks->zfs_fletcher_4_impl.value.string.addr.ptr);
 #endif
 
+		zfs_expire_snapshot =
+			ks->zfs_expire_snapshot.value.ui64;
+		zfs_admin_snapshot =
+			ks->zfs_admin_snapshot.value.ui64;
+		zfs_auto_snapshot =
+			ks->zfs_auto_snapshot.value.ui64;
+
 	} else {
 
 		/* kstat READ */
@@ -606,6 +617,11 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			sizeof(zfs_fletcher_4_string));
 		kstat_named_setstr(&ks->zfs_fletcher_4_impl, zfs_fletcher_4_string);
 #endif
+
+		ks->zfs_expire_snapshot.value.ui64 = zfs_expire_snapshot;
+		ks->zfs_admin_snapshot.value.ui64 = zfs_admin_snapshot;
+		ks->zfs_auto_snapshot.value.ui64 = zfs_auto_snapshot;
+
 	}
 
 	return 0;

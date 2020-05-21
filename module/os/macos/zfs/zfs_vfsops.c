@@ -2444,25 +2444,22 @@ zfsvfs_teardown(zfsvfs_t *zfsvfs, boolean_t unmounting)
 	return (0);
 }
 
-
 int
 zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 {
-	dprintf("%s\n", __func__);
     zfsvfs_t *zfsvfs = vfs_fsprivate(mp);
-	//kthread_t *td = (kthread_t *)curthread;
 	objset_t *os;
-#ifndef __APPLE__
-	cred_t *cr =  (cred_t *)vfs_context_ucred(context);
-#endif
-#ifdef __APPLE__
 	char osname[MAXNAMELEN];
-#endif
 	int ret;
+	cred_t *cr = (cred_t *)vfs_context_ucred(context);
+	int destroyed_zfsctl = 0;
 
-    dprintf("+unmount\n");
+	dprintf("%s\n", __func__);
 
 	zfs_unlinked_drain_stop_wait(zfsvfs);
+
+	/* Save osname for later */
+	dmu_objset_name(zfsvfs->z_os, osname);
 
 	/*
 	 * We might skip the sync called in the unmount path, since
@@ -2473,15 +2470,6 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	 */
 	spa_sync_allpools();
 
-#ifndef __APPLE__
-	/*XXX NOEL: delegation admin stuffs, add back if we use delg. admin */
-	ret = secpolicy_fs_unmount(cr, zfsvfs->z_vfs);
-	if (ret) {
-		if (dsl_deleg_access((char *)refstr_value(vfsp->vfs_resource),
-		    ZFS_DELEG_PERM_MOUNT, cr))
-			return (ret);
-	}
-#endif
 	/*
 	 * We purge the parent filesystem's vfsp as the parent filesystem
 	 * and all of its snapshots have their vnode's v_vfsp set to the
@@ -2493,48 +2481,11 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	/*
 	 * Unmount any snapshots mounted under .zfs before unmounting the
 	 * dataset itself.
+	 *
+	 * Unfortunately, XNU will check for mounts in preflight, and
+	 * simply not call us at all if snapshots are mounted.
+	 * We expect userland to unmount snapshots now.
 	 */
-    dprintf("z_ctldir check: %p\n",zfsvfs->z_ctldir );
-	if (zfsvfs->z_ctldir != NULL) {
-
-#ifndef __APPLE__
-		// We can not unmount from kernel space, and there is a known
-		// race causing panic
-		if ((ret = zfsctl_umount_snapshots(zfsvfs->z_vfs, 0 /*fflag*/, cr)) != 0)
-			return (ret);
-#endif
-        dprintf("vflush 1\n");
-        ret = vflush(zfsvfs->z_vfs, zfsvfs->z_ctldir, (mntflags & MNT_FORCE) ? FORCECLOSE : 0|SKIPSYSTEM);
-		//ret = vflush(zfsvfs->z_vfs, NULLVP, 0);
-		//ASSERT(ret == EBUSY);
-		if (!(mntflags & MNT_FORCE)) {
-			if (vnode_isinuse(zfsvfs->z_ctldir, 1)) {
-                dprintf("zfsctl vp still in use %p\n", zfsvfs->z_ctldir);
-				return (EBUSY);
-            }
-			//ASSERT(zfsvfs->z_ctldir->v_count == 1);
-		}
-        dprintf("z_ctldir destroy\n");
-		zfsctl_destroy(zfsvfs);
-		ASSERT(zfsvfs->z_ctldir == NULL);
-	}
-
-#if 0
-    // If we are ourselves a snapshot
-	if (dmu_objset_is_snapshot(zfsvfs->z_os)) {
-        struct vnode *vp;
-        printf("We are unmounting a snapshot\n");
-        vp = vfs_vnodecovered(zfsvfs->z_vfs);
-        if (vp) {
-            struct vnop_inactive_args ap;
-            ap.a_vp = vp;
-            printf(".. telling gfs layer\n");
-            gfs_dir_inactive(&ap);
-            printf("..and put\n");
-            vnode_put(vp);
-        }
-    }
-#endif
 
 	ret = vflush(mp, NULLVP, SKIPSYSTEM);
 
@@ -2550,78 +2501,62 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	}
 
 	/*
+	 * We must release ctldir before vflush on osx.
+	 */
+	if (zfsvfs->z_ctldir != NULL) {
+		destroyed_zfsctl = 1;
+		zfsctl_destroy(zfsvfs);
+	}
+
+	/*
 	 * Flush all the files.
 	 */
-	ret = vflush(mp, NULLVP, (mntflags & MNT_FORCE) ? FORCECLOSE|SKIPSYSTEM : SKIPSYSTEM);
+	ret = vflush(mp, NULLVP,
+	    (mntflags & MNT_FORCE) ? FORCECLOSE|SKIPSYSTEM : SKIPSYSTEM);
 
 	if ((ret != 0) && !(mntflags & MNT_FORCE)) {
-		if (!zfsvfs->z_issnap) {
+		if (destroyed_zfsctl)
 			zfsctl_create(zfsvfs);
-			//ASSERT(zfsvfs->z_ctldir != NULL);
-		}
 		return (ret);
 	}
 
-#ifdef __APPLE__
-	/* Save osname for later */
-	dmu_objset_name(zfsvfs->z_os, osname);
+    /* If we are ourselves a snapshot */
+	if (dmu_objset_is_snapshot(zfsvfs->z_os)) {
+		/* Wake up anyone waiting for unmount */
+		zfsctl_mount_signal(osname);
+    }
 
 	if (!vfs_isrdonly(zfsvfs->z_vfs) &&
 		spa_writeable(dmu_objset_spa(zfsvfs->z_os)) &&
 		!(mntflags & MNT_FORCE)) {
-			/* Update the last-unmount time for Spotlight's next mount */
-			timestruc_t  now;
-			dmu_tx_t *tx;
-			int error;
-			uint64_t value;
+		/* Update the last-unmount time for Spotlight's next mount */
+		timestruc_t  now;
+		dmu_tx_t *tx;
+		int error;
+		uint64_t value;
 
-			dprintf("ZFS: '%s' Updating spotlight LASTUNMOUNT property\n",
-				osname);
+		dprintf("ZFS: '%s' Updating spotlight LASTUNMOUNT property\n",
+		    osname);
 
-			gethrestime(&now);
-			zfsvfs->z_last_unmount_time = now.tv_sec;
+		gethrestime(&now);
+		zfsvfs->z_last_unmount_time = now.tv_sec;
 
-			tx = dmu_tx_create(zfsvfs->z_os);
-			dmu_tx_hold_zap(tx, MASTER_NODE_OBJ, TRUE, NULL);
-			error = dmu_tx_assign(tx, TXG_WAIT);
-			if (error) {
-                dmu_tx_abort(tx);
-			} else {
-				value = zfsvfs->z_last_unmount_time;
-				error = zap_update(zfsvfs->z_os, MASTER_NODE_OBJ,
-								   zfs_prop_to_name(ZFS_PROP_LASTUNMOUNT),
-								   8, 1,
-								   &value, tx);
-				dmu_tx_commit(tx);
-			}
-			dprintf("ZFS: '%s' set lastunmount to 0x%lx (%d)\n",
-					osname, zfsvfs->z_last_unmount_time, error);
-		}
-
-#endif
-
-#ifdef sun
-	if (!(fflag & MS_FORCE)) {
-		/*
-		 * Check the number of active vnodes in the file system.
-		 * Our count is maintained in the vfs structure, but the
-		 * number is off by 1 to indicate a hold on the vfs
-		 * structure itself.
-		 *
-		 * The '.zfs' directory maintains a reference of its
-		 * own, and any active references underneath are
-		 * reflected in the vnode count.
-		 */
-		if (zfsvfs->z_ctldir == NULL) {
-			if (vfsp->vfs_count > 1)
-				return (EBUSY);
+		tx = dmu_tx_create(zfsvfs->z_os);
+		dmu_tx_hold_zap(tx, MASTER_NODE_OBJ, TRUE, NULL);
+		error = dmu_tx_assign(tx, TXG_WAIT);
+		if (error) {
+			dmu_tx_abort(tx);
 		} else {
-			if (vfsp->vfs_count > 2 ||
-			    zfsvfs->z_ctldir->v_count > 1)
-				return (EBUSY);
+			value = zfsvfs->z_last_unmount_time;
+			error = zap_update(zfsvfs->z_os, MASTER_NODE_OBJ,
+			    zfs_prop_to_name(ZFS_PROP_LASTUNMOUNT),
+			    8, 1,
+			    &value, tx);
+			dmu_tx_commit(tx);
 		}
+		dprintf("ZFS: '%s' set lastunmount to 0x%lx (%d)\n",
+		    osname, zfsvfs->z_last_unmount_time, error);
 	}
-#endif
 
 	/*
 	 * Last chance to dump unreferenced system files.
@@ -2631,7 +2566,6 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	VERIFY(zfsvfs_teardown(zfsvfs, B_TRUE) == 0);
 	os = zfsvfs->z_os;
 
-    dprintf("OS %p\n", os);
 	/*
 	 * z_os will be NULL if there was an error in
 	 * attempting to reopen zfsvfs.
@@ -2641,35 +2575,17 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 		 * Unset the objset user_ptr.
 		 */
 		mutex_enter(&os->os_user_ptr_lock);
-        dprintf("mutex\n");
 		dmu_objset_set_user(os, NULL);
-        dprintf("set\n");
 		mutex_exit(&os->os_user_ptr_lock);
 
 		/*
 		 * Finally release the objset
 		 */
-        dprintf("disown\n");
 		dmu_objset_disown(os, B_TRUE, zfsvfs);
 	}
 
     dprintf("OS released\n");
 
-	/*
-	 * We can now safely destroy the '.zfs' directory node.
-	 */
-	if (zfsvfs->z_ctldir != NULL)
-		zfsctl_destroy(zfsvfs);
-#if 0
-	if (zfsvfs->z_issnap) {
-		vnode_t *svp = vfsp->mnt_vnodecovered;
-
-		if (svp->v_count >= 2)
-			VN_RELE(svp);
-	}
-#endif
-
-    dprintf("freevfs\n");
 	zfs_freevfs(zfsvfs->z_vfs);
 
 	dprintf("zfs_osx_proxy_remove");
@@ -2685,7 +2601,7 @@ zfs_vget_internal(zfsvfs_t *zfsvfs, ino64_t ino, vnode_t **vpp)
 	znode_t		*zp;
 	int 		err;
 
-    dprintf("vget get %llu\n", ino);
+    printf("vget get %llu\n", ino);
 
 	/*
 	 * Check to see if we expect to find this in the hardlink avl tree of
@@ -2840,6 +2756,8 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp, __unused vfs_context_
 {
 	zfsvfs_t *zfsvfs = vfs_fsprivate(mp);
 	int error;
+
+	printf("%s: %llu\n", __func__, ino);
 
 	ZFS_ENTER(zfsvfs);
 

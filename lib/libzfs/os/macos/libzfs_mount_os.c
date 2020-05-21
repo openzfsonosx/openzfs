@@ -50,6 +50,7 @@
 
 #include "libzfs_impl.h"
 #include <thread_pool.h>
+#include <sys/sysctl.h>
 
 /*
  * zfs_init_libshare(zhandle, service)
@@ -193,6 +194,7 @@ unshare_one(libzfs_handle_t *hdl, const char *name, const char *mountpoint,
 	sa_share_t share;
 	int err;
 	char *mntpt;
+
 	/*
 	 * Mountpoint could get trashed if libshare calls getmntany
 	 * which it does during API initialization, so strdup the
@@ -387,7 +389,7 @@ int
 }
 
 int
-do_unmount(const char *mntpt, int flags)
+do_unmount_impl(const char *mntpt, int flags)
 {
 	char force_opt[] = "force";
 	char *argv[7] = {
@@ -427,8 +429,180 @@ do_unmount(const char *mntpt, int flags)
 	return (rc ? EINVAL : 0);
 }
 
+
+void unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags);
+
+int
+do_unmount(libzfs_handle_t *hdl, const char *mntpt, int flags)
+{
+	/*
+	 * On OSX, the kernel can not unmount all snapshots for us, as XNU
+	 * rejects the unmount before it reaches ZFS. But we can easily handle
+	 * unmounting snapshots from userland.
+	 */
+	unmount_snapshots(hdl, mntpt, flags);
+
+	return do_unmount_impl(mntpt, flags);
+}
+
+/*
+ * Given "/Volumes/BOOM" look for any lower mounts with ".zfs/snapshot/"
+ * in them - issue unmount.
+ */
+void unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags)
+{
+	struct mnttab entry;
+	int len = strlen(mntpt);
+
+	while (getmntent(hdl->libzfs_mnttab, &entry) == 0) {
+		/* Starts with our mountpoint ? */
+		if (strncmp(mntpt, entry.mnt_mountp, len) == 0) {
+			/* The next part is "/.zfs/snapshot/" ? */
+			if (strncmp("/.zfs/snapshot/", &entry.mnt_mountp[len],
+					15) == 0) {
+				/* Unmount it */
+				do_unmount_impl(entry.mnt_mountp, MS_FORCE);
+			}
+		}
+	}
+}
+
 int
 zfs_mount_delegation_check(void)
 {
 	return ((geteuid() != 0) ? EACCES : 0);
+}
+
+static char *
+zfs_snapshot_mountpoint(zfs_handle_t *zhp)
+{
+	char *dataset_name, *snapshot_mountpoint, *parent_mountpoint;
+	libzfs_handle_t *hdl = zhp->zfs_hdl;
+	zfs_handle_t *parent;
+	char *r;
+
+	dataset_name = zfs_strdup(hdl, zhp->zfs_name);
+	if (dataset_name == NULL) {
+		(void) fprintf(stderr, gettext("not enough memory"));
+		return (NULL);
+	}
+
+	r = strrchr(dataset_name, '@');
+
+	if (r == NULL) {
+		(void) fprintf(stderr, gettext("snapshot '%s' "
+		    "has no '@'\n"), zhp->zfs_name);
+		free(dataset_name);
+		return (NULL);
+	}
+
+	r[0] = 0;
+
+	/* Open the dataset */
+	if ((parent = zfs_open(hdl, dataset_name,
+		    ZFS_TYPE_FILESYSTEM)) == NULL) {
+		(void) fprintf(stderr, gettext("unable to open parent dataset '%s'\n"
+		    ), dataset_name);
+		free(dataset_name);
+		return (NULL);
+	}
+
+	if (!zfs_is_mounted(parent, &parent_mountpoint)) {
+		(void) fprintf(stderr, gettext("parent dataset '%s' must be mounted\n"
+		    ), dataset_name);
+		free(dataset_name);
+		zfs_close(parent);
+		return (NULL);
+	}
+
+	zfs_close(parent);
+
+	snapshot_mountpoint =
+		zfs_asprintf(hdl, "%s/.zfs/snapshot/%s/",
+			parent_mountpoint, &r[1]);
+
+	free(dataset_name);
+	free(parent_mountpoint);
+
+	return (snapshot_mountpoint);
+}
+
+/*
+ * Mount a snapshot; called from "zfs mount dataset@snapshot".
+ * Given "dataset@snapshot" construct mountpoint path of the
+ * style "/mountpoint/dataset/.zfs/snapshot/$name/". Ensure
+ * parent "dataset" is mounted, then issue mount for snapshot.
+ */
+int
+zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
+	int flags)
+{
+	int ret = 0;
+	char *mountpoint;
+
+	/*
+	 * The automounting will kick in, and zed mounts it - so
+	 * we temporarily disable it
+	 */
+	uint64_t automount = 0;
+	uint64_t saved_automount = 0;
+	size_t len = sizeof(automount);
+	size_t slen = sizeof(saved_automount);
+
+	/* Remember what the user has it set to */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    &saved_automount, &slen, NULL, 0);
+
+	/* Disable automounting */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    NULL, NULL, &automount, len);
+
+	if (zfs_is_mounted(zhp, NULL)) {
+		return (EBUSY);
+	}
+
+	mountpoint = zfs_snapshot_mountpoint(zhp);
+	if (mountpoint == NULL)
+		return (EINVAL);
+
+	ret = zfs_mount_at(zhp, options, MS_RDONLY | flags,
+		mountpoint);
+
+	/* If zed is running, it can mount it before us */
+	if (ret == -1 && errno == EINVAL)
+		ret = 0;
+
+	if (ret == 0) {
+		(void) fprintf(stderr, gettext("ZFS: snapshot mountpoint '%s'\n"),
+			mountpoint);
+	}
+
+	free(mountpoint);
+
+	/* Restore automount setting */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    NULL, NULL, &saved_automount, len);
+
+	return ret;
+}
+
+int
+zfs_snapshot_unmount(zfs_handle_t *zhp, int flags)
+{
+	int ret = 0;
+	char *mountpoint;
+
+	if (!zfs_is_mounted(zhp, NULL)) {
+		return (ENOENT);
+	}
+
+	mountpoint = zfs_snapshot_mountpoint(zhp);
+	if (mountpoint == NULL)
+		return (EINVAL);
+
+	ret = zfs_unmount(zhp, mountpoint, flags);
+
+	free(mountpoint);
+
+	return ret;
 }
