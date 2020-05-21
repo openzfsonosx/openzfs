@@ -542,94 +542,6 @@ zfs_mount_at(zfs_handle_t *zhp, const char *options, int flags,
 	return (0);
 }
 
-static char *
-zfs_snapshot_mountpoint(zfs_handle_t *zhp)
-{
-	char *dataset_name, *snapshot_mountpoint, *parent_mountpoint;
-	libzfs_handle_t *hdl = zhp->zfs_hdl;
-	zfs_handle_t *parent;
-	char *r;
-
-	dataset_name = zfs_strdup(hdl, zhp->zfs_name);
-	if (dataset_name == NULL) {
-		(void) fprintf(stderr, gettext("not enough memory"));
-		return (NULL);
-	}
-
-	r = strrchr(dataset_name, '@');
-
-	if (r == NULL) {
-		(void) fprintf(stderr, gettext("snapshot '%s' "
-		    "has no '@'\n"), zhp->zfs_name);
-		free(dataset_name);
-		return (NULL);
-	}
-
-	r[0] = 0;
-
-	/* Open the dataset */
-	if ((parent = zfs_open(hdl, dataset_name,
-		    ZFS_TYPE_FILESYSTEM)) == NULL) {
-		(void) fprintf(stderr, gettext("unable to open parent dataset '%s'\n"
-		    ), dataset_name);
-		free(dataset_name);
-		return (NULL);
-	}
-
-	if (!zfs_is_mounted(parent, &parent_mountpoint)) {
-		(void) fprintf(stderr, gettext("parent dataset '%s' must be mounted\n"
-		    ), dataset_name);
-		free(dataset_name);
-		zfs_close(parent);
-		return (NULL);
-	}
-
-	zfs_close(parent);
-
-	snapshot_mountpoint =
-		zfs_asprintf(hdl, "%s/.zfs/snapshot/%s/",
-			parent_mountpoint, &r[1]);
-
-	free(dataset_name);
-	free(parent_mountpoint);
-
-	return (snapshot_mountpoint);
-}
-
-/*
- * Mount a snapshot; called from "zfs mount dataset@snapshot".
- * Given "dataset@snapshot" construct mountpoint path of the
- * style "/mountpoint/dataset/.zfs/snapshot/$name/". Ensure
- * parent "dataset" is mounted, then issue mount for snapshot.
- */
-int
-zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
-	int flags)
-{
-	int ret = 0;
-	char *mountpoint;
-
-	if (zfs_is_mounted(zhp, NULL)) {
-		return (EBUSY);
-	}
-
-	mountpoint = zfs_snapshot_mountpoint(zhp);
-	if (mountpoint == NULL)
-		return (EINVAL);
-
-	ret = zfs_mount_at(zhp, options, MS_RDONLY | flags,
-		mountpoint);
-
-	if (ret == 0) {
-		(void) fprintf(stderr, gettext("ZFS: snapshot mountpoint '%s'\n"),
-			mountpoint);
-	}
-
-	free(mountpoint);
-
-	return ret;
-}
-
 /*
  * Unmount a single filesystem.
  */
@@ -738,27 +650,6 @@ zfs_unmountall(zfs_handle_t *zhp, int flags)
 	changelist_free(clp);
 
 	return (ret);
-}
-
-int
-zfs_snapshot_unmount(zfs_handle_t *zhp, int flags)
-{
-	int ret = 0;
-	char *mountpoint;
-
-	if (!zfs_is_mounted(zhp, NULL)) {
-		return (ENOENT);
-	}
-
-	mountpoint = zfs_snapshot_mountpoint(zhp);
-	if (mountpoint == NULL)
-		return (EINVAL);
-
-	ret = zfs_unmount(zhp, mountpoint, flags);
-
-	free(mountpoint);
-
-	return ret;
 }
 
 boolean_t
