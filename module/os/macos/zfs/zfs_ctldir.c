@@ -1106,9 +1106,13 @@ void zfsctl_mount_signal(char *osname)
 
 
 int
-zfsctl_snapshot_unmount(struct vnode *vp, int flags)
+zfsctl_snapshot_unmount_node(struct vnode *vp, int flags)
 {
 	znode_t *zp = VTOZ(vp);
+
+	if (zp == NULL)
+		return ENOENT;
+
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	int ret = ENOENT;
 	/*
@@ -1198,6 +1202,33 @@ zfsctl_snapshot_unmount(struct vnode *vp, int flags)
 	ZFS_EXIT(zfsvfs);
 
 	return ret;
+}
+
+int
+zfsctl_snapshot_unmount(const char *snapname, int flags)
+{
+	int error;
+	znode_t *rootzp;
+	zfsvfs_t *zfsvfs;
+
+	if (strchr(snapname, '@') == NULL)
+		return (0);
+
+	int err = getzfsvfs(snapname, &zfsvfs);
+	if (err != 0) {
+		ASSERT3P(zfsvfs, ==, NULL);
+		return (0);
+	}
+	ASSERT(!dsl_pool_config_held(dmu_objset_pool(zfsvfs->z_os)));
+
+	err = zfs_zget(zfsvfs, zfsvfs->z_root, &rootzp);
+	if (err == 0) {
+		zfsctl_snapshot_unmount_node(ZTOV(rootzp), flags);
+		VN_RELE(ZTOV(rootzp));
+	}
+
+	vfs_unbusy(zfsvfs->z_vfs);
+	return 0;
 }
 
 int
@@ -1293,7 +1324,7 @@ zfsctl_vnop_rmdir(struct vnop_rmdir_args *ap)
 	if (error != 0)
 		goto out;
 
-	error = zfsctl_snapshot_unmount(ap->a_vp, MNT_FORCE);
+	error = zfsctl_snapshot_unmount_node(ap->a_vp, MNT_FORCE);
 	if ((error == 0) || (error == ENOENT)) {
 		error = dsl_destroy_snapshot(snapname, B_FALSE);
 

@@ -134,6 +134,8 @@ public:
 	virtual int offlineDevice(void);
 	virtual int onlineDevice(void);
 	virtual int refreshDevice(void);
+
+	virtual void clearState(void);
 };
 #endif /* __cplusplus */
 

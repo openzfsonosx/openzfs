@@ -51,6 +51,7 @@ taskq_t *zvol_taskq;
 
 typedef struct zv_request {
 	zvol_state_t	*zv;
+	void *zv_iokit;
 	taskq_ent_t	ent;
 } zv_request_t;
 
@@ -120,12 +121,12 @@ void zvol_os_lock_zv(zvol_state_t *zv)
 {
 	rw_enter(&zvol_state_lock, RW_READER);
 	mutex_enter(&zv->zv_state_lock);
-	rw_exit(&zvol_state_lock);
 }
 
 void zvol_os_unlock_zv(zvol_state_t *zv)
 {
 	mutex_exit(&zv->zv_state_lock);
+	rw_exit(&zvol_state_lock);
 }
 
 int zvol_os_write(dev_t dev, struct uio *uio, int p)
@@ -382,10 +383,35 @@ zvol_os_update_volsize(zvol_state_t *zv, uint64_t volsize)
 }
 
 static void
+zvol_os_clear_private_cb(void *param)
+{
+	zv_request_t *zvr = (zv_request_t *)param;
+
+	zvolRemoveDeviceTerminate(zvr->zv_iokit);
+	kmem_free(zvr, sizeof (zv_request_t));
+}
+
+static void
 zvol_os_clear_private(zvol_state_t *zv)
 {
-	zvolRemoveDevice(zv->zv_zso->zvo_iokitdev);
+	zv_request_t *zvr;
+	void *term;
+
+	printf("%s\n", __func__);
+	/* We can do all removal work, except call terminate. */
+	term = zvolRemoveDevice(zv->zv_zso->zvo_iokitdev);
+	if (term == NULL)
+		return;
+
 	zv->zv_zso->zvo_iokitdev = NULL;
+
+	zvr = kmem_alloc(sizeof (zv_request_t), KM_SLEEP);
+	zvr->zv_iokit = term;
+	taskq_init_ent(&zvr->ent);
+
+	/* Call terminate in the background */
+	taskq_dispatch_ent(zvol_taskq,
+		zvol_os_clear_private_cb, zvr, 0, &zvr->ent);
 }
 
 /*
@@ -635,7 +661,6 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
 	int error = 0;
 	boolean_t drop_suspend = B_TRUE;
-
 	printf("%s\n", __func__);
 
 	/*
@@ -643,7 +668,17 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 	 * (hold zv_suspend_lock) and respect proper lock acquisition
 	 * ordering - zv_suspend_lock before zv_state_lock
 	 */
+
 	rw_enter(&zvol_state_lock, RW_READER);
+
+	if (zv == NULL || zv->zv_zso == NULL ||
+		zv->zv_zso->zvo_iokitdev == NULL) {
+		rw_exit(&zvol_state_lock);
+		return (EIO);
+	}
+
+	mutex_enter(&zv->zv_state_lock);
+
 	if (zv->zv_open_count == 0) {
 		if (!rw_tryenter(&zv->zv_suspend_lock, RW_READER)) {
 			mutex_exit(&zv->zv_state_lock);
@@ -676,6 +711,8 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 
 	zv->zv_open_count++;
 
+	mutex_exit(&zv->zv_state_lock);
+
 	if (drop_suspend)
 		rw_exit(&zv->zv_suspend_lock);
 
@@ -686,6 +723,7 @@ out_open_count:
 		zvol_last_close(zv);
 
 out_mutex:
+	mutex_exit(&zv->zv_state_lock);
 
 	if (drop_suspend)
 		rw_exit(&zv->zv_suspend_lock);
@@ -727,6 +765,7 @@ zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 
 	rw_enter(&zvol_state_lock, RW_READER);
 	ASSERT(zv->zv_open_count > 0);
+	mutex_enter(&zv->zv_state_lock);
 	/*
 	 * make sure zvol is not suspended during last close
 	 * (hold zv_suspend_lock) and respect proper lock acquisition
@@ -752,8 +791,11 @@ zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 	ASSERT(zv->zv_open_count != 1 || RW_READ_HELD(&zv->zv_suspend_lock));
 
 	zv->zv_open_count--;
+
 	if (zv->zv_open_count == 0)
 		zvol_last_close(zv);
+
+	mutex_exit(&zv->zv_state_lock);
 
 	if (drop_suspend)
 		rw_exit(&zv->zv_suspend_lock);

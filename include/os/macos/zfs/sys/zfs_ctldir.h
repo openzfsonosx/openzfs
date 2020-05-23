@@ -77,7 +77,8 @@ extern int zfsctl_snapdir_remove(struct vnode *dip, char *name, cred_t *cr,
 extern int zfsctl_snapdir_mkdir(struct vnode *dip, char *dirname, vattr_t *vap,
     struct vnode **ipp, cred_t *cr, int flags);
 extern int zfsctl_snapshot_mount(struct vnode *, int flags);
-extern int zfsctl_snapshot_unmount(struct vnode *, int flags);
+extern int zfsctl_snapshot_unmount(const char *, int flags);
+extern int zfsctl_snapshot_unmount_node(struct vnode *, int flags);
 extern int zfsctl_snapshot_unmount_delay(spa_t *spa, uint64_t objsetid,
     int delay);
 extern int zfsctl_snapdir_vget(struct mount *sb, uint64_t objsetid,

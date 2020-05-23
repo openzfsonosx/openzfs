@@ -490,45 +490,61 @@ net_lundman_zfs_zvol_device::detach(IOService *provider)
 	super::detach(provider);
 }
 
+void
+net_lundman_zfs_zvol_device::clearState(void)
+{
+	zv = NULL;
+}
+
 bool
 net_lundman_zfs_zvol_device::handleOpen(IOService *client,
     IOOptionBits options, void *argument)
 {
 	IOStorageAccess access = ( uintptr_t )argument;
 	bool ret = false;
+	int openflags = 0;
 
 	if (super::handleOpen(client, options, argument) == false)
 		return (false);
 
-	zvol_os_lock_zv(zv);
+	/* Device terminating? */
+	if (zv == NULL ||
+		zv->zv_zso == NULL ||
+		zv->zv_zso->zvo_iokitdev == NULL)
+		return false;
 
 	if (access & kIOStorageAccessReaderWriter) {
-		zv->zv_zso->zvo_openflags = FWRITE | ZVOL_EXCL;
+		openflags = FWRITE | ZVOL_EXCL;
 	} else {
-		zv->zv_zso->zvo_openflags = FREAD;
+		openflags = FREAD;
 	}
 
+	/*
+	 * Don't use 'zv' until it has been verified by zvol_os_open_zv()
+	 * and returned as opened, then it holds an open count and can be
+	 * used.
+	 */
 	if (zvol_os_open_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL) == 0) {
 		ret = true;
 	} else {
-		zv->zv_zso->zvo_openflags = FREAD;
-		if (zvol_os_open_zv(zv, FREAD /* ZVOL_EXCL */, 0, NULL) == 0)
+		openflags = FREAD;
+		if (zvol_os_open_zv(zv, FREAD /* ZVOL_EXCL */, 0, NULL) == 0) {
 			ret = true;
+		}
 	}
+
+	if (ret)
+		zv->zv_zso->zvo_openflags = openflags;
+
 
 	dprintf("Open %s (openflags %llx)\n", (ret ? "done" : "failed"),
-		zv->zv_zso->zvo_openflags);
+		ret ? zv->zv_zso->zvo_openflags : 0);
 
-	zvol_os_unlock_zv(zv);
-
-	if (ret == false) {
+	if (ret == false)
 		super::handleClose(client, options);
-	}
 
 	return (ret);
 }
-
-
 
 void
 net_lundman_zfs_zvol_device::handleClose(IOService *client,
@@ -536,9 +552,13 @@ net_lundman_zfs_zvol_device::handleClose(IOService *client,
 {
 	super::handleClose(client, options);
 
-	zvol_os_lock_zv(zv);
+	/* Terminating ? */
+	if (zv == NULL ||
+		zv->zv_zso == NULL ||
+		zv->zv_zso->zvo_iokitdev == NULL)
+		return;
+
 	zvol_os_close_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL);
-	zvol_os_unlock_zv(zv);
 
 }
 
@@ -549,19 +569,8 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 {
 	IODirection direction;
 	IOByteCount actualByteCount;
-#if 0
-	struct iomem *iomem = 0;
-	// struct io_context *context = 0;
-#else
-	/*
-	 * XXX Until we implement async IO, an on-stack struct is
-	 * fine. At that point we can embed the buffer in an IO
-	 * context struct with the completion callback, plus list
-	 * pointers to track inflight/completed IOs.
-	 */
 	struct iomem iomem;
 	iomem.buf = NULL;
-#endif
 
 	// Return errors for incoming I/O if we have been terminated.
 	if (isInactive() == true) {
@@ -602,61 +611,30 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 	/* Perform the read or write operation through the transport driver. */
 	actualByteCount = (nblks*(ZVOL_BSIZE));
 
-#if 0
-	if ((iomem = (struct iomem *)kmem_alloc(sizeof (struct iomem),
-	    KM_SLEEP)) == NULL) {
-		dprintf("%s allocation failed\n", __func__);
-		(completion->action)(completion->target, completion->parameter,
-		    kIOReturnSuccess, actualByteCount);
-		return (kIOReturnSuccess);
-	}
-	iomem->buf = buffer;
-#else
 	iomem.buf = buffer;
-#endif
 
 	/* Make sure we don't go away while the command is being executed */
 	/* Open should be holding a retain */
-	//retain();
-	//m_provider->retain();
 
 	if (direction == kIODirectionIn) {
 
-#if 0
-		if (zvol_read_iokit(zv, (block*(ZVOL_BSIZE)),
-		    actualByteCount, iomem)) {
-#else
 		if (zvol_os_read_zv(zv, (block*(ZVOL_BSIZE)),
 		    actualByteCount, &iomem)) {
-#endif
 
 			actualByteCount = 0;
 		}
 
 	} else {
 
-#if 0
-		if (zvol_write_iokit(zv, (block*(ZVOL_BSIZE)),
-		    actualByteCount, iomem)) {
-#else
 		if (zvol_os_write_zv(zv, (block*(ZVOL_BSIZE)),
 		    actualByteCount, &iomem)) {
-#endif
 			actualByteCount = 0;
 		}
 
 	}
 
 	/* Open should be holding a retain */
-	//m_provider->release();
-	//release();
-
-#if 0
-	/* If async, this would happen in io_done() */
-	kmem_free(iomem, sizeof (struct iomem));
-#else
 	iomem.buf = NULL; // overkill
-#endif
 
 	if (actualByteCount != nblks*(ZVOL_BSIZE))
 		dprintf("Read/Write operation failed\n");
@@ -1062,7 +1040,7 @@ zvolRegisterDevice(zvol_state_t *zv)
 }
 
 /* Struct passed in will be freed before returning */
-int
+void *
 zvolRemoveDevice(zvol_iokit_t *iokitdev)
 {
 	net_lundman_zfs_zvol_device *zvol;
@@ -1070,7 +1048,7 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 
 	if (!iokitdev) {
 		dprintf("%s missing argument\n", __func__);
-		return (EINVAL);
+		return NULL;
 	}
 
 	zvol = iokitdev->dev;
@@ -1079,28 +1057,30 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 
 	if (zvol == NULL) {
 		dprintf("%s couldn't get IOKit handle\n", __func__);
-		return (ENXIO);
+		return NULL;
 	}
 
-#if 0
-	IOService *provider;
-	provider = zvol->getProvider();
+	/* Mark us as terminating */
+	zvol->clearState();
 
-	/* Ask the IOBlockStorageDriver to decommission media */
-	IOReturn ret;
-	if ((ret = zvol->message(kIOMessageServiceIsRequestingClose,
-	    provider)) != kIOReturnSuccess) {
-		dprintf("%s media close failed %d\n", __func__, ret);
-	}
-#endif
+	return (zvol);
+}
+
+/*
+ * zvolRemoveDevice continued..
+ * terminate() will block and we can deadlock, so it is issued as a
+ * separate thread. Done from zvol_os.c as it is easier in C.
+ */
+int
+zvolRemoveDeviceTerminate(void *arg)
+{
+	net_lundman_zfs_zvol_device *zvol = (net_lundman_zfs_zvol_device *)arg;
 
 	/* Terminate */
-	if (zvol->terminate(kIOServiceTerminate|
+	if (zvol->terminate(kIOServiceTerminate|kIOServiceAsynchronous|
 	    kIOServiceRequired) == false) {
 		IOLog("%s terminate failed\n", __func__);
 	}
-	//zvol->release();
-	zvol = 0;
 
 	return (0);
 }

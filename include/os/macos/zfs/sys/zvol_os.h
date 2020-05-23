@@ -59,7 +59,8 @@ extern int zvol_os_get_volume_blocksize(dev_t dev);
 extern void zvol_os_lock_zv(zvol_state_t *zv);
 extern void zvol_os_unlock_zv(zvol_state_t *zv);
 
-extern int zvolRemoveDevice(zvol_iokit_t *iokitdev);
+extern void *zvolRemoveDevice(zvol_iokit_t *iokitdev);
+extern int zvolRemoveDeviceTerminate(void *iokitdev);
 extern int zvolCreateNewDevice(zvol_state_t *zv);
 extern int zvolRegisterDevice(zvol_state_t *zv);
 

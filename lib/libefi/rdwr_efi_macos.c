@@ -1709,5 +1709,5 @@ osx_device_isvirtual(char *device)
 		    isCoreStorageLV,
 		    isVirtualInterface);
 
-	return (isCoreStorageLV || isVirtualInterface);
+	return (isCoreStorageLV /* || isVirtualInterface*/);
 }
