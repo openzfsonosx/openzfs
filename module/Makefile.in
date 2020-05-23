@@ -92,6 +92,11 @@ modules_install-Linux:
 		depmod -ae -F $$sysmap @LINUX_VERSION@; \
 	fi
 
+modules_install-macOS:
+	flags="$$(echo $$MAKEFLAGS | tr ' ' '\n'|grep '^-j')"; \
+	env MAKEFLAGS="" SYSDIR=@LINUX@ \
+		make $${flags} -C os/macos/ install
+
 CTAGS: ctags
 ctags-am: $(TAGS_DEPENDENCIES) $(am__tagged_files)
 	$(am__define_uniq_tagged_files); \
