@@ -2469,6 +2469,12 @@ int
 zfs_fsync(znode_t *zp, int syncflag, cred_t *cr)
 {
 	zfsvfs_t *zfsvfs = ZTOZSB(zp);
+	vnode_t *vp = ZTOV(zp);
+
+	if (zp->z_is_mapped /*&& !(syncflag & FNODSYNC)*/ &&
+		vnode_isreg(vp) && !vnode_isswap(vp)) {
+		cluster_push(vp, /* waitdata ? IO_SYNC : */ 0);
+	}
 
 	(void) tsd_set(zfs_fsyncer_key, (void *)zfs_fsync_sync_cnt);
 

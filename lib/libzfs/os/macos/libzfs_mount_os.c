@@ -333,7 +333,11 @@ int
 	 */
 	if (zhp) {
 
-		devdisk = zfs_prop_get_int(zhp, ZFS_PROP_DEVDISK);
+		/* If we are in zfs-tests, no devdisks */
+		if (getenv("__ZFS_MAIN_MOUNTPOINT_DIR") != NULL)
+			devdisk = ZFS_DEVDISK_OFF;
+		else
+			devdisk = zfs_prop_get_int(zhp, ZFS_PROP_DEVDISK);
 
 		if (zhp && zhp->zpool_hdl &&
 			!strcmp(zpool_get_name(zhp->zpool_hdl),

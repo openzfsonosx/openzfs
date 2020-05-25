@@ -871,24 +871,10 @@ zfsvfs_setup(zfsvfs_t *zfsvfs, boolean_t mounting)
 	int error;
 	boolean_t readonly = vfs_isrdonly(zfsvfs->z_vfs);
 
-	/*
-	 * Check for a bad on-disk format version now since we
-	 * lied about owning the dataset readonly before.
-	 */
-	if (!readonly &&
-	    dmu_objset_incompatible_encryption_version(zfsvfs->z_os))
-		return (SET_ERROR(EROFS));
-
 	error = zfs_register_callbacks(zfsvfs->z_vfs);
 	if (error)
 		return (error);
 
-	/*
-	 * Set the objset user_ptr to track its zfsvfs.
-	 */
-	mutex_enter(&zfsvfs->z_os->os_user_ptr_lock);
-	dmu_objset_set_user(zfsvfs->z_os, zfsvfs);
-	mutex_exit(&zfsvfs->z_os->os_user_ptr_lock);
 	zfsvfs->z_log = zil_open(zfsvfs->z_os, zfs_get_data);
 
 	/*
@@ -1097,35 +1083,17 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 	/* If we are readonly (ie, waiting for rootmount) we need to reply
 	 * honestly, so launchd runs fsck_zfs and mount_zfs
 	 */
-	if(mimic) {
+	if (mimic) {
 	    struct vfsstatfs *vfsstatfs;
 	    vfsstatfs = vfs_statfs(vfsp);
 	    strlcpy(vfsstatfs->f_fstypename, "hfs", MFSTYPENAMELEN);
 	}
-
-#else
-	fsid_guid = dmu_objset_fsid_guid(zfsvfs->z_os);
-	ASSERT((fsid_guid & ~((1ULL<<56)-1)) == 0);
-	vfsp->vfs_fsid.val[0] = fsid_guid;
-	vfsp->vfs_fsid.val[1] = ((fsid_guid>>32) << 8) |
-	    vfsp->mnt_vfc->vfc_typenum & 0xFF;
 #endif
 
 	/*
 	 * Set features for file system.
 	 */
 	zfs_set_fuid_feature(zfsvfs);
-#if 0
-	if (zfsvfs->z_case == ZFS_CASE_INSENSITIVE) {
-		vfs_set_feature(vfsp, VFSFT_DIRENTFLAGS);
-		vfs_set_feature(vfsp, VFSFT_CASEINSENSITIVE);
-		vfs_set_feature(vfsp, VFSFT_NOCASESENSITIVE);
-	} else if (zfsvfs->z_case == ZFS_CASE_MIXED) {
-		vfs_set_feature(vfsp, VFSFT_DIRENTFLAGS);
-		vfs_set_feature(vfsp, VFSFT_CASEINSENSITIVE);
-	}
-	vfs_set_feature(vfsp, VFSFT_ZEROCOPY_SUPPORTED);
-#endif
 
 	if (dmu_objset_is_snapshot(zfsvfs->z_os)) {
 		uint64_t pval;
@@ -1175,11 +1143,6 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 		vfs_clearflags(vfsp,
 		    (uint64_t)((unsigned int)MNT_IGNORE_OWNERSHIP));
 	}
-
-#else
-	/* Grab extra reference. */
-	VERIFY(VFS_ROOT(vfsp, LK_EXCLUSIVE, &vp) == 0);
-	VOP_UNLOCK(vp, 0);
 #endif
 
 #if 1 // Want .zfs or not
