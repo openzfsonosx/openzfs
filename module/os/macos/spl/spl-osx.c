@@ -344,9 +344,7 @@ getpcstack(uintptr_t *pcstack, int pcstack_limit)
 void
 print_symbol(uintptr_t symbol)
 {
-    printf("SPL: ");
     panic_print_symbol_name((vm_address_t)(symbol));
-    printf("\n");
 }
 
 int
