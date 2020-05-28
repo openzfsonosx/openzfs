@@ -588,6 +588,10 @@ void luaV_finishOp (lua_State *L) {
         else { Protect(luaV_arith(L, ra, rb, rc, tm)); } }
 
 
+#if !defined (__OPTIMIZE__) && defined (__APPLE__)
+#warning "luaV_execute is known to panic with deep stacks without optimize (-O)"
+#endif
+
 #define vmdispatch(o)	switch(o)
 #define vmcase(l,b)	case l: {b}  break;
 #define vmcasenb(l,b)	case l: {b}		/* nb = no break */
