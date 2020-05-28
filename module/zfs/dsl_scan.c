@@ -1901,6 +1901,11 @@ dsl_scan_visitdnode(dsl_scan_t *scn, dsl_dataset_t *ds,
 	}
 }
 
+
+#if !defined (__OPTIMIZE__) && defined (__APPLE__)
+#warning "dsl_scan_visitbp is known to panic during scrubs without optimize (-O)"
+#endif
+
 /*
  * The arguments are in this order because mdb can only print the
  * first 5; we want them to be useful.
