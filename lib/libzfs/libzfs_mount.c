@@ -574,7 +574,7 @@ unmount_one(libzfs_handle_t *hdl, const char *mountpoint, int flags)
 {
 	int error;
 
-	error = do_unmount(mountpoint, flags);
+	error = do_unmount(hdl, mountpoint, flags);
 	if (error != 0) {
 		int libzfs_err;
 
