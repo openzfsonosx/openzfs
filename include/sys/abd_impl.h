@@ -59,7 +59,7 @@ struct abd {
 	union {
 		struct abd_scatter {
 			uint_t		abd_offset;
-#if defined(__FreeBSD__) && defined(_KERNEL)
+#if defined(_KERNEL) && ( defined(__FreeBSD__) || defined(__APPLE__) )
 			uint_t  abd_chunk_size;
 			void    *abd_chunks[];
 #else
@@ -134,6 +134,9 @@ void abd_iter_unmap(struct abd_iter *);
 #if defined(__FreeBSD__)
 #define	abd_enter_critical(flags)	critical_enter()
 #define	abd_exit_critical(flags)	critical_exit()
+#elif defined (__APPLE__)
+#define abd_enter_critical(flags)	(flags) = ml_set_interrupts_enabled(FALSE)
+#define abd_exit_critical(flags)	ml_set_interrupts_enabled((flags))
 #else
 #define	abd_enter_critical(flags)	local_irq_save(flags)
 #define	abd_exit_critical(flags)	local_irq_restore(flags)
