@@ -88,8 +88,10 @@ endif
 if BUILD_FREEBSD
 libzfs_la_LIBADD += -lutil -lgeom
 libzfs_la_LDFLAGS = -version-info 4:0:0
-else
-libzfs_la_LDFLAGS = -version-info 2:0:0
+endif
+
+if BUILD_MACOS
+libzfs_la_LDFLAGS = -version-info 2:0:0 -framework IOKit
 endif
 
 libzfs_la_LIBADD += -lm $(LIBSSL)
