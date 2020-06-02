@@ -328,32 +328,30 @@ zfs_holey(struct vnode *vp, int cmd, loff_t *off)
  *		the page and the dmu buffer.
  */
 static void
-update_pages(vnode_t *vp, int64_t nbytes, struct uio *uio,
-	dmu_tx_t *tx)
+update_pages(vnode_t *vp, int64_t start, int64_t len,
+	objset_t *os, uint64_t oid)
 {
 	znode_t *zp = VTOZ(vp);
-	int len = nbytes;
 	int error = 0;
 	vm_offset_t vaddr = 0;
 	upl_t upl;
 	upl_page_info_t *pl = NULL;
-	off_t upl_start;
 	int upl_size;
 	int upl_page;
 	off_t off;
 
-	upl_start = uio_offset(uio);
-	off = upl_start & (PAGE_SIZE - 1);
-	upl_start &= ~PAGE_MASK;
-	upl_size = (off + nbytes + (PAGE_SIZE - 1)) & ~PAGE_MASK;
+	off = start & (PAGE_SIZE - 1);
+	start &= ~PAGE_MASK;
 
-	dprintf("update_pages %llu - %llu (adjusted %llu - %d): off %llu\n",
-	    uio_offset(uio), nbytes, upl_start, upl_size, off);
+	upl_size = (off + len + (PAGE_SIZE - 1)) & ~PAGE_MASK;
+
+	dprintf("update_pages: start 0x%llx len 0x%llx: 1st off x%llx\n",
+	    start, len, off);
 	/*
 	 * Create a UPL for the current range and map its
 	 * page list into the kernel virtual address space.
 	 */
-	error = ubc_create_upl(vp, upl_start, upl_size, &upl, &pl,
+	error = ubc_create_upl(vp, start, upl_size, &upl, &pl,
 	    UPL_FILE_IO | UPL_SET_LITE);
 	if ((error != KERN_SUCCESS) || !upl) {
 		printf("ZFS: update_pages failed to ubc_create_upl: %d\n", error);
@@ -366,7 +364,7 @@ update_pages(vnode_t *vp, int64_t nbytes, struct uio *uio,
 		return;
 	}
 	for (upl_page = 0; len > 0; ++upl_page) {
-		uint64_t bytes = MIN(PAGESIZE - off, len);
+		uint64_t nbytes = MIN(PAGESIZE - off, len);
 		/*
 		 * We don't want a new page to "appear" in the middle of
 		 * the file update (because it may not get the write
@@ -376,30 +374,16 @@ update_pages(vnode_t *vp, int64_t nbytes, struct uio *uio,
 		rw_enter(&zp->z_map_lock, RW_WRITER);
 		if (pl && upl_valid_page(pl, upl_page)) {
 			rw_exit(&zp->z_map_lock);
-			uio_setrw(uio, UIO_WRITE);
-			error = uiomove((caddr_t)vaddr + off, bytes, UIO_WRITE, uio);
-			if (error == 0) {
-				/*
-				 * We don't need a ubc_upl_commit_range()
-				 * here since the dmu_write() effectively
-				 * pushed this page to disk.
-				 */
-			} else {
-				/*
-				 * page is now in an unknown state so dump it.
-				 */
-				ubc_upl_abort_range(upl, upl_start, PAGESIZE,
-				    UPL_ABORT_DUMP_PAGES);
-			}
+			(void) dmu_read(os, oid, start+off, nbytes, (void *)(vaddr+off),
+				DMU_READ_PREFETCH);
+
 		} else { // !upl_valid_page
 			rw_exit(&zp->z_map_lock);
 		}
 		vaddr += PAGE_SIZE;
-		upl_start += PAGE_SIZE;
-		len -= bytes;
+		start += PAGE_SIZE;
+		len -= nbytes;
 		off = 0;
-		if (error)
-			break;
 	}
 
 	/*
@@ -831,15 +815,9 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 		ssize_t nbytes = MIN(n, max_blksz - P2PHASE(woff, max_blksz));
 
 		ssize_t tx_bytes = 0;
-		uio_t *uio_copy = NULL;
-
 		/* This conditional is always true in OSX, it is kept so
 		 * the sources look familiar to other platforms */
 		if (abuf == NULL) {
-
-			// Keep a copy of the uio for update_pages.
-            if ( zp->z_is_mapped )
-				uio_copy = uio_duplicate(uio);
 
 			tx_bytes = uio_resid(uio);
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
@@ -896,12 +874,8 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 			uioskip(uio, tx_bytes);
 #endif
 		}
-		if (uio_copy != NULL) {
-			if (tx_bytes && zp->z_is_mapped && !(ioflag & O_DIRECT)) {
-				update_pages(vp, tx_bytes, uio_copy, tx);
-				uio_free(uio_copy);
-				uio_copy = NULL;
-			}
+		if (tx_bytes && zp->z_is_mapped && !(ioflag & O_DIRECT)) {
+			update_pages(vp, woff, tx_bytes, zfsvfs->z_os, zp->z_id);
 		}
 
 		/*
@@ -4591,4 +4565,3 @@ zfs_space(znode_t *zp, int cmd, flock64_t *bfp, int flag,
 	ZFS_EXIT(zfsvfs);
 	return (error);
 }
-
