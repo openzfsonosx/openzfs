@@ -210,7 +210,8 @@ abd_free_struct(abd_t *abd)
 	int size = offsetof(abd_t, abd_u.abd_scatter.abd_chunks[chunkcnt]);
 	mutex_destroy(&abd->abd_mtx);
 	ASSERT(!list_link_active(&abd->abd_gang_link));
-	kmem_free(abd, MAX(size, sizeof(abd_t)));
+
+	kmem_free(abd, abd->abd_orig_size);
 	ABDSTAT_INCR(abdstat_struct_size, -size);
 }
 
