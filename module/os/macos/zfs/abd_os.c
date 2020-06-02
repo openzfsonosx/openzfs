@@ -195,6 +195,7 @@ abd_alloc_struct(size_t size)
 	    abd_u.abd_scatter.abd_chunks[chunkcnt]);
 	abd_t *abd = kmem_alloc(MAX(abd_size, sizeof(abd_t)), KM_PUSHPAGE);
 	ASSERT3P(abd, !=, NULL);
+	abd->abd_orig_size = MAX(abd_size, sizeof(abd_t));
 	list_link_init(&abd->abd_gang_link);
 	mutex_init(&abd->abd_mtx, NULL, MUTEX_DEFAULT, NULL);
 	ABDSTAT_INCR(abdstat_struct_size, abd_size);
@@ -209,7 +210,8 @@ abd_free_struct(abd_t *abd)
 	int size = offsetof(abd_t, abd_u.abd_scatter.abd_chunks[chunkcnt]);
 	mutex_destroy(&abd->abd_mtx);
 	ASSERT(!list_link_active(&abd->abd_gang_link));
-	kmem_free(abd, MAX(size, sizeof(abd_t)));
+
+	kmem_free(abd, abd->abd_orig_size);
 	ABDSTAT_INCR(abdstat_struct_size, -size);
 }
 
@@ -322,6 +324,7 @@ abd_alloc_scatter_offset_chunkcnt(size_t chunkcnt)
 	    abd_u.abd_scatter.abd_chunks[chunkcnt]);
 	abd_t *abd = kmem_alloc(MAX(abd_size, sizeof(abd_t)), KM_PUSHPAGE);
 	ASSERT3P(abd, !=, NULL);
+	abd->abd_orig_size = MAX(abd_size, sizeof(abd_t));
 	list_link_init(&abd->abd_gang_link);
 	mutex_init(&abd->abd_mtx, NULL, MUTEX_DEFAULT, NULL);
 	ABDSTAT_INCR(abdstat_struct_size, abd_size);
