@@ -96,8 +96,6 @@ unsigned int zfs_vnop_create_negatives = 1;
 	DECLARE_CONTEXT(ap)
 
 #undef dprintf
-#define	dprintf if (debug_vnop_osx_printf) printf
-//#define	dprintf if (debug_vnop_osx_printf) kprintf
 #define dprintf printf
 
 //#define	dprintf(...) if (debug_vnop_osx_printf) {printf(__VA_ARGS__);delay(hz>>2);}
@@ -3304,7 +3302,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	struct componentname cn = { 0 };
 	int  error = 0;
 	int size = 0;
-	struct uio *finderinfo_uio = NULL;
 	uint64_t resid = uio ? uio_resid(uio) : 0;
 	znode_t *xdzp = NULL, *xzp = NULL;
 
@@ -3317,22 +3314,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 	ZFS_ENTER(zfsvfs);
 
-	/*
-	 * Recursive attributes are not allowed.
-	 */
-	if (zp->z_pflags & ZFS_XATTR) {
-		error = EINVAL;
-		goto out;
-	}
-
-#if 0
-	if (zp->z_xattr == 0) {
-		error = ENOATTR;
-		goto out;
-	}
-#endif
-
-	if (zfsvfs->z_use_sa && zp->z_is_sa) {
+	if (zfsvfs->z_use_sa && zfsvfs->z_xattr_sa && zp->z_is_sa) {
 		char *value = NULL;
 
 		rw_enter(&zp->z_xattr_lock, RW_READER);
@@ -3371,7 +3353,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		}
 	}
 
-
 	/* Grab the hidden attribute directory vnode. */
 	if ((error = zfs_get_xattrdir(zp, &xdzp, cr, 0))) {
 		goto out;
@@ -3383,8 +3364,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	/* Lookup the attribute name. */
 	if ((error = zfs_dirlook(xdzp, (char *)ap->a_name, &xzp, 0, NULL,
 	    &cn))) {
-		if (error == ENOENT)
-			error = ENOATTR;
 		goto out;
 	}
 
@@ -3393,59 +3372,86 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	 * so that we can uiomove to/from it to modify contents.
 	 */
 	if (!error && uio &&
-		bcmp(ap->a_name, XATTR_FINDERINFO_NAME, sizeof(XATTR_FINDERINFO_NAME)) == 0) {
+	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
+	    sizeof(XATTR_FINDERINFO_NAME)) == 0) {
+		ssize_t local_resid;
+		zfs_file_t zf;
+		u_int8_t finderinfo[32];
+		static u_int32_t emptyfinfo[8] = {0};
+
+		/* Read the attribute data. */
+		printf("special finderinfo code\n");
 		if ((user_size_t)uio_resid(uio) < 32) {/* FinderInfo is 32 bytes */
 			error = ERANGE;
 			goto out;
 		}
 
-		finderinfo_uio = uio_duplicate(uio);
-	}
+		/* Use the convenience wrappers to read to SYSSPACE */
+		zf.f_vnode = ZTOV(xzp);
+		zf.f_fd = -1;
 
+		error = zfs_file_pread(&zf, &finderinfo,
+			sizeof(finderinfo), 0ULL, &local_resid);
 
-	/* Read the attribute data. */
+		if (local_resid != 0) {
+			error = ERANGE;
+		} else {
+			printf("finderinfo read in OK\n");
+			/* Update size if requested */
+			if (ap->a_size)
+				*ap->a_size = (size_t)sizeof(finderinfo);
+
+			/* According to HFS we are to zero out some fields */
+			finderinfo_update((uint8_t *)&finderinfo, zp);
+
+			/* If Finder Info is empty then it doesn't exist. */
+			if (bcmp(finderinfo, emptyfinfo, sizeof(emptyfinfo)) == 0) {
+				printf("finderinfo is empty\n");
+				error = ENOATTR;
+			} else {
+				printf("finderinfo reached uiomove\n");
+
+				/* Copy out the data we just modified */
+				error = uiomove((const char*)&finderinfo,
+				    sizeof(finderinfo), 0, uio);
+
+			} /* Not empty */
+		} /* Correct size */
+
+		/* We are done */
+		goto out;
+	} /* Is finder info */
+
+	/* If NOT finderinfo */
+	printf("not finder info: uio %p\n", uio);
+
 	if (uio == NULL) {
+
+		/* Query xattr size. */
 		if (ap->a_size) {
 			mutex_enter(&xzp->z_lock);
 			*ap->a_size = (size_t)xzp->z_size;
 			mutex_exit(&xzp->z_lock);
+			printf("Setting size %llu\n", xzp->z_size);
 		}
+
 	} else {
 
-		error = VNOP_READ(ZTOV(xzp), uio, 0, ap->a_context);
+		/* Read xattr */
+		error = zfs_read(ZTOV(xzp), uio, 0, cr);
+		printf("VNOP_READ said %d\n", error);
 
 		if (ap->a_size && uio) {
 			*ap->a_size = (size_t)resid - uio_resid(ap->a_uio);
 		}
-	}
-
-
-	/*
-	 * Handle FinderInfo
-	 */
-	if ((error == 0) && (finderinfo_uio != NULL)) {
-		u_int8_t finderinfo[32];
-		size_t bytes;
-
-		/* Copy in the data we just read */
-		uiocopy((const char *)&finderinfo, 32, UIO_WRITE,
-				finderinfo_uio, &bytes);
-		if (bytes != 32) {
-			error = ERANGE;
-			goto out;
-		}
-
-		finderinfo_update((uint8_t *)&finderinfo, zp);
-
-		/* Copy out the data we just modified */
-		uiomove((const char*)&finderinfo, 32, 0, finderinfo_uio);
 
 	}
-
-
 
 out:
-	if (finderinfo_uio) uio_free(finderinfo_uio);
+	printf("out\n");
+
+	if (error == ENOENT)
+		error = ENOATTR;
 
 	if (cn.cn_nameptr)
 		kmem_free(cn.cn_nameptr, cn.cn_namelen);
@@ -3458,7 +3464,7 @@ out:
 
 	ZFS_EXIT(zfsvfs);
 	dprintf("-getxattr vp %p : %d size %lu\n", ap->a_vp, error,
-		*ap->a_size);
+		!error && ap->a_size ? *ap->a_size : 0);
 	return (error);
 }
 
@@ -3475,7 +3481,6 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	};
 #endif
 {
-//dprintf("%s\n", __func__);
 	DECLARE_CRED(ap);
 	struct vnode *vp = ap->a_vp;
 	struct vnode *xvp = NULLVP;
@@ -3494,15 +3499,11 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		return ENOTSUP;
 	}
 
-	ZFS_ENTER(zfsvfs);
-
-	/*
-	 * Recursive attributes are not allowed.
-	 */
-	if (zp->z_pflags & ZFS_XATTR) {
-		error = EINVAL;
-		goto out;
+	if (ap->a_name == NULL || ap->a_name[0] == '\0') {
+		return (EINVAL);  /* invalid name */
 	}
+
+	ZFS_ENTER(zfsvfs);
 
 	if (strlen(ap->a_name) >= ZAP_MAXNAMELEN) {
 		error = ENAMETOOLONG;
@@ -3521,6 +3522,8 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	if (zfsvfs->z_use_sa && zfsvfs->z_xattr_sa && zp->z_is_sa) {
 		char *value;
 		uint64_t size;
+
+		printf("SA\n");
 
 		rw_enter(&zp->z_xattr_lock, RW_READER);
 		if (zp->z_xattr_cached == NULL)
@@ -3582,22 +3585,81 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 
 	/* Write the attribute data. */
 	ASSERT(uio != NULL);
+
+#if 0
 	error = zfs_freesp(VTOZ(xvp), 0, 0, VTOZ(vp)->z_mode, TRUE);
+#endif
 
-    /*
-	 * TODO:
-	 * When writing FINDERINFO, we need to replace the ADDEDTIME date
-	 * with actual crtime and not let userland overwrite it.
-	 */
+	/* Special case for Finderinfo */
+	if (!error && uio &&
+	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
+	    sizeof(XATTR_FINDERINFO_NAME)) == 0) {
 
-	error = VNOP_WRITE(xvp, uio, 0, ap->a_context);
+		ssize_t local_resid;
+		zfs_file_t zf;
+		u_int8_t finderinfo[32];
+		static u_int32_t emptyfinfo[8] = {0};
+
+		/* Read the attribute data. */
+		printf("special finderinfo code\n");
+		if ((user_size_t)uio_resid(uio) < 32) {/* FinderInfo is 32 bytes */
+			error = ERANGE;
+			goto out;
+		}
+
+		/* Copy in the finderinfo to our space */
+		error = uiomove((const char*)&finderinfo,
+			sizeof(finderinfo), 0, uio);
+		if (error)
+			goto out;
+
+		/* Zero out some fields, according to HFS */
+		finderinfo_update((uint8_t *)&finderinfo, zp);
+
+		/*
+		 * TODO:
+		 * When writing FINDERINFO, we need to replace the ADDEDTIME date
+		 * with actual crtime and not let userland overwrite it.
+		 */
+
+		/* Empty Finderinfo is non-existent. */
+		if (bcmp(finderinfo, emptyfinfo, sizeof(emptyfinfo)) == 0) {
+			/* Attempt to delete it? */
+			printf("Empty finderinfo, removing\n");
+			error = zfs_remove(xdzp, (char *)ap->a_name, cr, /* flags */0);
+			goto out;
+		}
+
+		/* Use the convenience wrappers to write to ZFS */
+		zf.f_vnode = xvp;
+		zf.f_fd = -1;
+
+		/* This write doesn't go through txg, reconsider? */
+		error = zfs_file_pwrite(&zf, &finderinfo,
+			sizeof(finderinfo), 0ULL, &local_resid);
+
+		if (local_resid != 0)
+			error = ERANGE;
+
+		printf("Finderinfo write done\n");
+		goto out;
+	} /* Finderinfo */
+
+	/* Write XATTR to disk */
+	error = zfs_write(xvp, uio, 0, cr);
+
+	printf("VNOP_WRITE: %d\n", error);
 
 out:
+
+	if (error == ENOENT)
+		error = ENOATTR;
+
 	if (xdzp) {
 		zrele(xdzp);
 	}
 	if (xvp) {
-		vnode_put(xvp);
+		VN_RELE(xvp);
 	}
 
 	ZFS_EXIT(zfsvfs);
@@ -3722,7 +3784,6 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 {
 	DECLARE_CRED(ap);
 	struct vnode *vp = ap->a_vp;
-	struct vnode *xdvp = NULLVP;
 	znode_t  *zp = VTOZ(vp);
 	zfsvfs_t  *zfsvfs = zp->z_zfsvfs;
 	struct uio *uio = ap->a_uio;
@@ -3798,7 +3859,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 	}
 	os = zfsvfs->z_os;
 
-	for (zap_cursor_init(&zc, os, VTOZ(xdvp)->z_id);
+	for (zap_cursor_init(&zc, os, xdzp->z_id);
 	    zap_cursor_retrieve(&zc, &za) == 0; zap_cursor_advance(&zc)) {
 		if (xattr_protected(za.za_name))
 			continue;	 /* skip */
@@ -3867,7 +3928,6 @@ zfs_vnop_getnamedstream(struct vnop_getnamedstream_args *ap)
 	DECLARE_CRED(ap);
 	struct vnode *vp = ap->a_vp;
 	struct vnode **svpp = ap->a_svpp;
-//	struct vnode *xdvp = NULLVP;
 	znode_t  *zp = VTOZ(vp);
 	zfsvfs_t  *zfsvfs = zp->z_zfsvfs;
 	struct componentname cn = { 0 };

@@ -257,6 +257,7 @@ zfs_xattr_owner_unlinked(znode_t *zp)
 	if (tzp != zp)
 		zrele(tzp);
 #elif __APPLE__
+	VERIFY(ZTOV(zp) != NULL);
 	if (VN_HOLD(ZTOV(zp)) == 0) {
 		/*
 		 * if zp is XATTR node, keep walking up via z_xattr_parent until we

@@ -52,6 +52,97 @@
 #include <thread_pool.h>
 #include <sys/sysctl.h>
 
+
+/*
+ * The default OpenZFS icon. Compare against known values to see if it needs
+ * updating. Allowing users to set own.
+ * No file: copy icon
+ * correct size: do nothing
+ * other size: user custom icon, do nothing
+ */
+
+/* icon name on root of a mount */
+#define MOUNT_POINT_CUSTOM_ICON ".VolumeIcon.icns"
+
+/* source icon name from inside zfs.kext bundle */
+#define	CUSTOM_ICON_PATH \
+	KERNEL_MODPREFIX "/zfs.kext/Contents/Resources/VolumeIcon.icns"
+
+#include <sys/xattr.h>
+
+
+/*
+ * On OSX we can set the icon to an Open ZFS specific one, just to be extra
+ * shiny
+ */
+static void
+zfs_mount_seticon(const char *mountpoint)
+{
+	/* For a root file system, add a volume icon. */
+	ssize_t attrsize;
+	uint16_t finderinfo[16];
+	struct stat sbuf;
+	char *path = NULL;
+	FILE *dstfp = NULL, *srcfp = NULL;
+	unsigned char buf[1024];
+	unsigned int red;
+
+	if (asprintf(&path, "%s/%s", mountpoint, MOUNT_POINT_CUSTOM_ICON) == -1)
+		return;
+
+	/* If we can stat it, and it has a size, leave it be. */
+	if ((stat(path, &sbuf) == 0 && sbuf.st_size > 0))
+		goto out;
+
+	/* Looks like we should copy the icon over */
+
+	/* check if we can read in the default ZFS icon */
+	srcfp = fopen(CUSTOM_ICON_PATH, "r");
+
+	/* No source icon */
+	if (!srcfp)
+		goto out;
+
+	/* Open the output icon for writing */
+	dstfp = fopen(path, "w");
+	if (!dstfp)
+		goto out;
+
+	/* Copy icon */
+	while ((red = fread(buf, 1, sizeof(buf), srcfp)) > 0)
+		(void) fwrite(buf, 1, red, dstfp);
+
+	/* We have copied it, set icon */
+	attrsize = getxattr(mountpoint, XATTR_FINDERINFO_NAME, &finderinfo,
+	    sizeof (finderinfo), 0);
+	if (attrsize != sizeof (finderinfo))
+		(void) memset(&finderinfo, 0, sizeof(finderinfo));
+	if ((finderinfo[4] & BE_16(0x0400)) == 0) {
+		finderinfo[4] |= BE_16(0x0400);
+		(void) setxattr(mountpoint, XATTR_FINDERINFO_NAME, &finderinfo,
+		    sizeof (finderinfo), 0);
+	}
+
+	/* Now tell Finder to update */
+#if 0
+	int fd = -1;
+	strlcpy(template, mountpoint, sizeof (template));
+	strlcat(template, "/tempXXXXXX", sizeof (template));
+	if ((fd = mkstemp(template)) != -1) {
+		unlink(template); // Just delete it right away
+		close(fd);
+	}
+#endif
+
+out:
+	if (dstfp != NULL)
+		fclose(dstfp);
+	if (srcfp != NULL)
+		fclose(srcfp);
+	if (path != NULL)
+		free(path);
+}
+
 /*
  * zfs_init_libshare(zhandle, service)
  *
@@ -388,6 +479,10 @@ int
 	rv = mount(fstype, rpath ? rpath : dir, 0, &mnt_args);
 
 	if (rpath) free(rpath);
+
+	/* Check if we need to create/update icon */
+	if (rv == 0)
+		zfs_mount_seticon(dir);
 
 	return rv;
 }

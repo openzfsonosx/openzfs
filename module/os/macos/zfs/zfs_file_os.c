@@ -206,7 +206,7 @@ zfs_file_read(zfs_file_t *fp, void *buf, size_t count, ssize_t *resid)
  * buf - buffer to write
  * count - # of bytes to write
  * off - file offset to read from (only valid for seekable types)
- * resid -  pointer to count of unwritten bytes (if short write)
+ * resid -  pointer to count of unwritten bytes (if short read)
  *
  * Returns 0 on success errno on failure.
  */
