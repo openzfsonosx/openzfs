@@ -42,7 +42,7 @@ AC_DEFUN([ZFS_AC_KERNEL_SRC_MACOS_HEADERS], [
 		])
 		AC_MSG_RESULT([$kernelbuild])
 
-        AC_ARG_WITH([kernel-modprefix],
+       AC_ARG_WITH([kernel-modprefix],
                 AS_HELP_STRING([--with-kernel-modprefix=PATH],
                 [Path to kernel module prefix]),
                 [KERNEL_MODPREFIX="$withval"])
@@ -51,6 +51,10 @@ AC_DEFUN([ZFS_AC_KERNEL_SRC_MACOS_HEADERS], [
                 KERNEL_MODPREFIX="/Library/Extensions"
         ])
         AC_MSG_RESULT([$KERNEL_MODPREFIX])
+        AC_DEFINE_UNQUOTED([KERNEL_MODPREFIX],
+                ["$KERNEL_MODPREFIX"],
+                [Path where the kernel module is installed.]
+        )
 
 		AC_MSG_CHECKING([macOS kernel source version])
 		utsrelease1=$kernelbuild/Headers/libkern/version.h
