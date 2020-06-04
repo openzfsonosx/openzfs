@@ -56,6 +56,7 @@ int vdev_raidz_math_generate(struct raidz_map *);
 int vdev_raidz_math_reconstruct(struct raidz_map *, const int *, const int *,
     const int);
 int vdev_raidz_impl_set(const char *);
+int vdev_raidz_impl_get(char *buffer, size_t max);
 
 #ifdef	__cplusplus
 }
