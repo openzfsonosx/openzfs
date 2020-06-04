@@ -48,6 +48,7 @@ if BUILD_MACOS
 USER_C += \
 	os/macos/libzfs_mount_os.c \
 	os/macos/libzfs_pool_os.c \
+	os/macos/libzfs_refresh_finder.m \
 	os/macos/libzfs_util_os.c
 endif
 
