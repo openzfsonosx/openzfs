@@ -95,7 +95,7 @@ if BUILD_MACOS
 libzfs_la_LIBADD += \
 	$(top_builddir)/lib/libshare/libshare.la
 
-libzfs_la_LDFLAGS = -version-info 2:0:0 -framework IOKit
+libzfs_la_LDFLAGS = -version-info 2:0:0 -framework IOKit -framework AppKit
 endif
 
 libzfs_la_LIBADD += -lm $(LIBSSL)
