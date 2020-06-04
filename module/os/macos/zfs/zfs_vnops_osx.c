@@ -1489,14 +1489,14 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 
 	dprintf("vnop_mkdir '%s'\n", ap->a_cnp->cn_nameptr);
 
-#if 1
+#if 0
 	/* Let's deny OS X fseventd for now */
 	if (ap->a_cnp->cn_nameptr &&
 	    strcmp(ap->a_cnp->cn_nameptr, ".fseventsd") == 0)
 		return (EINVAL);
 #endif
 
-#if 1
+#if 0
 	/* spotlight for now */
 	if (ap->a_cnp->cn_nameptr &&
 	    strcmp(ap->a_cnp->cn_nameptr, ".Spotlight-V100") == 0)

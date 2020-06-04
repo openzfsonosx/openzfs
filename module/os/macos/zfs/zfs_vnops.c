@@ -3343,6 +3343,7 @@ top:
 	if (mask & (AT_UID|AT_GID)) {
 
 		if (mask & AT_UID) {
+			new_uid = new_kuid;
 			SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_UID(zfsvfs), NULL,
 			    &new_uid, sizeof (new_uid));
 			zp->z_uid = new_uid;
@@ -3355,6 +3356,7 @@ top:
 		}
 
 		if (mask & AT_GID) {
+			new_gid = new_kgid;
 			SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GID(zfsvfs),
 			    NULL, &new_gid, sizeof (new_gid));
 			zp->z_gid = new_gid;

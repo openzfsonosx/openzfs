@@ -51,7 +51,6 @@ typedef struct spa_iokit spa_iokit_t;
 	(S) = zuio_iovlen((U), (I))
 
 struct zfs_handle;
-typedef struct zfs_handle zfs_handle_t;
-void zfs_rollback_os(zfs_handle_t *zhp);
+void zfs_rollback_os(struct zfs_handle *zhp);
 
 #endif
