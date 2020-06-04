@@ -11,6 +11,19 @@ noinst_LTLIBRARIES = libicp.la
 
 if TARGET_CPU_X86_64
 ASM_SOURCES_C = asm-x86_64/aes/aeskey.c
+
+if BUILD_LINUX
+ASM_SOURCES_AS = \
+	asm-x86_64/os/linux/aes/aes_amd64.S \
+	asm-x86_64/os/linux/aes/aes_aesni.S \
+	asm-x86_64/os/linux/modes/gcm_pclmulqdq.S \
+	asm-x86_64/os/linux/modes/aesni-gcm-x86_64.S \
+	asm-x86_64/os/linux/modes/ghash-x86_64.S \
+	asm-x86_64/os/linux/sha1/sha1-x86_64.S \
+	asm-x86_64/os/linux/sha2/sha256_impl.S \
+	asm-x86_64/os/linux/sha2/sha512_impl.S
+endif
+
 ASM_SOURCES_AS = \
 	asm-x86_64/aes/aes_amd64.S \
 	asm-x86_64/aes/aes_aesni.S \

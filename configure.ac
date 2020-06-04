@@ -156,12 +156,14 @@ AC_CONFIG_FILES([
 	lib/libspl/asm-i386/Makefile
 	lib/libspl/asm-x86_64/Makefile
 	lib/libspl/include/Makefile
-	lib/libspl/include/ia32/Makefile
-	lib/libspl/include/ia32/sys/Makefile
 	lib/libspl/include/os/Makefile
 	lib/libspl/include/os/freebsd/Makefile
+	lib/libspl/include/os/freebsd/ia32/Makefile
+	lib/libspl/include/os/freebsd/ia32/sys/Makefile
 	lib/libspl/include/os/freebsd/sys/Makefile
 	lib/libspl/include/os/linux/Makefile
+	lib/libspl/include/os/linux/ia32/Makefile
+	lib/libspl/include/os/linux/ia32/sys/Makefile
 	lib/libspl/include/os/linux/sys/Makefile
 	lib/libspl/include/rpc/Makefile
 	lib/libspl/include/sys/Makefile

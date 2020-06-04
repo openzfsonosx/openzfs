@@ -22,18 +22,8 @@
 /*
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
  */
-
-
-#define	ENTRY(x) \
-	.text; \
-	.align	8; \
-	.globl	x; \
-	.type	x, @function; \
-x:
-
-#define	SET_SIZE(x) \
-	.size	x, [.-x]
-
+#define _ASM
+#include <sys/asm_linkage.h>
 
 /*
  * Setjmp and longjmp implement non-local gotos using state vectors
