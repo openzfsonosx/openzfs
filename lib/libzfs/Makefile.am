@@ -48,7 +48,6 @@ if BUILD_MACOS
 USER_C += \
 	os/macos/libzfs_mount_os.c \
 	os/macos/libzfs_pool_os.c \
-	os/macos/libzfs_refresh_finder.m \
 	os/macos/libzfs_util_os.c
 endif
 
@@ -95,7 +94,7 @@ if BUILD_MACOS
 libzfs_la_LIBADD += \
 	$(top_builddir)/lib/libshare/libshare.la
 
-libzfs_la_LDFLAGS = -version-info 2:0:0 -framework IOKit -framework AppKit
+libzfs_la_LDFLAGS = -version-info 2:0:0 -framework IOKit
 endif
 
 libzfs_la_LIBADD += -lm $(LIBSSL)
