@@ -98,7 +98,8 @@ unsigned int zfs_vnop_create_negatives = 1;
 #undef dprintf
 #define dprintf printf
 
-//#define	dprintf(...) if (debug_vnop_osx_printf) {printf(__VA_ARGS__);delay(hz>>2);}
+/* Empty FinderInfo struct */
+static u_int32_t emptyfinfo[8] = {0};
 
 /*
  * zfs vfs operations.
@@ -3334,24 +3335,46 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			}
 		}
 
-		if (resid)
+		if (resid) {
 			value = kmem_alloc(resid, KM_SLEEP);
-		if (value && resid) {
 			rw_enter(&zp->z_xattr_lock, RW_READER);
 			size = zpl_xattr_get_sa(vp, ap->a_name, value, resid);
 			rw_exit(&zp->z_xattr_lock);
 
-			//dprintf("ZFS: SA XATTR said %d\n", size);
+			/* Finderinfo checks */
+			if (!error && resid &&
+				bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
+					sizeof(XATTR_FINDERINFO_NAME)) == 0) {
 
-			if (size > 0) {
-				uiomove((const char*)value, size, 0, uio);
+				/* Must be 32 bytes */
+				if (resid != sizeof(emptyfinfo) ||
+					size != sizeof(emptyfinfo)) {
+					error = ERANGE;
+					kmem_free(value, resid);
+					goto out;
+				}
+
+				/* If Finder Info is empty then it doesn't exist. */
+				if (bcmp(value, emptyfinfo, sizeof(emptyfinfo)) == 0) {
+					error = ENOATTR;
+					kmem_free(value, resid);
+					goto out;
+				}
+
+				/* According to HFS we are to zero out some fields */
+				finderinfo_update((uint8_t *)value, zp);
 			}
+
+			if (size > 0)
+				error = uiomove((const char*)value, size, 0, uio);
+
 			kmem_free(value, resid);
 
-			if (error != -ENOENT)
-				goto out;
+			goto out;
 		}
 	}
+
+	/* Legacy xattr */
 
 	/* Grab the hidden attribute directory vnode. */
 	if ((error = zfs_get_xattrdir(zp, &xdzp, cr, 0))) {
@@ -3380,7 +3403,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		static u_int32_t emptyfinfo[8] = {0};
 
 		/* Read the attribute data. */
-		printf("special finderinfo code\n");
 		if ((user_size_t)uio_resid(uio) < 32) {/* FinderInfo is 32 bytes */
 			error = ERANGE;
 			goto out;
@@ -3396,7 +3418,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		if (local_resid != 0) {
 			error = ERANGE;
 		} else {
-			printf("finderinfo read in OK\n");
+
 			/* Update size if requested */
 			if (ap->a_size)
 				*ap->a_size = (size_t)sizeof(finderinfo);
@@ -3406,10 +3428,8 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 			/* If Finder Info is empty then it doesn't exist. */
 			if (bcmp(finderinfo, emptyfinfo, sizeof(emptyfinfo)) == 0) {
-				printf("finderinfo is empty\n");
 				error = ENOATTR;
 			} else {
-				printf("finderinfo reached uiomove\n");
 
 				/* Copy out the data we just modified */
 				error = uiomove((const char*)&finderinfo,
@@ -3423,7 +3443,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	} /* Is finder info */
 
 	/* If NOT finderinfo */
-	printf("not finder info: uio %p\n", uio);
 
 	if (uio == NULL) {
 
@@ -3432,14 +3451,12 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			mutex_enter(&xzp->z_lock);
 			*ap->a_size = (size_t)xzp->z_size;
 			mutex_exit(&xzp->z_lock);
-			printf("Setting size %llu\n", xzp->z_size);
 		}
 
 	} else {
 
 		/* Read xattr */
 		error = zfs_read(ZTOV(xzp), uio, 0, cr);
-		printf("VNOP_READ said %d\n", error);
 
 		if (ap->a_size && uio) {
 			*ap->a_size = (size_t)resid - uio_resid(ap->a_uio);
@@ -3448,7 +3465,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	}
 
 out:
-	printf("out\n");
 
 	if (error == ENOENT)
 		error = ENOATTR;
@@ -3523,8 +3539,6 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		char *value;
 		uint64_t size;
 
-		printf("SA\n");
-
 		rw_enter(&zp->z_xattr_lock, RW_READER);
 		if (zp->z_xattr_cached == NULL)
 			error = -zfs_sa_get_xattr(zp);
@@ -3551,27 +3565,41 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 
 		size = uio_resid(uio);
 		value = kmem_alloc(size, KM_SLEEP);
-		if (value) {
-			size_t bytes;
 
-			/* Copy in the xattr value */
-			uiocopy((const char *)value, size, UIO_WRITE,
-					uio, &bytes);
+		size_t bytes;
 
-			error = zpl_xattr_set_sa(vp, ap->a_name,
-									 value, bytes,
-									 flag, cr);
-			kmem_free(value, size);
+		/* Copy in the xattr value */
+		uiocopy((const char *)value, size, UIO_WRITE,
+			uio, &bytes);
 
-			if (error == 0) {
+
+		/* Finderinfo checks */
+		if (!error && bytes &&
+		    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
+		    sizeof(XATTR_FINDERINFO_NAME)) == 0) {
+
+			/* Must be 32 bytes */
+			if (bytes != sizeof(emptyfinfo)) {
+				error = ERANGE;
 				rw_exit(&zp->z_xattr_lock);
+				kmem_free(value, size);
 				goto out;
 			}
-		}
-		dprintf("ZFS: zpl_xattr_set_sa failed %d\n", error);
 
+			/* According to HFS we are to zero out some fields */
+			finderinfo_update((uint8_t *)value, zp);
+		}
+
+		error = zpl_xattr_set_sa(vp, ap->a_name,
+		    value, bytes,
+		    flag, cr);
 		rw_exit(&zp->z_xattr_lock);
+		kmem_free(value, size);
+
+		goto out;
 	}
+
+	/* Legacy xattr */
 
 	if ((error = zfs_get_xattrdir(zp, &xdzp, cr, CREATE_XATTR_DIR))) {
 		goto out;
@@ -3595,13 +3623,9 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 	    sizeof(XATTR_FINDERINFO_NAME)) == 0) {
 
-		ssize_t local_resid;
-		zfs_file_t zf;
 		u_int8_t finderinfo[32];
-		static u_int32_t emptyfinfo[8] = {0};
 
 		/* Read the attribute data. */
-		printf("special finderinfo code\n");
 		if ((user_size_t)uio_resid(uio) < 32) {/* FinderInfo is 32 bytes */
 			error = ERANGE;
 			goto out;
@@ -3625,30 +3649,30 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		/* Empty Finderinfo is non-existent. */
 		if (bcmp(finderinfo, emptyfinfo, sizeof(emptyfinfo)) == 0) {
 			/* Attempt to delete it? */
-			printf("Empty finderinfo, removing\n");
 			error = zfs_remove(xdzp, (char *)ap->a_name, cr, /* flags */0);
 			goto out;
 		}
 
-		/* Use the convenience wrappers to write to ZFS */
-		zf.f_vnode = xvp;
-		zf.f_fd = -1;
+		/* Build a new uio to call zfs_write() to make it go in txg */
+		uio_t *luio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
+		if (luio == NULL) {
+			error = ENOMEM;
+			goto out;
+		}
+		uio_addiov(luio, (user_addr_t)&finderinfo, sizeof(finderinfo));
 
-		/* This write doesn't go through txg, reconsider? */
-		error = zfs_file_pwrite(&zf, &finderinfo,
-			sizeof(finderinfo), 0ULL, &local_resid);
+		error = zfs_write(xvp, luio, 0, cr);
 
-		if (local_resid != 0)
+		if (uio_resid(luio) != 0)
 			error = ERANGE;
 
-		printf("Finderinfo write done\n");
+		uio_free(luio);
+
 		goto out;
 	} /* Finderinfo */
 
 	/* Write XATTR to disk */
 	error = zfs_write(xvp, uio, 0, cr);
-
-	printf("VNOP_WRITE: %d\n", error);
 
 out:
 
