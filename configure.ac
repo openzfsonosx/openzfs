@@ -46,7 +46,7 @@ AC_CONFIG_HEADERS([zfs_config.h], [
 	rm zfs_config.h.tmp) || exit 1])
 
 AC_PROG_INSTALL
-AC_PROG_CC(clang)
+AC_PROG_CC
 AC_PROG_LIBTOOL
 PKG_PROG_PKG_CONFIG
 AM_PROG_AS
