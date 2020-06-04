@@ -333,7 +333,37 @@ execvpe(const char *name, char * const argv[], char * const envp[])
 	return (execvPe(name, path, argv, envp));
 }
 
+#include <objc/objc.h>
+#include <objc/runtime.h>
+#include <objc/message.h>
+
 extern void libzfs_refresh_finder(char *);
+
+/*
+ * To tell Finder to refresh is relatively easy from Obj-C, but as this
+ * would be the only function to use Obj-C (and only .m), the following code:
+ * void libzfs_refresh_finder(char *mountpoint)
+ * {
+ *    [[NSWorkspace sharedWorkspace] noteFileSystemChanged:[NSString
+ *         stringWithUTF8String:mountpoint]];
+ * }
+ * Has been converted to C to keep autoconf simpler. If in future we have
+ * more Obj-C source files, then we should re-address this.
+ */
+void libzfs_refresh_finder(char *path)
+{
+	Class NSWorkspace = objc_getClass("NSWorkspace");
+	Class NSString = objc_getClass("NSString");
+	SEL stringWithUTF8String = sel_registerName("stringWithUTF8String:");
+	SEL sharedWorkspace = sel_registerName("sharedWorkspace");
+	SEL noteFileSystemChanged = sel_registerName("noteFileSystemChanged:");
+	id ns_path = ((id(*)(Class,SEL, char*))objc_msgSend)(NSString,
+		stringWithUTF8String, path);
+	id workspace = ((id(*)(Class,SEL))objc_msgSend)(NSWorkspace,
+	    sharedWorkspace);
+	((id(*)(id,SEL,id))objc_msgSend)(workspace, noteFileSystemChanged, ns_path);
+}
+
 void zfs_rollback_os(zfs_handle_t *zhp)
 {
 	char sourceloc[ZFS_MAX_DATASET_NAME_LEN];

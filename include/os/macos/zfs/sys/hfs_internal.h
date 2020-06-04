@@ -172,6 +172,10 @@ such as "foo.rtf" -> "foo.rtfd" */
 #define HFSIOC_SET_HOTFILE_STATE _IOWR('h', 47, u_int32_t)
 #define HFS_SET_HOTFILE_STATE    IOCBASECMD(HFSIOC_SET_HOTFILE_STATE)
 
+#define APFSIOC_SET_NEAR_LOW_DISK _IOW('J', 17, u_int32_t)
+#define APFSIOC_GET_NEAR_LOW_DISK _IOR('J', 18, u_int32_t)
+
+
 // END of definitions
 
 #endif

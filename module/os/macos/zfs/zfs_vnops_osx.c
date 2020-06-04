@@ -589,6 +589,7 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_GETPATH:
+		case HFSIOC_GETPATH:
 			dprintf("%s HFS_GETPATH\n", __func__);
   		    {
 				struct vfsstatfs *vfsp;
@@ -633,6 +634,7 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_TRANSFER_DOCUMENT_ID:
+		case HFSIOC_TRANSFER_DOCUMENT_ID:
 			dprintf("%s HFS_TRANSFER_DOCUMENT_ID\n", __func__);
 		    {
 				u_int32_t to_fd = *(u_int32_t *)ap->a_data;
@@ -731,6 +733,8 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 
 		case HFS_PREV_LINK:
 		case HFS_NEXT_LINK:
+		case HFSIOC_PREV_LINK:
+		case HFSIOC_NEXT_LINK:
 			dprintf("%s HFS_PREV/NEXT_LINK\n", __func__);
 		{
 			/*
@@ -817,24 +821,28 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_RESIZE_PROGRESS:
+		case HFSIOC_RESIZE_PROGRESS:
 			dprintf("%s HFS_RESIZE_PROGRESS\n", __func__);
 			/* fail as if requested of non-root fs */
 			error = EINVAL;
 			break;
 
 		case HFS_RESIZE_VOLUME:
+		case HFSIOC_RESIZE_VOLUME:
 			dprintf("%s HFS_RESIZE_VOLUME\n", __func__);
 			/* fail as if requested of non-root fs */
 			error = EINVAL;
 			break;
 
 		case HFS_CHANGE_NEXT_ALLOCATION:
+		case HFSIOC_CHANGE_NEXT_ALLOCATION:
 			dprintf("%s HFS_CHANGE_NEXT_ALLOCATION\n", __func__);
 			/* fail as if requested of non-root fs */
 			error = EINVAL;
 			break;
 
 		case HFS_CHANGE_NEXTCNID:
+		case HFSIOC_CHANGE_NEXTCNID:
 			dprintf("%s HFS_CHANGE_NEXTCNID\n", __func__);
 			/* FIXME : fail as though read only */
 			error = EROFS;
@@ -853,17 +861,20 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_BULKACCESS_FSCTL:
+		case HFSIOC_BULKACCESS:
 			dprintf("%s HFS_BULKACCESS_FSCTL\n", __func__);
 			/* Respond as if HFS_STANDARD flag is set */
 			error = EINVAL;
 			break;
 
 		case HFS_FSCTL_GET_VERY_LOW_DISK:
+		case HFSIOC_GET_VERY_LOW_DISK:
 			dprintf("%s HFS_FSCTL_GET_VERY_LOW_DISK\n", __func__);
 			*(uint32_t*)ap->a_data = zfsvfs->z_freespace_notify_dangerlimit;
 			break;
 
 		case HFS_FSCTL_SET_VERY_LOW_DISK:
+		case HFSIOC_SET_VERY_LOW_DISK:
 			dprintf("%s HFS_FSCTL_SET_VERY_LOW_DISK\n", __func__);
 			if (*(uint32_t *)ap->a_data >= zfsvfs->z_freespace_notify_warninglimit) {
 				error = EINVAL;
@@ -873,11 +884,13 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_FSCTL_GET_LOW_DISK:
+		case HFSIOC_GET_LOW_DISK:
 			dprintf("%s HFS_FSCTL_GET_LOW_DISK\n", __func__);
 			*(uint32_t*)ap->a_data = zfsvfs->z_freespace_notify_warninglimit;
 			break;
 
 		case HFS_FSCTL_SET_LOW_DISK:
+		case HFSIOC_SET_LOW_DISK:
 			dprintf("%s HFS_FSCTL_SET_LOW_DISK\n", __func__);
 			if (   *(uint32_t *)ap->a_data >= zfsvfs->z_freespace_notify_desiredlevel
 				   || *(uint32_t *)ap->a_data <= zfsvfs->z_freespace_notify_dangerlimit) {
@@ -888,11 +901,13 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_FSCTL_GET_DESIRED_DISK:
+		case HFSIOC_GET_DESIRED_DISK:
 			dprintf("%s HFS_FSCTL_GET_DESIRED_DISK\n", __func__);
 			*(uint32_t*)ap->a_data = zfsvfs->z_freespace_notify_desiredlevel;
 			break;
 
 		case HFS_FSCTL_SET_DESIRED_DISK:
+		case HFSIOC_SET_DESIRED_DISK:
 			dprintf("%s HFS_FSCTL_SET_DESIRED_DISK\n", __func__);
 			if (*(uint32_t *)ap->a_data <= zfsvfs->z_freespace_notify_warninglimit) {
 				error = EINVAL;
@@ -902,6 +917,7 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_VOLUME_STATUS:
+		case HFSIOC_VOLUME_STATUS:
 			dprintf("%s HFS_VOLUME_STATUS\n", __func__);
 			/* For now we always reply "all ok" */
 			*(uint32_t *)ap->a_data = zfsvfs->z_notification_conditions;
@@ -934,8 +950,9 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			break;
 
 		case HFS_FSCTL_GET_JOURNAL_INFO:
-dprintf("%s HFS_FSCTL_GET_JOURNAL_INFO\n", __func__);
-/* XXX We're setting the mount as 'Journaled' so this might conflict */
+		case HFSIOC_GET_JOURNAL_INFO:
+			dprintf("%s HFS_FSCTL_GET_JOURNAL_INFO\n", __func__);
+			/* XXX We're setting the mount as 'Journaled' so this might conflict */
 			/* Respond as though journal is empty/disabled */
 		{
 		    struct hfs_journal_info *jip;
@@ -953,21 +970,44 @@ dprintf("%s HFS_FSCTL_GET_JOURNAL_INFO\n", __func__);
 
 #ifdef HFS_GET_FSINFO
 		case HFS_GET_FSINFO:
+		case HFSIOC_GET_FSINFO:
 			dprintf("%s HFS_GET_FSINFO\n", __func__);
 			break;
 #endif
 
 #ifdef HFS_REPIN_HOTFILE_STATE
 		case HFS_REPIN_HOTFILE_STATE:
+		case HFSIOC_REPIN_HOTFILE_STATE:
 			dprintf("%s HFS_REPIN_HOTFILE_STATE\n", __func__);
 			break;
 #endif
 
 #ifdef HFS_SET_HOTFILE_STATE
 		case HFS_SET_HOTFILE_STATE:
+		case HFSIOC_SET_HOTFILE_STATE:
 			dprintf("%s HFS_SET_HOTFILE_STATE\n", __func__);
 			break;
 #endif
+
+#ifdef APFSIOC_GET_NEAR_LOW_DISK
+		case APFSIOC_GET_NEAR_LOW_DISK:
+			dprintf("%s APFSIOC_GET_NEAR_LOW_DISK\n", __func__);
+			*(uint32_t*)ap->a_data = zfsvfs->z_freespace_notify_warninglimit;
+			break;
+#endif
+
+#ifdef APFSIOC_SET_NEAR_LOW_DISK
+		case APFSIOC_SET_NEAR_LOW_DISK:
+			dprintf("%s APFSIOC_SET_NEAR_LOW_DISK\n", __func__);
+			if (*(uint32_t *)ap->a_data >= zfsvfs->z_freespace_notify_desiredlevel
+			    || *(uint32_t *)ap->a_data <= zfsvfs->z_freespace_notify_dangerlimit) {
+				error = EINVAL;
+			} else {
+				zfsvfs->z_freespace_notify_warninglimit = *(uint32_t *)ap->a_data;
+			}
+			break;
+#endif
+
 
 			/* End HFS mimic ioctl */
 
