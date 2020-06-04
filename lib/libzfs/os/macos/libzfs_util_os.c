@@ -332,3 +332,19 @@ execvpe(const char *name, char * const argv[], char * const envp[])
 
 	return (execvPe(name, path, argv, envp));
 }
+
+extern void libzfs_refresh_finder(char *);
+void zfs_rollback_os(zfs_handle_t *zhp)
+{
+	char sourceloc[ZFS_MAX_DATASET_NAME_LEN];
+	char mountpoint[ZFS_MAXPROPLEN];
+	zprop_source_t sourcetype;
+
+	if (zfs_prop_valid_for_type(ZFS_PROP_MOUNTPOINT, zhp->zfs_type,
+	    B_FALSE)) {
+		if (zfs_prop_get(zhp, ZFS_PROP_MOUNTPOINT,
+		    mountpoint, sizeof(mountpoint),
+		    &sourcetype, sourceloc, sizeof (sourceloc), B_FALSE) == 0)
+			libzfs_refresh_finder(mountpoint);
+	}
+}

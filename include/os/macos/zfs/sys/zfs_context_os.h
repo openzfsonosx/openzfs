@@ -217,4 +217,3 @@ void spa_deactivate_os(void *spa);
 #endif // _KERNEL
 
 #endif
-

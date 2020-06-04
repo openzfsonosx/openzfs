@@ -50,4 +50,8 @@ typedef struct spa_iokit spa_iokit_t;
     (B) = zuio_iovbase((U), (I));               \
 	(S) = zuio_iovlen((U), (I))
 
+struct zfs_handle;
+typedef struct zfs_handle zfs_handle_t;
+void zfs_rollback_os(zfs_handle_t *zhp);
+
 #endif
