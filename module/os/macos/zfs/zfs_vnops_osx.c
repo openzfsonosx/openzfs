@@ -1728,9 +1728,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	int error = 0;
 	int hfscompression = 0;
 
-	int ignore_ownership = (((unsigned int)vfs_flags(vnode_mount(ap->a_vp)))
-							& MNT_IGNORE_OWNERSHIP);
-
 	/* Translate OS X requested mask to ZFS */
 	mask = vap->va_mask;
 
@@ -3346,7 +3343,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			size = zpl_xattr_get_sa(vp, ap->a_name, NULL, 0);
 			rw_exit(&zp->z_xattr_lock);
 			if (size > 0) {
-				dprintf("ZFS: returning XATTR size %d\n", error);
 				*ap->a_size = size;
 				goto out;
 			}
@@ -3496,8 +3492,9 @@ out:
 	}
 
 	ZFS_EXIT(zfsvfs);
-	dprintf("-getxattr vp %p : %d size %lu\n", ap->a_vp, error,
-		!error && ap->a_size ? *ap->a_size : 0);
+	dprintf("-getxattr vp %p : %d size %lu: %s\n", ap->a_vp, error,
+		!error && ap->a_size ? *ap->a_size : 0,
+		ap->a_uio == NULL ? "sizelookup" : "xattrread");
 	return (error);
 }
 
@@ -3631,9 +3628,8 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	/* Write the attribute data. */
 	ASSERT(uio != NULL);
 
-#if 0
+	/* OsX setxattr() replaces xattrs */
 	error = zfs_freesp(VTOZ(xvp), 0, 0, VTOZ(vp)->z_mode, TRUE);
-#endif
 
 	/* Special case for Finderinfo */
 	if (!error && uio &&
@@ -3704,7 +3700,8 @@ out:
 	}
 
 	ZFS_EXIT(zfsvfs);
-	if (error) dprintf("-setxattr vp %p: err %d\n", ap->a_vp, error);
+	dprintf("-setxattr vp %p: err %d: resid %llx\n", ap->a_vp, error,
+	    uio_resid(ap->a_uio));
 	return (error);
 }
 
@@ -4053,7 +4050,6 @@ zfs_vnop_makenamedstream(struct vnop_makenamedstream_args *ap)
 {
 	DECLARE_CRED(ap);
 	struct vnode *vp = ap->a_vp;
-	struct vnode *xdvp = NULLVP;
 	znode_t  *zp = VTOZ(vp);
 	zfsvfs_t  *zfsvfs = zp->z_zfsvfs;
 	struct componentname  cn;
@@ -4104,8 +4100,8 @@ zfs_vnop_makenamedstream(struct vnop_makenamedstream_args *ap)
 		*ap->a_svpp = ZTOV(xzp);
 
 out:
-	if (xdvp)
-		vnode_put(xdvp);
+	if (xdzp)
+		zrele(xdzp);
 
 	ZFS_EXIT(zfsvfs);
 	if (error) dprintf("%s vp %p: error %d\n", __func__, ap->a_vp, error);

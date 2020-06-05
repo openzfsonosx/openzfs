@@ -608,6 +608,9 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 	int error = 0;
 	ssize_t start_resid = uio_resid(uio);
 	rlim64_t limit = MAXOFFSET_T;
+	const iovec_t *aiov = NULL;
+	arc_buf_t *abuf = NULL;
+	int write_eof;
 
 	/*
 	 * Fasttrack empty write
@@ -714,6 +717,7 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 		n = limit - woff;
 
 	/* Will this write extend the file length? */
+	write_eof = (woff + n > zp->z_size);
 	uint64_t end_size = MAX(zp->z_size, woff + n);
 	zilog_t *zilog = zfsvfs->z_log;
 
@@ -726,9 +730,9 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 		woff = uio_offset(uio);
 
 		if (zfs_id_overblockquota(zfsvfs, DMU_USERUSED_OBJECT,
-		    KUID_TO_SUID(zp->z_uid)) ||
+		    zp->z_uid) ||
 		    zfs_id_overblockquota(zfsvfs, DMU_GROUPUSED_OBJECT,
-		    KGID_TO_SGID(zp->z_gid)) ||
+		    zp->z_gid) ||
 		    (zp->z_projid != ZFS_DEFAULT_PROJID &&
 		    zfs_id_overblockquota(zfsvfs, DMU_PROJECTUSED_OBJECT,
 		    zp->z_projid))) {
@@ -736,8 +740,7 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 			break;
 		}
 
-		arc_buf_t *abuf = NULL;
-
+		abuf = NULL;
 		if (xuio) {
 
 		} else if (n >= max_blksz && woff >= zp->z_size &&
@@ -815,37 +818,19 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 		ssize_t nbytes = MIN(n, max_blksz - P2PHASE(woff, max_blksz));
 
 		ssize_t tx_bytes = 0;
+
+		if (woff + nbytes > zp->z_size)
+			vnode_pager_setsize(vp, woff + nbytes);
+
 		/* This conditional is always true in OSX, it is kept so
 		 * the sources look familiar to other platforms */
 		if (abuf == NULL) {
-
 			tx_bytes = uio_resid(uio);
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
 			    uio, nbytes, tx);
-			if (error == EFAULT) {
-				dmu_tx_commit(tx);
-				/*
-				 * Account for partial writes before
-				 * continuing the loop.
-				 * Update needs to occur before the next
-				 * uio_prefaultpages, or prefaultpages may
-				 * error, and we may break the loop early.
-				 */
-				if (tx_bytes != uio_resid(uio))
-					n -= tx_bytes - uio_resid(uio);
-				if (uio_prefaultpages(MIN(n, max_blksz), uio)) {
-					break;
-				}
-				continue;
-			} else if (error != 0) {
-				dmu_tx_commit(tx);
-				break;
-			}
 			tx_bytes -= uio_resid(uio);
 		} else {
-#if 0 // Not executed on OSX
 			tx_bytes = nbytes;
-			ASSERT(xuio == NULL || tx_bytes == aiov->iov_len);
 			/*
 			 * If this is not a full block write, but we are
 			 * extending the file past EOF and this data starts
@@ -856,7 +841,6 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 			    aiov->iov_base != abuf->b_data)) {
 				ASSERT(xuio);
 				dmu_write(zfsvfs->z_os, zp->z_id, woff,
-				    /* cppcheck-suppress nullPointer */
 				    aiov->iov_len, aiov->iov_base, tx);
 				dmu_return_arcbuf(abuf);
 				xuio_stat_wbuf_copied();
@@ -872,7 +856,6 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 			}
 			ASSERT(tx_bytes <= uio_resid(uio));
 			uioskip(uio, tx_bytes);
-#endif
 		}
 		if (tx_bytes && zp->z_is_mapped && !(ioflag & O_DIRECT)) {
 			update_pages(vp, woff, tx_bytes, zfsvfs->z_os, zp->z_id);
@@ -935,7 +918,10 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 		if (zfsvfs->z_replay && zfsvfs->z_replay_eof != 0)
 			zp->z_size = zfsvfs->z_replay_eof;
 
-		error = sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
+		if (error == 0)
+			error = sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
+		else
+			(void) sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
 
 		zfs_log_write(zilog, tx, TX_WRITE, zp, woff, tx_bytes, ioflag,
 		    NULL, NULL);
@@ -943,15 +929,9 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 
 		if (error != 0)
 			break;
+
 		ASSERT(tx_bytes == nbytes);
 		n -= nbytes;
-
-		if (!xuio && n > 0) {
-			if (uio_prefaultpages(MIN(n, max_blksz), uio)) {
-				error = EFAULT;
-				break;
-			}
-		}
 	}
 
 	zfs_rangelock_exit(lr);
@@ -961,6 +941,7 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 	 * Otherwise, it's at least a partial write, so it's successful.
 	 */
 	if (zfsvfs->z_replay || uio_resid(uio) == start_resid) {
+		dprintf("%s: error resid %llu\n", __func__, uio_resid(uio));
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -970,6 +951,9 @@ zfs_write(struct vnode *vp, uio_t *uio, int ioflag, cred_t *cr)
 		zil_commit(zilog, zp->z_id);
 
 	ZFS_EXIT(zfsvfs);
+
+	dprintf("%s: done. resid %llu\n", __func__, uio_resid(uio));
+
 	return (0);
 }
 
@@ -2516,8 +2500,6 @@ zfs_getattr(vnode_t *vp, vattr_t *vap, int flags, cred_t *cr,
 	if (vnode_isblk(vp) || vnode_ischr(vp))
 		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_RDEV(zfsvfs), NULL,
 			&rdev, 8);
-
-	printf("read in mtime %lld,%lld\n", mtime[0], mtime[1]);
 
 	if ((error = sa_bulk_lookup(zp->z_sa_hdl, bulk, count)) != 0) {
 		ZFS_EXIT(zfsvfs);
