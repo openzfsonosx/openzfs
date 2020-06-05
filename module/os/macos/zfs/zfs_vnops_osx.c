@@ -1722,7 +1722,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	};
 #endif
 {
-//	DECLARE_CRED_AND_CONTEXT(ap);
 	DECLARE_CRED(ap);
 	vattr_t *vap = ap->a_vap;
 	uint_t mask = vap->va_mask;
@@ -1733,29 +1732,8 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 							& MNT_IGNORE_OWNERSHIP);
 
 	/* Translate OS X requested mask to ZFS */
-	if (VATTR_IS_ACTIVE(vap, va_data_size))
-		mask |= AT_SIZE;
-	if (VATTR_IS_ACTIVE(vap, va_mode))
-		mask |= AT_MODE;
-	if (VATTR_IS_ACTIVE(vap, va_uid) && !ignore_ownership)
-		mask |= AT_UID;
-	if (VATTR_IS_ACTIVE(vap, va_gid) && !ignore_ownership)
-		mask |= AT_GID;
-	if (VATTR_IS_ACTIVE(vap, va_access_time))
-		mask |= AT_ATIME;
-	if (VATTR_IS_ACTIVE(vap, va_modify_time))
-		mask |= AT_MTIME;
-	/*
-	 * We abuse AT_CTIME here, to function as a place holder for "creation
-	 * time," since you are not allowed to change "change time" in POSIX,
-	 * and we don't have an AT_CRTIME.
-	 */
-	if (VATTR_IS_ACTIVE(vap, va_create_time))
-		mask |= AT_CTIME;
-	/*
-	 * if (VATTR_IS_ACTIVE(vap, va_backup_time))
-	 *     mask |= AT_BTIME; // really?
-	 */
+	mask = vap->va_mask;
+
 	/*
 	 * Both 'flags' and 'acl' can come to setattr, but without 'mode' set.
 	 * However, ZFS assumes 'mode' is also set. We need to look up 'mode' in
@@ -1766,7 +1744,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 		znode_t *zp = VTOZ(ap->a_vp);
 		uint64_t mode;
 
-		mask |= AT_MODE;
+		mask |= ATTR_MODE;
 
 		dprintf("fetching MODE for FLAGS or ACL\n");
 		ZFS_ENTER(zp->z_zfsvfs);
@@ -1782,9 +1760,11 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 		/* If TRACKED is wanted, and not previously set, go set DocumentID */
 		if ((vap->va_flags & UF_TRACKED) && !(zp->z_pflags & ZFS_TRACKED)) {
 			zfs_setattr_generate_id(zp, 0, NULL);
-			zfs_setattr_set_documentid(zp, B_FALSE); /* flags updated in vnops */
+			/* flags updated in vnops */
+			zfs_setattr_set_documentid(zp, B_FALSE);
 		}
-		if ((vap->va_flags & UF_COMPRESSED) && !(zp->z_pflags & ZFS_COMPRESSED))
+		if ((vap->va_flags & UF_COMPRESSED) &&
+		    !(zp->z_pflags & ZFS_COMPRESSED))
 			hfscompression = 1;
 
 		/* Map OS X file flags to zfs file flags */
@@ -1793,9 +1773,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 		    vap->va_flags, zp->z_pflags);
 		vap->va_flags = zp->z_pflags;
 
-	}
-	if (VATTR_IS_ACTIVE(vap, va_acl)) {
-		mask |= AT_ACL;
 	}
 
 	vap->va_mask = mask;
@@ -1856,7 +1833,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 
 	}
 
-#if 0
+#if 1
 	uint64_t missing = 0;
 	missing = (vap->va_active ^ (vap->va_active & vap->va_supported));
 	if ( missing != 0) {

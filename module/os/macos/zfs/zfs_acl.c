@@ -1695,7 +1695,7 @@ zfs_acl_ids_create(znode_t *dzp, int flag, vattr_t *vap, cred_t *cr,
 		acl_ids->z_fuid = zfs_fuid_create_cred(zfsvfs, ZFS_OWNER,
 		    cr, &acl_ids->z_fuidp);
 		acl_ids->z_fgid = 0;
-		if (vap->va_mask & AT_GID)  {
+		if (vap->va_mask & ATTR_GID)  {
 			acl_ids->z_fgid = zfs_fuid_create(zfsvfs,
 			    (uint64_t)vap->va_gid,
 			    cr, ZFS_GROUP, &acl_ids->z_fuidp);

@@ -387,7 +387,7 @@ zfs_create_share_dir(zfsvfs_t *zfsvfs, dmu_tx_t *tx)
 	struct vnode *vp, *vnode;
 	znode_t *zp;
 
-	vattr.va_mask = AT_MODE|AT_UID|AT_GID|AT_TYPE;
+	vattr.va_mask = ATTR_MODE|ATTR_UID|ATTR_GID|ATTR_TYPE;
 	vattr.va_type = VDIR;
 	vattr.va_mode = S_IFDIR|0555;
 	vattr.va_uid = crgetuid(kcred);
@@ -693,7 +693,7 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 	int err = 0;
 	znode_hold_t	*zh;
 
-	ASSERT(vap && (vap->va_mask & (AT_TYPE|AT_MODE)) == (AT_TYPE|AT_MODE));
+	ASSERT(vap && (vap->va_mask & (ATTR_TYPE|ATTR_MODE)) == (ATTR_TYPE|ATTR_MODE));
 
 	if (zfsvfs->z_replay) {
 		obj = vap->va_nodeid;
@@ -813,13 +813,13 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 	ZFS_TIME_ENCODE(&now, crtime);
 	ZFS_TIME_ENCODE(&now, ctime);
 
-	if (vap->va_mask & AT_ATIME) {
+	if (vap->va_mask & ATTR_ATIME) {
 		ZFS_TIME_ENCODE(&vap->va_atime, atime);
 	} else {
 		ZFS_TIME_ENCODE(&now, atime);
 	}
 
-	if (vap->va_mask & AT_MTIME) {
+	if (vap->va_mask & ATTR_MTIME) {
 		ZFS_TIME_ENCODE(&vap->va_mtime, mtime);
 	} else {
 		ZFS_TIME_ENCODE(&now, mtime);
@@ -948,7 +948,7 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 	(*zpp)->z_dnodesize = dnodesize;
 	(*zpp)->z_projid = projid;
 
-	if (vap->va_mask & AT_XVATTR)
+	if (vap->va_mask & ATTR_XVATTR)
 		zfs_xvattr_set(*zpp, (xvattr_t *)vap, tx);
 
 	if (obj_type == DMU_OT_ZNODE ||
@@ -1472,7 +1472,7 @@ zfs_znode_free(znode_t *zp)
  * Prepare to update znode time stamps.
  *
  *	IN:	zp	- znode requiring timestamp update
- *		flag	- AT_MTIME, AT_CTIME, AT_ATIME flags
+ *		flag	- ATTR_MTIME, ATTR_CTIME, ATTR_ATIME flags
  *		have_tx	- true of caller is creating a new txg
  *
  *	OUT:	zp	- new atime (via underlying inode's i_atime)
@@ -1482,7 +1482,7 @@ zfs_znode_free(znode_t *zp)
  * NOTE: The arguments are somewhat redundant.  The following condition
  * is always true:
  *
- *		have_tx == !(flag & AT_ATIME)
+ *		have_tx == !(flag & ATTR_ATIME)
  */
 void
 zfs_tstamp_update_setup_ext(znode_t *zp, uint_t flag, uint64_t mtime[2],
@@ -1499,11 +1499,11 @@ zfs_tstamp_update_setup_ext(znode_t *zp, uint_t flag, uint64_t mtime[2],
 		zp->z_atime_dirty = 1;
 	}
 
-	if (flag & AT_ATIME) {
+	if (flag & ATTR_ATIME) {
 		ZFS_TIME_ENCODE(&now, zp->z_atime);
 	}
 
-	if (flag & AT_MTIME) {
+	if (flag & ATTR_MTIME) {
 		ZFS_TIME_ENCODE(&now, mtime);
 		if (zp->z_zfsvfs->z_use_fuids) {
 			zp->z_pflags |= (ZFS_ARCHIVE |
@@ -1511,7 +1511,7 @@ zfs_tstamp_update_setup_ext(znode_t *zp, uint_t flag, uint64_t mtime[2],
 		}
 	}
 
-	if (flag & AT_CTIME) {
+	if (flag & ATTR_CTIME) {
 		ZFS_TIME_ENCODE(&now, ctime);
 		if (zp->z_zfsvfs->z_use_fuids)
 			zp->z_pflags |= ZFS_ARCHIVE;
@@ -1981,7 +1981,7 @@ zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)
 	 * to allow zfs_mknode to work.
 	 */
 	VATTR_NULL(&vattr);
-	vattr.va_mask = AT_MODE|AT_UID|AT_GID|AT_TYPE;
+	vattr.va_mask = ATTR_MODE|ATTR_UID|ATTR_GID|ATTR_TYPE;
 	vattr.va_type = VDIR;
 	vattr.va_mode = S_IFDIR|0755;
 	vattr.va_uid = crgetuid(cr);

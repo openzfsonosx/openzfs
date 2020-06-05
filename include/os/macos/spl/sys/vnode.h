@@ -58,15 +58,6 @@ typedef int vcexcl_t;
 
 enum vcexcl	{ NONEXCL, EXCL };
 
-
-/*
- * OSX uses separate vnop getxattr and setxattr to deal with XATTRs, so
- * we never get vop&XVATTR set from VFS. All internal checks for it in
- * ZFS is not required.
- */
-#define ATTR_XVATTR	0
-#define AT_XVATTR	ATTR_XVATTR
-
 #define B_INVAL		0x01
 #define B_TRUNC		0x02
 
@@ -74,11 +65,8 @@ enum vcexcl	{ NONEXCL, EXCL };
 
 #define	CREATE_XATTR_DIR	0x04	/* Create extended attr dir */
 
-
 #define IS_DEVVP(vp)    \
         (vnode_ischr(vp) || vnode_isblk(vp) || vnode_isfifo(vp))
-
-
 
 enum rm         { RMFILE, RMDIRECTORY };        /* rm or rmdir (remove) */
 enum create     { CRCREAT, CRMKNOD, CRMKDIR };  /* reason for create */
@@ -87,21 +75,27 @@ enum create     { CRCREAT, CRMKNOD, CRMKDIR };  /* reason for create */
 #define va_nodeid		va_fileid
 #define va_nblocks		va_filerev
 
-
 /*
  * vnode attr translations
  */
-#define AT_TYPE			VNODE_ATTR_va_type
-#define AT_MODE			VNODE_ATTR_va_mode
-#define AT_ACL			VNODE_ATTR_va_acl
-#define AT_UID			VNODE_ATTR_va_uid
-#define AT_GID			VNODE_ATTR_va_gid
-#define AT_ATIME		VNODE_ATTR_va_access_time
-#define AT_MTIME		VNODE_ATTR_va_modify_time
-#define AT_CTIME		VNODE_ATTR_va_change_time
-#define AT_CRTIME		VNODE_ATTR_va_create_time
-#define AT_SIZE			VNODE_ATTR_va_data_size
-#define	AT_NOSET		0
+#define ATTR_TYPE			VNODE_ATTR_va_type
+#define ATTR_MODE			VNODE_ATTR_va_mode
+#define ATTR_ACL			VNODE_ATTR_va_acl
+#define ATTR_UID			VNODE_ATTR_va_uid
+#define ATTR_GID			VNODE_ATTR_va_gid
+#define ATTR_ATIME		VNODE_ATTR_va_access_time
+#define ATTR_MTIME		VNODE_ATTR_va_modify_time
+#define ATTR_CTIME		VNODE_ATTR_va_change_time
+#define ATTR_CRTIME		VNODE_ATTR_va_create_time
+#define ATTR_SIZE			VNODE_ATTR_va_data_size
+#define	ATTR_NOSET		0
+/*
+ * OSX uses separate vnop getxattr and setxattr to deal with XATTRs, so
+ * we never get vop&XVATTR set from VFS. All internal checks for it in
+ * ZFS is not required.
+ */
+#define ATTR_XVATTR	0
+#define AT_XVATTR ATTR_XVATTR
 
 #define va_size			va_data_size
 #define va_atime		va_access_time

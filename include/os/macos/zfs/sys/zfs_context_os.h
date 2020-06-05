@@ -28,13 +28,6 @@
 
 #define MSEC_TO_TICK(msec)		((msec) / (MILLISEC / hz))
 
-#define	ATTR_UID				AT_UID
-#define	ATTR_GID				AT_GID
-#define	ATTR_MODE				AT_MODE
-#define	ATTR_CTIME				AT_CTIME
-#define	ATTR_MTIME				AT_MTIME
-#define	ATTR_ATIME				AT_ATIME
-
 #define	KMALLOC_MAX_SIZE		MAXPHYS
 
 #define MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
