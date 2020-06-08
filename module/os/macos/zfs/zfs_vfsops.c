@@ -1125,7 +1125,7 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 		dmu_objset_set_user(zfsvfs->z_os, zfsvfs);
 		mutex_exit(&zfsvfs->z_os->os_user_ptr_lock);
 
-		zfsctl_mount_signal(osname);
+		zfsctl_mount_signal(osname, B_TRUE);
 
 	} else {
 		if ((error = zfsvfs_setup(zfsvfs, B_TRUE)))
@@ -2503,7 +2503,7 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
     /* If we are ourselves a snapshot */
 	if (dmu_objset_is_snapshot(zfsvfs->z_os)) {
 		/* Wake up anyone waiting for unmount */
-		zfsctl_mount_signal(osname);
+		zfsctl_mount_signal(osname, B_FALSE);
     }
 
 	if (!vfs_isrdonly(zfsvfs->z_vfs) &&
