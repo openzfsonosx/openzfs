@@ -40,7 +40,6 @@ KERNEL_H = \
 	$(top_srcdir)/include/os/macos/spl/sys/timer.h \
 	$(top_srcdir)/include/os/macos/spl/sys/tsd.h \
 	$(top_srcdir)/include/os/macos/spl/sys/types.h \
-	$(top_srcdir)/include/os/macos/spl/sys/uio.h \
 	$(top_srcdir)/include/os/macos/spl/sys/utsname.h \
 	$(top_srcdir)/include/os/macos/spl/sys/varargs.h \
 	$(top_srcdir)/include/os/macos/spl/sys/vfs.h \
