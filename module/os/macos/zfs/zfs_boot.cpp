@@ -104,6 +104,7 @@ extern "C" {
 #include <sys/fs/zfs.h>
 #include <sys/zfs_vfsops.h>
 #include <sys/zfs_rlock.h>
+#include <sys/dataset_kstats.h>
 #include <sys/zvol_impl.h>
 
 int dsl_dsobj_to_dsname(char *pname, uint64_t obj, char *buf);

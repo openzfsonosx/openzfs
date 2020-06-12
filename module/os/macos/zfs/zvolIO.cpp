@@ -33,6 +33,7 @@
 
 #include <sys/zfs_ioctl.h>
 #include <sys/zfs_znode.h>
+#include <sys/dataset_kstats.h>
 #include <sys/zvol.h>
 #include <sys/zvol_os.h>
 #include <sys/zfs_boot.h>

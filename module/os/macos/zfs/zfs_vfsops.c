@@ -47,6 +47,7 @@
 #include <sys/zfs_mount.h>
 #include <sys/ZFSDatasetScheme.h>
 #include <sys/dsl_dir.h>
+#include <sys/dataset_kstats.h>
 
 //#define dprintf kprintf
 
@@ -3143,7 +3144,7 @@ zfs_init(void)
 	 */
 	zfs_vnodes_adjust();
 
-	dmu_objset_register_type(DMU_OST_ZFS, zfs_space_delta_cb);
+	dmu_objset_register_type(DMU_OST_ZFS, zpl_get_file_info);
 
 	/* Start arc_os - reclaim thread */
 	arc_os_init();

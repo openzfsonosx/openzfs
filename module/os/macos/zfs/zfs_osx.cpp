@@ -30,6 +30,7 @@
 #include <sys/zfs_vfsops.h>
 #include <sys/zfs_ioctl.h>
 #include <sys/zfs_znode.h>
+#include <sys/dataset_kstats.h>
 #include <sys/zvol.h>
 
 #include <sys/zvolIO.h>

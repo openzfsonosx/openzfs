@@ -233,7 +233,7 @@ zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
 		goto out;
 	}
 
-	error = zfsdev_ioctl_common(vecnum, zc);
+	error = zfsdev_ioctl_common(vecnum, zc, 0);
 
 	rc = copyout(zc, uaddr, sizeof (*zc));
 
