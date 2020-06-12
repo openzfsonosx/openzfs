@@ -102,12 +102,10 @@ osx_kstat_t osx_kstat = {
 
 	{"arc_lotsfree_percent",		KSTAT_DATA_INT64  },
 	{"zfs_dirty_data_max",			KSTAT_DATA_INT64  },
-	{"zfs_dirty_data_sync",			KSTAT_DATA_INT64  },
 	{"zfs_delay_max_ns",			KSTAT_DATA_INT64  },
 	{"zfs_delay_min_dirty_percent",	KSTAT_DATA_INT64  },
 	{"zfs_delay_scale",				KSTAT_DATA_INT64  },
 	{"spa_asize_inflation",			KSTAT_DATA_INT64  },
-	{"zfs_mdcomp_disable",			KSTAT_DATA_INT64  },
 	{"zfs_prefetch_disable",		KSTAT_DATA_INT64  },
 	{"zfetch_max_streams",			KSTAT_DATA_INT64  },
 	{"zfetch_min_sec_reap",			KSTAT_DATA_INT64  },
@@ -179,6 +177,56 @@ osx_kstat_t osx_kstat = {
 	{"zfs_expire_snapshot",		KSTAT_DATA_UINT64  },
 	{"zfs_admin_snapshot",		KSTAT_DATA_UINT64  },
 	{"zfs_auto_snapshot",		KSTAT_DATA_UINT64  },
+
+	{"zfs_spa_discard_memory_limit",		KSTAT_DATA_UINT64  },
+	{"zfs_async_block_max_blocks",		KSTAT_DATA_UINT64  },
+	{"zfs_initialize_chunk_size",		KSTAT_DATA_UINT64  },
+	{"zfs_scan_suspend_progress",		KSTAT_DATA_UINT64  },
+	{"zfs_removal_suspend_progress",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_max_entries",		KSTAT_DATA_UINT64  },
+
+	{"zfs_allow_redacted_dataset_mount",		KSTAT_DATA_UINT64  },
+	{"zfs_checksum_events_per_second",		KSTAT_DATA_UINT64  },
+	{"zfs_commit_timeout_pct",		KSTAT_DATA_UINT64  },
+	{"zfs_compressed_arc_enabled",		KSTAT_DATA_UINT64  },
+	{"zfs_condense_indirect_commit_entry_delay_ms",		KSTAT_DATA_UINT64  },
+	{"zfs_condense_min_mapping_bytes",		KSTAT_DATA_UINT64  },
+	{"zfs_deadman_checktime_ms",		KSTAT_DATA_UINT64  },
+	{"zfs_deadman_failmode",		KSTAT_DATA_STRING  },
+	{"zfs_deadman_synctime_ms",		KSTAT_DATA_UINT64  },
+	{"zfs_deadman_ziotime_ms",		KSTAT_DATA_UINT64  },
+	{"zfs_disable_ivset_guid_check",		KSTAT_DATA_UINT64  },
+	{"zfs_initialize_value",		KSTAT_DATA_UINT64  },
+	{"zfs_keep_log_spacemaps_at_export",		KSTAT_DATA_UINT64  },
+	{"l2arc_rebuild_blocks_min_l2size",		KSTAT_DATA_UINT64  },
+	{"l2arc_rebuild_enabled",		KSTAT_DATA_UINT64  },
+	{"l2arc_trim_ahead",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_condense_new_alloc",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_condense_sync_cancel",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_condense_sync_pause",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_condense_zthr_cancel",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_condense_zthr_pause",		KSTAT_DATA_UINT64  },
+	{"zfs_livelist_min_percent_shared",		KSTAT_DATA_UINT64  },
+	{"zfs_max_dataset_nesting",		KSTAT_DATA_UINT64  },
+	{"zfs_max_missing_tvds",		KSTAT_DATA_UINT64  },
+	{"metaslab_debug_load",		KSTAT_DATA_UINT64  },
+	{"metaslab_force_ganging",		KSTAT_DATA_UINT64  },
+	{"zfs_multihost_fail_intervals",		KSTAT_DATA_UINT64  },
+	{"zfs_multihost_import_intervals",		KSTAT_DATA_UINT64  },
+	{"zfs_multihost_interval",		KSTAT_DATA_UINT64  },
+	{"zfs_override_estimate_recordsize",		KSTAT_DATA_UINT64  },
+	{"zfs_remove_max_segment",		KSTAT_DATA_UINT64  },
+	{"zfs_resilver_min_time_ms",		KSTAT_DATA_UINT64  },
+	{"zfs_scan_legacy",		KSTAT_DATA_UINT64  },
+	{"zfs_scan_vdev_limit",		KSTAT_DATA_UINT64  },
+	{"zfs_slow_io_events_per_second",		KSTAT_DATA_UINT64  },
+	{"spa_load_verify_data",		KSTAT_DATA_UINT64  },
+	{"spa_load_verify_metadata",		KSTAT_DATA_UINT64  },
+	{"zfs_unlink_suspend_progress",		KSTAT_DATA_UINT64  },
+	{"zfs_vdev_min_ms_count",		KSTAT_DATA_UINT64  },
+	{"vdev_validate_skip",		KSTAT_DATA_UINT64  },
+	{"zfs_zevent_len_max",		KSTAT_DATA_UINT64  },
+	{"zio_slow_io_ms",		KSTAT_DATA_UINT64  },
 
 };
 
@@ -282,8 +330,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			ks->arc_lotsfree_percent.value.i64;
 		zfs_dirty_data_max =
 			ks->zfs_dirty_data_max.value.i64;
-//		zfs_dirty_data_sync =
-//			ks->zfs_dirty_data_sync.value.i64;
 		zfs_delay_max_ns =
 			ks->zfs_delay_max_ns.value.i64;
 		zfs_delay_min_dirty_percent =
@@ -292,8 +338,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			ks->zfs_delay_scale.value.i64;
 		spa_asize_inflation =
 			ks->spa_asize_inflation.value.i64;
-//		zfs_mdcomp_disable =
-//			ks->zfs_mdcomp_disable.value.i64;
 		zfs_prefetch_disable =
 			ks->zfs_prefetch_disable.value.i64;
 		zfetch_max_streams =
@@ -420,6 +464,57 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_auto_snapshot =
 			ks->zfs_auto_snapshot.value.ui64;
 
+		zfs_spa_discard_memory_limit = ks->zfs_spa_discard_memory_limit.value.ui64;
+		zfs_async_block_max_blocks = ks->zfs_async_block_max_blocks.value.ui64;
+		zfs_initialize_chunk_size = ks->zfs_initialize_chunk_size.value.ui64;
+		zfs_scan_suspend_progress = ks->zfs_scan_suspend_progress.value.ui64;
+		zfs_removal_suspend_progress = ks->zfs_removal_suspend_progress.value.ui64;
+		zfs_livelist_max_entries = ks->zfs_livelist_max_entries.value.ui64;
+
+		zfs_allow_redacted_dataset_mount = ks->zfs_allow_redacted_dataset_mount.value.ui64;
+		zfs_checksum_events_per_second = ks->zfs_checksum_events_per_second.value.ui64;
+		zfs_commit_timeout_pct = ks->zfs_commit_timeout_pct.value.ui64;
+		zfs_compressed_arc_enabled = ks->zfs_compressed_arc_enabled.value.ui64;
+		zfs_condense_indirect_commit_entry_delay_ms = ks->zfs_condense_indirect_commit_entry_delay_ms.value.ui64;
+		zfs_condense_min_mapping_bytes = ks->zfs_condense_min_mapping_bytes.value.ui64;
+		zfs_deadman_checktime_ms = ks->zfs_deadman_checktime_ms.value.ui64;
+		// string zfs_deadman_failmode = ks->zfs_deadman_failmode.value.ui64;
+		zfs_deadman_synctime_ms = ks->zfs_deadman_synctime_ms.value.ui64;
+		zfs_deadman_ziotime_ms = ks->zfs_deadman_ziotime_ms.value.ui64;
+		zfs_disable_ivset_guid_check = ks->zfs_disable_ivset_guid_check.value.ui64;
+		zfs_initialize_value = ks->zfs_initialize_value.value.ui64;
+		zfs_keep_log_spacemaps_at_export = ks->zfs_keep_log_spacemaps_at_export.value.ui64;
+		l2arc_rebuild_blocks_min_l2size = ks->l2arc_rebuild_blocks_min_l2size.value.ui64;
+		l2arc_rebuild_enabled = ks->l2arc_rebuild_enabled.value.ui64;
+		l2arc_trim_ahead = ks->l2arc_trim_ahead.value.ui64;
+		zfs_livelist_condense_new_alloc = ks->zfs_livelist_condense_new_alloc.value.ui64;
+		zfs_livelist_condense_sync_cancel = ks->zfs_livelist_condense_sync_cancel.value.ui64;
+		zfs_livelist_condense_sync_pause = ks->zfs_livelist_condense_sync_pause.value.ui64;
+		zfs_livelist_condense_zthr_cancel = ks->zfs_livelist_condense_zthr_cancel.value.ui64;
+		zfs_livelist_condense_zthr_pause = ks->zfs_livelist_condense_zthr_pause.value.ui64;
+		zfs_livelist_min_percent_shared = ks->zfs_livelist_min_percent_shared.value.ui64;
+		zfs_max_dataset_nesting = ks->zfs_max_dataset_nesting.value.ui64;
+		zfs_max_missing_tvds = ks->zfs_max_missing_tvds.value.ui64;
+		metaslab_debug_load = ks->metaslab_debug_load.value.ui64;
+		metaslab_force_ganging = ks->metaslab_force_ganging.value.ui64;
+		zfs_multihost_fail_intervals = ks->zfs_multihost_fail_intervals.value.ui64;
+		zfs_multihost_import_intervals = ks->zfs_multihost_import_intervals.value.ui64;
+		zfs_multihost_interval = ks->zfs_multihost_interval.value.ui64;
+		zfs_override_estimate_recordsize = ks->zfs_override_estimate_recordsize.value.ui64;
+		zfs_remove_max_segment = ks->zfs_remove_max_segment.value.ui64;
+		zfs_resilver_min_time_ms = ks->zfs_resilver_min_time_ms.value.ui64;
+		zfs_scan_legacy = ks->zfs_scan_legacy.value.ui64;
+		zfs_scan_vdev_limit = ks->zfs_scan_vdev_limit.value.ui64;
+		zfs_slow_io_events_per_second = ks->zfs_slow_io_events_per_second.value.ui64;
+		spa_load_verify_data = ks->spa_load_verify_data.value.ui64;
+		spa_load_verify_metadata = ks->spa_load_verify_metadata.value.ui64;
+		zfs_unlink_suspend_progress = ks->zfs_unlink_suspend_progress.value.ui64;
+		zfs_vdev_min_ms_count = ks->zfs_vdev_min_ms_count.value.ui64;
+		vdev_validate_skip = ks->vdev_validate_skip.value.ui64;
+		zfs_zevent_len_max = ks->zfs_zevent_len_max.value.ui64;
+		zio_slow_io_ms = ks->zio_slow_io_ms.value.ui64;
+
+
 	} else {
 
 		/* kstat READ */
@@ -492,8 +587,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			arc_lotsfree_percent;
 		ks->zfs_dirty_data_max.value.i64 =
 			zfs_dirty_data_max;
-//		ks->zfs_dirty_data_sync.value.i64 =
-//			zfs_dirty_data_sync;
 		ks->zfs_delay_max_ns.value.i64 =
 			zfs_delay_max_ns;
 		ks->zfs_delay_min_dirty_percent.value.i64 =
@@ -502,8 +595,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 			zfs_delay_scale;
 		ks->spa_asize_inflation.value.i64 =
 			spa_asize_inflation;
-//		ks->zfs_mdcomp_disable.value.i64 =
-//			zfs_mdcomp_disable;
 		ks->zfs_prefetch_disable.value.i64 =
 			zfs_prefetch_disable;
 		ks->zfetch_max_streams.value.i64 =
@@ -618,6 +709,56 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->zfs_admin_snapshot.value.ui64 = zfs_admin_snapshot;
 		ks->zfs_auto_snapshot.value.ui64 = zfs_auto_snapshot;
 
+		ks->zfs_spa_discard_memory_limit.value.ui64 = zfs_spa_discard_memory_limit;
+		ks->zfs_async_block_max_blocks.value.ui64 = zfs_async_block_max_blocks;
+		ks->zfs_initialize_chunk_size.value.ui64 = zfs_initialize_chunk_size;
+		ks->zfs_scan_suspend_progress.value.ui64 = zfs_scan_suspend_progress;
+		ks->zfs_livelist_max_entries.value.ui64 = zfs_livelist_max_entries;
+
+		ks->zfs_allow_redacted_dataset_mount.value.ui64 = zfs_allow_redacted_dataset_mount;
+		ks->zfs_checksum_events_per_second.value.ui64 = zfs_checksum_events_per_second;
+		ks->zfs_commit_timeout_pct.value.ui64 = zfs_commit_timeout_pct;
+		ks->zfs_compressed_arc_enabled.value.ui64 = zfs_compressed_arc_enabled;
+		ks->zfs_condense_indirect_commit_entry_delay_ms.value.ui64 = zfs_condense_indirect_commit_entry_delay_ms;
+		ks->zfs_condense_min_mapping_bytes.value.ui64 = zfs_condense_min_mapping_bytes;
+		ks->zfs_deadman_checktime_ms.value.ui64 = zfs_deadman_checktime_ms;
+
+		kstat_named_setstr(&ks->zfs_deadman_failmode, zfs_deadman_failmode);
+
+		ks->zfs_deadman_synctime_ms.value.ui64 = zfs_deadman_synctime_ms;
+		ks->zfs_deadman_ziotime_ms.value.ui64 = zfs_deadman_ziotime_ms;
+		ks->zfs_disable_ivset_guid_check.value.ui64 = zfs_disable_ivset_guid_check;
+		ks->zfs_initialize_value.value.ui64 = zfs_initialize_value;
+		ks->zfs_keep_log_spacemaps_at_export.value.ui64 = zfs_keep_log_spacemaps_at_export;
+		ks->l2arc_rebuild_blocks_min_l2size.value.ui64 = l2arc_rebuild_blocks_min_l2size;
+		ks->l2arc_rebuild_enabled.value.ui64 = l2arc_rebuild_enabled;
+		ks->l2arc_trim_ahead.value.ui64 = l2arc_trim_ahead;
+		ks->zfs_livelist_condense_new_alloc.value.ui64 = zfs_livelist_condense_new_alloc;
+		ks->zfs_livelist_condense_sync_cancel.value.ui64 = zfs_livelist_condense_sync_cancel;
+		ks->zfs_livelist_condense_sync_pause.value.ui64 = zfs_livelist_condense_sync_pause;
+		ks->zfs_livelist_condense_zthr_cancel.value.ui64 = zfs_livelist_condense_zthr_cancel;
+		ks->zfs_livelist_condense_zthr_pause.value.ui64 = zfs_livelist_condense_zthr_pause;
+		ks->zfs_livelist_min_percent_shared.value.ui64 = zfs_livelist_min_percent_shared;
+		ks->zfs_max_dataset_nesting.value.ui64 = zfs_max_dataset_nesting;
+		ks->zfs_max_missing_tvds.value.ui64 = zfs_max_missing_tvds;
+		ks->metaslab_debug_load.value.ui64 = metaslab_debug_load;
+		ks->metaslab_force_ganging.value.ui64 = metaslab_force_ganging;
+		ks->zfs_multihost_fail_intervals.value.ui64 = zfs_multihost_fail_intervals;
+		ks->zfs_multihost_import_intervals.value.ui64 = zfs_multihost_import_intervals;
+		ks->zfs_multihost_interval.value.ui64 = zfs_multihost_interval;
+		ks->zfs_override_estimate_recordsize.value.ui64 = zfs_override_estimate_recordsize;
+		ks->zfs_remove_max_segment.value.ui64 = zfs_remove_max_segment;
+		ks->zfs_resilver_min_time_ms.value.ui64 = zfs_resilver_min_time_ms;
+		ks->zfs_scan_legacy.value.ui64 = zfs_scan_legacy;
+		ks->zfs_scan_vdev_limit.value.ui64 = zfs_scan_vdev_limit;
+		ks->zfs_slow_io_events_per_second.value.ui64 = zfs_slow_io_events_per_second;
+		ks->spa_load_verify_data.value.ui64 = spa_load_verify_data;
+		ks->spa_load_verify_metadata.value.ui64 = spa_load_verify_metadata;
+		ks->zfs_unlink_suspend_progress.value.ui64 = zfs_unlink_suspend_progress;
+		ks->zfs_vdev_min_ms_count.value.ui64 = zfs_vdev_min_ms_count;
+		ks->vdev_validate_skip.value.ui64 = vdev_validate_skip;
+		ks->zfs_zevent_len_max.value.ui64 = zfs_zevent_len_max;
+		ks->zio_slow_io_ms.value.ui64 = zio_slow_io_ms;
 	}
 
 	return 0;
