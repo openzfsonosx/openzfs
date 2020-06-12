@@ -326,6 +326,7 @@ constrain_path() {
 		ln -fs /sbin/fsck_hfs "$STF_PATH/fsck"
 		ln -fs /sbin/newfs_hfs "$STF_PATH/newfs"
 		ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
+		ln -fs /usr/sbin/sysctl "$STF_PATH/sysctl"
 	fi
 
 	if [ -L "$STF_PATH/arc_summary3" ]; then
