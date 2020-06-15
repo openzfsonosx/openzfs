@@ -124,12 +124,14 @@ zfs_onexit_fd_hold(int fd, minor_t *minorp)
 		zfs_onexit_fd_rele(fd);
 		return (SET_ERROR(EBADF));
 	}
+	printf("%s: fd %d\n", __func__, fd);
 	return (0);
 }
 
 void
 zfs_onexit_fd_rele(int fd)
 {
+	printf("%s: fd %d\n", __func__, fd);
 	zfs_file_put(fd);
 }
 

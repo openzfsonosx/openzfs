@@ -1243,7 +1243,7 @@ extern uint64_t zvolIO_kit_write(struct iomem *iomem, uint64_t offset,
 
 int
 dmu_read_iokit_dnode(dnode_t *dn, uint64_t *offset,
-	uint64_t position, uint64_t *size, struct iomem *iomem)
+    uint64_t position, uint64_t *size, struct iomem *iomem)
 {
 	int err;
 
@@ -1405,12 +1405,12 @@ dmu_write_iokit_dnode(dnode_t *dn, uint64_t *offset, uint64_t position,
 	int err = 0;
 	int i;
 
-    err = dmu_buf_hold_array_by_dnode(dn, *offset+position, *size,
+	err = dmu_buf_hold_array_by_dnode(dn, *offset+position, *size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH);
 	if (err)
 		return (err);
 
-	while(*size > 0) {
+	while (*size > 0) {
 
 		for (i = 0; i < numbufs; i++) {
 			int tocpy;
@@ -1423,7 +1423,8 @@ dmu_write_iokit_dnode(dnode_t *dn, uint64_t *offset, uint64_t position,
 			bufoff = (position + *offset) - db->db_offset;
 			tocpy = (int)MIN(db->db_size - bufoff, *size);
 
-			ASSERT(i == 0 || i == numbufs-1 || tocpy == db->db_size);
+			ASSERT(i == 0 || i == numbufs-1 ||
+			    tocpy == db->db_size);
 
 			if (tocpy == db->db_size)
 				dmu_buf_will_fill(db, tx);
