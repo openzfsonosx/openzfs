@@ -1198,7 +1198,8 @@ taskq_destroy(taskq_t *tq)
 }
 EXPORT_SYMBOL(taskq_destroy);
 
-int EMPTY_TASKQ(taskq_t *tq)
+int
+EMPTY_TASKQ(taskq_t *tq)
 {
 #ifdef _KERNEL
 	return (tq->tq_lowest_id == tq->tq_next_id);
