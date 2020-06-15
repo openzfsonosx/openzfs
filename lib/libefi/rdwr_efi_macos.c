@@ -248,8 +248,8 @@ efi_get_info(int fd, struct dk_cinfo *dki_info)
 					dki_info->dki_partition = 0;
 			}
 			strlcpy(dki_info->dki_dname,
-				&pathbuf[5],
-				sizeof(dki_info->dki_dname));
+			    &pathbuf[5],
+			    sizeof (dki_info->dki_dname));
 		}
 
 		/*
@@ -1663,7 +1663,7 @@ isDeviceMatchForKeyAndSubstr(char *device, CFStringRef key, CFStringRef substr,
 
 	if ((error = setupDADiskSession(&ds, device)) == 0) {
 		CFDictionaryRef descDict = NULL;
-		if((descDict = DADiskCopyDescription(ds.disk)) != NULL) {
+		if ((descDict = DADiskCopyDescription(ds.disk)) != NULL) {
 			*isMatch =
 			    CFDictionaryValueIfPresentMatchesSubstring(descDict,
 			    key, substr);
@@ -1709,5 +1709,5 @@ osx_device_isvirtual(char *device)
 		    isCoreStorageLV,
 		    isVirtualInterface);
 
-	return (isCoreStorageLV || isVirtualInterface);
+	return (isCoreStorageLV /* || isVirtualInterface*/);
 }

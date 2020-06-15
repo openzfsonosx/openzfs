@@ -224,7 +224,8 @@ zfs_mod_supported_feature(const char *name)
 	 * The equivalent _can_ be done on FreeBSD by way of the sysctl
 	 * tree, but this has not been done yet.
 	 */
-#if defined(_KERNEL) || defined(LIB_ZPOOL_BUILD) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(_KERNEL) || defined(LIB_ZPOOL_BUILD) || \
+	defined(__FreeBSD__) || defined(__APPLE__)
 	return (B_TRUE);
 #else
 	return (zfs_mod_supported(ZFS_SYSFS_POOL_FEATURES, name));

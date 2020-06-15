@@ -606,8 +606,9 @@ zfs_prop_init(void)
 	    "RSNAPS");
 
 #ifdef __APPLE__
-	zprop_register_index(ZFS_PROP_BROWSE, "com.apple.browse", 1,PROP_INHERIT,
-	    ZFS_TYPE_FILESYSTEM, "on | off", "COM.APPLE.BROWSE", boolean_table);
+	zprop_register_index(ZFS_PROP_BROWSE, "com.apple.browse", 1,
+	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "on | off", "COM.APPLE.BROWSE",
+	    boolean_table);
 	zprop_register_index(ZFS_PROP_IGNOREOWNER, "com.apple.ignoreowner", 0,
 	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "on | off",
 	    "COM.APPLE.IGNOREOWNER", boolean_table);
