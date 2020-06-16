@@ -12,18 +12,6 @@ noinst_LTLIBRARIES = libicp.la
 if TARGET_CPU_X86_64
 ASM_SOURCES_C = asm-x86_64/aes/aeskey.c
 
-if BUILD_LINUX
-ASM_SOURCES_AS = \
-	asm-x86_64/os/linux/aes/aes_amd64.S \
-	asm-x86_64/os/linux/aes/aes_aesni.S \
-	asm-x86_64/os/linux/modes/gcm_pclmulqdq.S \
-	asm-x86_64/os/linux/modes/aesni-gcm-x86_64.S \
-	asm-x86_64/os/linux/modes/ghash-x86_64.S \
-	asm-x86_64/os/linux/sha1/sha1-x86_64.S \
-	asm-x86_64/os/linux/sha2/sha256_impl.S \
-	asm-x86_64/os/linux/sha2/sha512_impl.S
-endif
-
 if BUILD_MACOS
 ASM_SOURCES_AS = \
 	asm-x86_64/os/macos/aes/aes_amd64.S \
@@ -34,6 +22,16 @@ ASM_SOURCES_AS = \
 	#asm-x86_64/os/macos/sha1/sha1-x86_64.S \
 	asm-x86_64/os/macos/sha2/sha256_impl.S \
 	asm-x86_64/os/macos/sha2/sha512_impl.S
+else
+ASM_SOURCES_AS = \
+	asm-x86_64/os/aes/aes_amd64.S \
+	asm-x86_64/os/aes/aes_aesni.S \
+	asm-x86_64/os/modes/gcm_pclmulqdq.S \
+	asm-x86_64/os/modes/aesni-gcm-x86_64.S \
+	asm-x86_64/os/modes/ghash-x86_64.S \
+	asm-x86_64/os/sha1/sha1-x86_64.S \
+	asm-x86_64/os/sha2/sha256_impl.S \
+	asm-x86_64/os/sha2/sha512_impl.S
 endif
 
 else

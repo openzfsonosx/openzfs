@@ -29,7 +29,7 @@
 
 #if defined(__i386) || defined(__amd64)
 
-#include <ia32/sys/asm_linkage.h>	/* XX64	x86/sys/asm_linkage.h */
+#include <sys/ia32/asm_linkage.h>	/* XX64	x86/sys/asm_linkage.h */
 
 #endif
 
