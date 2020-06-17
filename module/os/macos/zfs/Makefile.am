@@ -302,6 +302,10 @@ zfs_SOURCES = \
         $(zfs_ASM_SOURCES_C) \
         $(zfs_ASM_SOURCES_AS)
 
+# Ensure these files are always built with -O2 to avoid stack overflow.
+../../../zfs/zfs-dsl_scan.$(OBJEXT): CFLAGS := $(CFLAGS:-O0%=-O2)
+../../../lua/zfs-lvm.$(OBJEXT): CFLAGS := $(CFLAGS:-O0%=-O2)
+
 KERNEL_MODDIR=  $(DESTDIR)@KERNEL_MODPREFIX@/zfs.kext
 
 dist_noinst_DATA = $(PLIST_STRING) $(INFO_PLIST)
@@ -339,4 +343,3 @@ uninstall-am:
 clean:
 	rm -rf zfs.kext/
 	rm -f *.o *.lo zfs
-
