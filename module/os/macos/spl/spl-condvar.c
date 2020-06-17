@@ -78,7 +78,11 @@ spl_cv_wait(kcondvar_t *cvp, kmutex_t *mp, int flags, const char *msg)
 	spl_wdlist_settime(mp->leak, gethrestime_sec());
 #endif
 
-	return (result == EWOULDBLOCK ? -1 : 0);
+	/*
+	 * 1 - condvar got cv_signal()/cv_broadcast()
+	 * 0 - received signal (kill -signal)
+	 */
+	return (result == EINTR ? 0 : 1);
 }
 
 /*
