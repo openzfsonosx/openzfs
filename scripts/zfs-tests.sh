@@ -330,6 +330,8 @@ constrain_path() {
 		ln -fs /usr/sbin/sysctl "$STF_PATH/sysctl"
 	fi
 
+	echo "Running as UNAME $UNAME"
+
 	if [ -L "$STF_PATH/arc_summary3" ]; then
 		ln -fs "$STF_PATH/arc_summary3" "$STF_PATH/arc_summary"
 	fi
@@ -687,6 +689,8 @@ fi
 
 NUM_DISKS=$(echo "${DISKS}" | awk '{print NF}')
 [ "$NUM_DISKS" -lt 3 ] && fail "Not enough disks ($NUM_DISKS/3 minimum)"
+
+echo "Finished with DISKS $DISKS"
 
 #
 # Disable SELinux until the ZFS Test Suite has been updated accordingly.
