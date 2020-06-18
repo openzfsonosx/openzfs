@@ -200,6 +200,21 @@ elif is_freebsd; then
 
 	NEWFS_DEFAULT_FS="ufs"
 	SLICE_PREFIX="p"
+elif is_macos; then
+	unpack_opts="xv"
+	pack_opts="cf"
+	verbose="v"
+	unpack_preserve="xpf"
+	pack_preserve="cpf"
+
+	ZVOL_DEVDIR="/var/run/zfs/"
+	ZVOL_RDEVDIR="/var/run/zfs/"
+	DEV_DSKDIR="/dev"
+	DEV_RDSKDIR="/dev"
+	DEV_MPATHDIR="/dev/multipath"
+
+	NEWFS_DEFAULT_FS="hfs"
+	SLICE_PREFIX="s"
 else
 	unpack_opts="xv"
 	pack_opts="cf"

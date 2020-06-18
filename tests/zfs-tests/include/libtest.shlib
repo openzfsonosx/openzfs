@@ -1034,6 +1034,9 @@ function set_partition
 		;;
 
 	Darwin)
+		if [[ -z $size || -z $disk ]]; then
+			log_fail "The size or disk name is unspecified."
+		fi
 		log_note diskutil info $disk | grep "Block Size:"
 		typeset -i sector_size=$(diskutil info $disk | grep "Block Size:" | awk '{print $4}')
 
