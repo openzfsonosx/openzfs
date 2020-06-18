@@ -1053,6 +1053,10 @@ function set_partition
 		# Dont create zero sized partitions
 		[[ $bytes == 0 ]] && return 0
 
+		echo "size $size bytes $bytes"
+		echo $0
+		echo $SHELL
+
 		# Get total number of bytes in partition
 		[[ $size == +([0-9])+([gG])*([bB]) ]] && bytes=$(( $bytes * 1024 * 1024 * 1024 ))
 		[[ $size == +([0-9])+([mM])*([bB]) ]] && bytes=$(( $bytes * 1024 * 1024 ))

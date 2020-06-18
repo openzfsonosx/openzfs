@@ -93,7 +93,7 @@ cleanup_freebsd_loopback() {
 }
 
 cleanup_macos_loopback() {
-	zpool export -a
+	sudo "$ZPOOL" export -a
 	for TEST_LOOPBACK in ${LOOPBACKS}; do
 		if [ -b "${TEST_LOOPBACK}" ]; then
 			sudo "${LOSETUP}" detach "${TEST_LOOPBACK}" ||
