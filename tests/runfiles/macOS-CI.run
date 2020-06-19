@@ -61,13 +61,6 @@ tests = ['zfs_change-key', 'zfs_change-key_child', 'zfs_change-key_format',
     'zfs_change-key_pbkdf2iters', 'zfs_change-key_clones']
 tags = ['functional', 'cli_root', 'zfs_change-key']
 
-[tests/functional/cli_root/zfs_clone]
-tests = ['zfs_clone_001_neg', 'zfs_clone_002_pos', 'zfs_clone_003_pos',
-    'zfs_clone_004_pos', 'zfs_clone_005_pos', 'zfs_clone_006_pos',
-    'zfs_clone_007_pos', 'zfs_clone_008_neg', 'zfs_clone_009_neg',
-    'zfs_clone_010_pos', 'zfs_clone_encrypted', 'zfs_clone_deeply_nested']
-tags = ['functional', 'cli_root', 'zfs_clone']
-
 [tests/functional/cli_root/zfs_create]
 tests = ['zfs_create_001_pos', 'zfs_create_002_pos', 'zfs_create_003_pos',
     'zfs_create_004_pos', 'zfs_create_005_pos', 'zfs_create_006_pos',
@@ -120,13 +113,6 @@ tests = ['zfs_send_001_pos', 'zfs_send_002_pos', 'zfs_send_003_pos',
     'zfs_send_007_pos', 'zfs_send_encrypted', 'zfs_send_raw',
     'zfs_send_sparse', 'zfs_send-b']
 tags = ['functional', 'cli_root', 'zfs_send']
-
-[tests/functional/cli_root/zfs_snapshot]
-tests = ['zfs_snapshot_001_neg', 'zfs_snapshot_002_neg',
-    'zfs_snapshot_003_neg', 'zfs_snapshot_004_neg', 'zfs_snapshot_005_neg',
-    'zfs_snapshot_006_pos', 'zfs_snapshot_007_neg', 'zfs_snapshot_008_neg',
-    'zfs_snapshot_009_pos']
-tags = ['functional', 'cli_root', 'zfs_snapshot']
 
 [tests/functional/cli_root/zfs_unload-key]
 tests = ['zfs_unload-key', 'zfs_unload-key_all', 'zfs_unload-key_recursive']
