@@ -476,5 +476,11 @@ abd_iter_unmap(struct abd_iter *aiter)
 	aiter->iter_mapsize = 0;
 }
 
+void
+abd_cache_reap_now(void)
+{
+	kmem_cache_reap_now(abd_chunk_cache);
+}
+
 
 
