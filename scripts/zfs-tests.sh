@@ -93,8 +93,8 @@ cleanup_freebsd_loopback() {
 }
 
 cleanup_macos_loopback() {
-	sudo "$ZPOOL" export -a
 	for TEST_LOOPBACK in ${LOOPBACKS}; do
+		sudo "$ZPOOL" export -a
 		if [ -b "${TEST_LOOPBACK}" ]; then
 			sudo "${LOSETUP}" detach "${TEST_LOOPBACK}" ||
 			    echo "Failed to destroy: ${TEST_LOOPBACK}"
@@ -329,8 +329,6 @@ constrain_path() {
 		ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
 		ln -fs /usr/sbin/sysctl "$STF_PATH/sysctl"
 	fi
-
-	echo "Running as UNAME $UNAME"
 
 	if [ -L "$STF_PATH/arc_summary3" ]; then
 		ln -fs "$STF_PATH/arc_summary3" "$STF_PATH/arc_summary"
