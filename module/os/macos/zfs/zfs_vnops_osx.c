@@ -1182,11 +1182,10 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	struct componentname *cnp = ap->a_cnp;
 	DECLARE_CRED(ap);
 	int error;
-	char *filename = NULL;
 	int negative_cache = 0;
-	int filename_num_bytes = 0;
 	znode_t *zp = NULL;
 	int direntflags = 0;
+	char filename[MAXNAMELEN];
 
 	*ap->a_vpp = NULL;	/* In case we return an error */
 
@@ -1195,12 +1194,8 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	 * set to 5 for the string "alpha/beta" to look up "alpha". In this
 	 * case we need to copy it out to null-terminate.
 	 */
-	if (cnp->cn_nameptr[cnp->cn_namelen] != 0) {
-		filename_num_bytes = cnp->cn_namelen + 1;
-		filename = (char*)kmem_alloc(filename_num_bytes, KM_SLEEP);
-		bcopy(cnp->cn_nameptr, filename, cnp->cn_namelen);
-		filename[cnp->cn_namelen] = '\0';
-	}
+	bcopy(cnp->cn_nameptr, filename, cnp->cn_namelen);
+	filename[cnp->cn_namelen] = '\0';
 
 #if 1
 	/*
@@ -1229,11 +1224,21 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	}
 #endif
 
-	dprintf("+vnop_lookup '%s' %s\n", filename ? filename : cnp->cn_nameptr,
+	dprintf("+vnop_lookup '%s' %s\n", filename,
 			negative_cache ? "negative_cache":"");
 
-	error = zfs_lookup(VTOZ(ap->a_dvp), filename ? filename : cnp->cn_nameptr,
-	    &zp, /* flags */ 0, cr, &direntflags, cnp);
+	/*
+	 * 'cnp' passed to us is 'readonly' as XNU does not expect a return
+	 * name, but most likely expects it correct in getattr.
+	 */
+	struct componentname cn2;
+	cn2.cn_nameptr = filename;
+	cn2.cn_namelen = MAXNAMELEN;
+	cn2.cn_nameiop = cnp->cn_nameiop;
+	cn2.cn_flags = cnp->cn_flags;
+
+	error = zfs_lookup(VTOZ(ap->a_dvp), filename, &zp, /* flags */ 0, cr,
+	    &direntflags, &cn2);
 	/* flags can be LOOKUP_XATTR | FIGNORECASE */
 
 #if 1
@@ -1253,7 +1258,7 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 		    ap->a_cnp->cn_nameiop != CREATE) {
 			cache_enter(ap->a_dvp, NULL, ap->a_cnp);
 			dprintf("Negative-cache made for '%s'\n",
-			    filename ? filename : cnp->cn_nameptr);
+			    filename);
 		}
 	} /* ENOENT */
 #endif
@@ -1261,19 +1266,16 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 exit:
 
 	if (error == 0 && (zp != NULL)) {
-		printf("back with zp %p\n", zp);
+		printf("back with zp %p: name '%s'\n", zp, filename);
 
 		*ap->a_vpp = ZTOV(zp);
-		zfs_cache_name(*ap->a_vpp, ap->a_dvp,
-					   filename ? filename : cnp->cn_nameptr);
-		VERIFY3P(zp->z_zfsvfs, ==, vfs_fsprivate(vnode_mount(*ap->a_vpp)));
+
+		zfs_cache_name(*ap->a_vpp, ap->a_dvp, filename);
+
 	}
 
 	dprintf("-vnop_lookup %d : dvp %llu '%s'\n", error, VTOZ(ap->a_dvp)->z_id,
-			filename ? filename : cnp->cn_nameptr);
-
-	if (filename)
-		kmem_free(filename, filename_num_bytes);
+		filename);
 
 	return (error);
 }
