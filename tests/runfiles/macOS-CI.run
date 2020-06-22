@@ -213,23 +213,6 @@ tests = ['zpool_wait_replace_cancel', 'zpool_wait_resilver', 'zpool_wait_scrub_c
     'zpool_wait_replace', 'zpool_wait_scrub_basic', 'zpool_wait_scrub_flag']
 tags = ['functional', 'cli_root', 'zpool_wait']
 
-[tests/functional/cli_user/zfs_list]
-tests = ['zfs_list_001_pos', 'zfs_list_002_pos', 'zfs_list_003_pos',
-    'zfs_list_004_neg', 'zfs_list_007_pos', 'zfs_list_008_neg']
-user =
-tags = ['functional', 'cli_user', 'zfs_list']
-
-[tests/functional/cli_user/zpool_list]
-tests = ['zpool_list_001_pos', 'zpool_list_002_neg']
-user =
-tags = ['functional', 'cli_user', 'zpool_list']
-
-[tests/functional/cli_user/zpool_status]
-tests = ['zpool_status_003_pos', 'zpool_status_-c_disable',
-    'zpool_status_-c_homedir', 'zpool_status_-c_searchpath']
-user =
-tags = ['functional', 'cli_user', 'zpool_status']
-
 [tests/functional/compression]
 tests = ['compress_001_pos', 'compress_002_pos', 'compress_003_pos']
 tags = ['functional', 'compression']
@@ -317,12 +300,6 @@ tests = ['persist_l2arc_001_pos', 'persist_l2arc_002_pos',
     'persist_l2arc_003_neg', 'persist_l2arc_004_pos', 'persist_l2arc_005_pos',
     'persist_l2arc_006_pos', 'persist_l2arc_007_pos', 'persist_l2arc_008_pos']
 tags = ['functional', 'persist_l2arc']
-
-[tests/functional/pool_names]
-tests = ['pool_names_001_pos', 'pool_names_002_neg']
-pre =
-post =
-tags = ['functional', 'pool_names']
 
 [tests/functional/poolversion]
 tests = ['poolversion_001_pos', 'poolversion_002_pos']
