@@ -208,16 +208,6 @@ tags = ['functional', 'cli_root', 'zpool_status']
 tests = ['zpool_sync_001_pos', 'zpool_sync_002_neg']
 tags = ['functional', 'cli_root', 'zpool_sync']
 
-[tests/functional/cli_root/zpool_upgrade]
-tests = ['zpool_upgrade_001_pos', 'zpool_upgrade_002_pos',
-    'zpool_upgrade_003_pos', 'zpool_upgrade_004_pos',
-    'zpool_upgrade_005_neg', 'zpool_upgrade_006_neg',
-# macOS
-#    'zpool_upgrade_007_pos',
-	 'zpool_upgrade_008_pos',
-    'zpool_upgrade_009_neg']
-tags = ['functional', 'cli_root', 'zpool_upgrade']
-
 [tests/functional/cli_root/zpool_wait/scan]
 tests = ['zpool_wait_replace_cancel', 'zpool_wait_resilver', 'zpool_wait_scrub_cancel',
     'zpool_wait_replace', 'zpool_wait_scrub_basic', 'zpool_wait_scrub_flag']
