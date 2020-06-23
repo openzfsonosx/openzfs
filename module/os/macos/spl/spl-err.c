@@ -39,16 +39,16 @@ vcmn_err(int ce, const char *fmt, va_list ap)
 	switch (ce) {
 		case CE_IGNORE:
 			break;
-        case CE_CONT:
+		case CE_CONT:
 			printf("%s", msg);
 			break;
-        case CE_NOTE:
+		case CE_NOTE:
 			printf("SPL: Notice: %s\n", msg);
 			break;
-        case CE_WARN:
+		case CE_WARN:
 			printf("SPL: Warning: %s\n", msg);
 			break;
-        case CE_PANIC:
+		case CE_PANIC:
 			PANIC("%s", msg);
 			break;
 	}
@@ -79,5 +79,5 @@ spl_panic(const char *file, const char *func, int line, const char *fmt, ...)
 	panic("%s", msg);
 
 	/* Unreachable */
-	return 1;
+	return (1);
 }

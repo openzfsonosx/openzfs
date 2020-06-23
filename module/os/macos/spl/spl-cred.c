@@ -34,74 +34,82 @@
 uid_t
 crgetuid(const cred_t *cr)
 {
-    if (!cr) return 0;
-	return kauth_cred_getuid((kauth_cred_t)cr);
+	if (!cr)
+		return (0);
+	return (kauth_cred_getuid((kauth_cred_t)cr));
 }
-
 
 /* Return the real user id */
 uid_t
 crgetruid(const cred_t *cr)
 {
-    if (!cr) return 0;
-	return kauth_cred_getruid((kauth_cred_t)cr);
+	if (!cr)
+		return (0);
+	return (kauth_cred_getruid((kauth_cred_t)cr));
 }
 
 /* Return the saved user id */
 uid_t
 crgetsuid(const cred_t *cr)
 {
-    if (!cr) return 0;
-	return kauth_cred_getsvuid((kauth_cred_t)cr);
+	if (!cr)
+		return (0);
+	return (kauth_cred_getsvuid((kauth_cred_t)cr));
 }
 
 /* Return the filesystem user id */
 uid_t
 crgetfsuid(const cred_t *cr)
 {
-    if (!cr) return 0;
-	return -1;
+	if (!cr)
+		return (0);
+	return (-1);
 }
 
 /* Return the effective group id */
 gid_t
 crgetgid(const cred_t *cr)
 {
-    if (!cr) return 0;
-    return kauth_cred_getgid((kauth_cred_t)cr);
+	if (!cr)
+		return (0);
+	return (kauth_cred_getgid((kauth_cred_t)cr));
 }
 
 /* Return the real group id */
 gid_t
 crgetrgid(const cred_t *cr)
 {
-    if (!cr) return 0;
-    return kauth_cred_getrgid((kauth_cred_t)cr);
+	if (!cr)
+		return (0);
+	return (kauth_cred_getrgid((kauth_cred_t)cr));
 }
 
 /* Return the saved group id */
 gid_t
 crgetsgid(const cred_t *cr)
 {
-    if (!cr) return 0;
-    return kauth_cred_getsvgid((kauth_cred_t)cr);
+	if (!cr)
+		return (0);
+	return (kauth_cred_getsvgid((kauth_cred_t)cr));
 }
 
 /* Return the filesystem group id */
 gid_t
 crgetfsgid(const cred_t *cr)
 {
-	return -1;
+	return (-1);
 }
 
 
-extern int kauth_cred_getgroups(kauth_cred_t _cred, gid_t *_groups, int *_groupcount);
+extern int kauth_cred_getgroups(kauth_cred_t _cred, gid_t *_groups,
+    int *_groupcount);
 /*
  * Unfortunately, to get the count of groups, we have to call XNU which
  * memcpy's them over. No real clean way to get around that, but at least
  * these calls are done sparingly.
  */
-int crgetngroups(const cred_t *cr)
+int
+crgetngroups(const cred_t *cr)
 {
 	gid_t gids[NGROUPS];
 	int count = NGROUPS;
@@ -109,9 +117,10 @@ int crgetngroups(const cred_t *cr)
 
 	ret = kauth_cred_getgroups((kauth_cred_t) cr, gids, &count);
 
-	if (!ret) return count;
+	if (!ret)
+		return (count);
 
-	return 0;
+	return (0);
 }
 
 
@@ -120,33 +129,38 @@ int crgetngroups(const cred_t *cr)
  * be until after the call. Unlike IllumOS, the ptr returned is allocated
  * and must be returned by a call to crgetgroupsfree().
  */
-gid_t *crgetgroups(const cred_t *cr)
+gid_t *
+crgetgroups(const cred_t *cr)
 {
 	gid_t *gids;
 	int count = NGROUPS;
 
-	gids = kmem_zalloc(sizeof(gid_t) * count, KM_SLEEP);
-	if (!gids) return NULL;
+	gids = kmem_zalloc(sizeof (gid_t) * count, KM_SLEEP);
+	if (!gids)
+		return (NULL);
 
 	kauth_cred_getgroups((kauth_cred_t) cr, gids, &count);
 
-	return gids;
+	return (gids);
 }
 
-void crgetgroupsfree(gid_t *gids)
+void
+crgetgroupsfree(gid_t *gids)
 {
-	if (!gids) return;
-	kmem_free(gids, sizeof(gid_t) * NGROUPS);
+	if (!gids)
+		return;
+	kmem_free(gids, sizeof (gid_t) * NGROUPS);
 }
 
 /*
  * Return true if "cr" belongs in group "gid".
  */
-int spl_cred_ismember_gid(cred_t *cr, gid_t gid)
+int
+spl_cred_ismember_gid(cred_t *cr, gid_t gid)
 {
 	int ret = 0; // Is not member.
 	kauth_cred_ismember_gid((kauth_cred_t)cr, gid, &ret);
 	if (ret == 1)
-		return TRUE;
-	return FALSE;
+		return (TRUE);
+	return (FALSE);
 }

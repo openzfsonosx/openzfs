@@ -277,11 +277,8 @@ ddi_soft_state_fini(void **state_p)
 	int item;
 	static char msg[] = "ddi_soft_state_fini:";
 
-	if (state_p == NULL || (ss = *state_p) == NULL) {
-		//cmn_err(CE_WARN, "%s null handle",
-		//  msg);
+	if (state_p == NULL || (ss = *state_p) == NULL)
 		return;
-	}
 
 	if (ss->size == 0) {
 		cmn_err(CE_WARN, "%s bad handle",
@@ -315,79 +312,72 @@ ddi_create_minor_node(dev_info_t *dip, char *name, int spec_type,
     minor_t minor_num, char *node_type, int flag)
 {
 	dev_t dev;
-	int error=0;
-    char *r, *dup;
-
-	//printf("ddi_create_minor_node: name %s: %d,%d\n", name, flag, minor_num);
+	int error = 0;
+	char *r, *dup;
 
 	dev = makedev(flag, minor_num);
-    dip->dev = dev;
+	dip->dev = dev;
 
-    /*
-     * http://lists.apple.com/archives/darwin-kernel/2007/Nov/msg00038.html
-     *
-     * devfs_make_name() has an off-by-one error when using directories
-     * and it appears Apple does not want to fix it.
-     *
-     * We then change "/" to "_" and create more Apple-like /dev names
-     *
-     */
-    MALLOC(dup, char *, strlen(name)+1, M_TEMP, M_WAITOK);
-    if (dup == NULL) return ENOMEM;
-    bcopy(name, dup, strlen(name));
+	/*
+	 * http://lists.apple.com/archives/darwin-kernel/2007/Nov/msg00038.html
+	 *
+	 * devfs_make_name() has an off-by-one error when using directories
+	 * and it appears Apple does not want to fix it.
+	 *
+	 * We then change "/" to "_" and create more Apple-like /dev names
+	 *
+	 */
+	MALLOC(dup, char *, strlen(name)+1, M_TEMP, M_WAITOK);
+	if (dup == NULL)
+		return (ENOMEM);
+	bcopy(name, dup, strlen(name));
 	dup[strlen(name)] = '\0';
 
-    for (r = dup;
-         (r=strchr(r, '/'));
-         *r = '_') /* empty */ ;
+	for (r = dup;
+	    (r = strchr(r, '/'));
+	    *r = '_')
+		/* empty */;
 
-    dip->devc = NULL;
-    dip->devb = NULL;
+	dip->devc = NULL;
+	dip->devb = NULL;
 
 	if (spec_type == S_IFCHR)
-        dip->devc = devfs_make_node(dev, DEVFS_CHAR,   /* Make the node */
-                                    UID_ROOT, GID_OPERATOR,
-                                    0600, "rdisk_%s", dup);
-    //0600, "rdisk3", dup);
+		dip->devc = devfs_make_node(dev, DEVFS_CHAR,
+		    UID_ROOT, GID_OPERATOR,
+		    0600, "rdisk_%s", dup);
 	else
-        dip->devb = devfs_make_node(dev, DEVFS_BLOCK,  /* Make the node */
-                                    UID_ROOT, GID_OPERATOR,
-                                    0600, "disk_%s", dup);
-    //0600, "disk3", dup);
+		dip->devb = devfs_make_node(dev, DEVFS_BLOCK,
+		    UID_ROOT, GID_OPERATOR,
+		    0600, "disk_%s", dup);
+	FREE(dup, M_TEMP);
 
-    //printf("ddi_create_minor: devfs_make_name '%s'\n", dup );
-
-    FREE(dup, M_TEMP);
-
-	return error;
+	return (error);
 }
-
 
 void
 ddi_remove_minor_node(dev_info_t *dip, char *name)
 {
-    //printf("zvol: remove minor: '%s'\n", name ? name : "");
-    if (dip->devc) {
-        devfs_remove(dip->devc);
-        dip->devc = NULL;
-    }
-    if (dip->devb) {
-        devfs_remove(dip->devb);
-        dip->devb = NULL;
-    }
+	if (dip->devc) {
+		devfs_remove(dip->devc);
+		dip->devc = NULL;
+	}
+	if (dip->devb) {
+		devfs_remove(dip->devb);
+		dip->devb = NULL;
+	}
 }
 
 int
 strspn(const char *string,
-	register char *charset)
+    register char *charset)
 {
 	register const char *p, *q;
 
-	for(q=string; *q != '\0'; ++q) {
-		for(p=charset; *p != '\0' && *p != *q; ++p)
+	for (q = string; *q != '\0'; ++q) {
+		for (p = charset; *p != '\0' && *p != *q; ++p)
 			;
-		if(*p == '\0')
+		if (*p == '\0')
 			break;
 	}
-	return(q-string);
+	return (q-string);
 }
