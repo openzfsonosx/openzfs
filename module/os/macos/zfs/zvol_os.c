@@ -116,27 +116,48 @@ zvol_os_is_zvol(const char *device)
 	return (B_FALSE);
 }
 
+/*
+ * Make sure zv is still in the list (not freed) and if it is
+ * grab the locks in the correct order.
+ * Can we rely on list_link_active() instead of looping list?
+ */
+static int
+zvol_os_verify_and_lock(zvol_state_t *node)
+{
+	zvol_state_t *zv;
+
+	rw_enter(&zvol_state_lock, RW_READER);
+	for (zv = list_head(&zvol_state_list); zv != NULL;
+		 zv = list_next(&zvol_state_list, zv)) {
+		mutex_enter(&zv->zv_state_lock);
+		if (zv == node) {
+
+			if (!rw_tryenter(&zv->zv_suspend_lock, RW_READER)) {
+				mutex_exit(&zv->zv_state_lock);
+				rw_enter(&zv->zv_suspend_lock, RW_READER);
+				mutex_enter(&zv->zv_state_lock);
+			}
+			rw_exit(&zvol_state_lock);
+			return (1);
+		}
+		mutex_exit(&zv->zv_state_lock);
+	}
+	rw_exit(&zvol_state_lock);
+	return (0);
+}
+
 static void
 zvol_os_register_device_cb(void *param)
 {
 	zvol_state_t *zv = (zvol_state_t *)param;
 
-	rw_enter(&zv->zv_suspend_lock, RW_WRITER);
+	if (zvol_os_verify_and_lock(zv) == 0)
+		return;
+
 	zvolRegisterDevice(zv);
-	rw_exit(&zv->zv_suspend_lock);
-}
 
-/* Helper function for C++ */
-void zvol_os_lock_zv(zvol_state_t *zv)
-{
-	rw_enter(&zvol_state_lock, RW_READER);
-	mutex_enter(&zv->zv_state_lock);
-}
-
-void zvol_os_unlock_zv(zvol_state_t *zv)
-{
 	mutex_exit(&zv->zv_state_lock);
-	rw_exit(&zvol_state_lock);
+	rw_exit(&zv->zv_suspend_lock);
 }
 
 int zvol_os_write(dev_t dev, struct uio *uio, int p)
@@ -621,7 +642,11 @@ out_doi:
 static void zvol_os_rename_device_cb(void *param)
 {
 	zvol_state_t *zv = (zvol_state_t *)param;
+	if (zvol_os_verify_and_lock(zv) == 0)
+		return;
 	zvolRenameDevice(zv);
+	mutex_exit(&zv->zv_state_lock);
+	rw_exit(&zv->zv_suspend_lock);
 }
 
 static void
@@ -669,7 +694,7 @@ int
 zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
 	int error = 0;
-	boolean_t drop_suspend = B_TRUE;
+
 	printf("%s\n", __func__);
 
 	/*
@@ -677,32 +702,8 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 	 * (hold zv_suspend_lock) and respect proper lock acquisition
 	 * ordering - zv_suspend_lock before zv_state_lock
 	 */
-
-	rw_enter(&zvol_state_lock, RW_READER);
-
-	if (zv == NULL || zv->zv_zso == NULL ||
-		zv->zv_zso->zvo_iokitdev == NULL) {
-		rw_exit(&zvol_state_lock);
-		return (EIO);
-	}
-
-	mutex_enter(&zv->zv_state_lock);
-
-	if (zv->zv_open_count == 0) {
-		if (!rw_tryenter(&zv->zv_suspend_lock, RW_READER)) {
-			mutex_exit(&zv->zv_state_lock);
-			rw_enter(&zv->zv_suspend_lock, RW_READER);
-			mutex_enter(&zv->zv_state_lock);
-			/* check to see if zv_suspend_lock is needed */
-			if (zv->zv_open_count != 0) {
-				rw_exit(&zv->zv_suspend_lock);
-				drop_suspend = B_FALSE;
-			}
-		}
-	} else {
-		drop_suspend = B_FALSE;
-	}
-	rw_exit(&zvol_state_lock);
+	if (zvol_os_verify_and_lock(zv) == 0)
+		return (SET_ERROR(ENOENT));
 
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
 	ASSERT(zv->zv_open_count != 0 || RW_READ_HELD(&zv->zv_suspend_lock));
@@ -722,8 +723,7 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 
 	mutex_exit(&zv->zv_state_lock);
 
-	if (drop_suspend)
-		rw_exit(&zv->zv_suspend_lock);
+	rw_exit(&zv->zv_suspend_lock);
 
 	return (0);
 
@@ -734,8 +734,7 @@ out_open_count:
 out_mutex:
 	mutex_exit(&zv->zv_state_lock);
 
-	if (drop_suspend)
-		rw_exit(&zv->zv_suspend_lock);
+	rw_exit(&zv->zv_suspend_lock);
 	if (error == EINTR) {
 		error = ERESTART;
 		schedule();
@@ -768,33 +767,10 @@ zvol_os_open(dev_t devp, int flag, int otyp, struct proc *p)
 int
 zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
-	boolean_t drop_suspend = B_TRUE;
-
 	printf("%s\n", __func__);
 
-	rw_enter(&zvol_state_lock, RW_READER);
-	ASSERT(zv->zv_open_count > 0);
-	mutex_enter(&zv->zv_state_lock);
-	/*
-	 * make sure zvol is not suspended during last close
-	 * (hold zv_suspend_lock) and respect proper lock acquisition
-	 * ordering - zv_suspend_lock before zv_state_lock
-	 */
-	if (zv->zv_open_count == 1) {
-		if (!rw_tryenter(&zv->zv_suspend_lock, RW_READER)) {
-			mutex_exit(&zv->zv_state_lock);
-			rw_enter(&zv->zv_suspend_lock, RW_READER);
-			mutex_enter(&zv->zv_state_lock);
-			/* check to see if zv_suspend_lock is needed */
-			if (zv->zv_open_count != 1) {
-				rw_exit(&zv->zv_suspend_lock);
-				drop_suspend = B_FALSE;
-			}
-		}
-	} else {
-		drop_suspend = B_FALSE;
-	}
-	rw_exit(&zvol_state_lock);
+	if (zvol_os_verify_and_lock(zv) == 0)
+		return (SET_ERROR(ENOENT));
 
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
 	ASSERT(zv->zv_open_count != 1 || RW_READ_HELD(&zv->zv_suspend_lock));
@@ -805,9 +781,7 @@ zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 		zvol_last_close(zv);
 
 	mutex_exit(&zv->zv_state_lock);
-
-	if (drop_suspend)
-		rw_exit(&zv->zv_suspend_lock);
+	rw_exit(&zv->zv_suspend_lock);
 
 	return 0;
 }
