@@ -40,7 +40,6 @@ libspl_la_SOURCES = 	\
 	spl-ddi.c \
 	spl-err.c \
 	spl-kmem.c \
-	spl-kobj.c \
 	spl-kstat.c \
 	spl-list.c \
 	spl-mutex.c \
@@ -55,7 +54,6 @@ libspl_la_SOURCES = 	\
 	spl-thread.c \
 	spl-time.c \
 	spl-tsd.c \
-    spl-vmem.c \
+	spl-vmem.c \
 	spl-vnode.c \
 	spl-xdr.c
-

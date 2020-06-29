@@ -3822,13 +3822,13 @@ void
 kmem_qcache_destroy()
 {
 	kmem_cache_t *cp;
-	kmem_cache_t* cache_to_destroy = NULL;
+	kmem_cache_t *cache_to_destroy = NULL;
 
 	do {
 		cache_to_destroy = NULL;
 		mutex_enter(&kmem_cache_lock);
 		for (cp = list_head(&kmem_caches); cp != NULL;
-			cp = list_next(&kmem_caches, cp)) {
+		    cp = list_next(&kmem_caches, cp)) {
 			if (cp->cache_cflags & KMC_QCACHE) {
 				cache_to_destroy = cp;
 				break;
