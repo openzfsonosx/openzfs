@@ -825,7 +825,7 @@ taskq_ent_constructor(void *buf, void *cdrarg, int kmflags)
 	/* Simulate TS_STOPPED */
 	mutex_init(&tqe->tqent_thread_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&tqe->tqent_thread_cv, NULL, CV_DEFAULT, NULL);
-#endif /*__APPLE*/
+#endif /* __APPLE__ */
 
 	return (0);
 }
@@ -842,7 +842,7 @@ taskq_ent_destructor(void *buf, void *cdrarg)
 	/* See comment in taskq_d_thread(). */
 	mutex_destroy(&tqe->tqent_thread_lock);
 	cv_destroy(&tqe->tqent_thread_cv);
-#endif /*__APPLE*/
+#endif /* __APPLE__ */
 }
 
 int
@@ -865,7 +865,7 @@ spl_taskq_init(void)
 	mutex_init(&taskq_kstat_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&taskq_d_kstat_lock, NULL, MUTEX_DEFAULT, NULL);
 
-	return 0;
+	return (0);
 }
 
 void
@@ -1020,10 +1020,10 @@ system_taskq_init(void)
 void
 system_taskq_fini(void)
 {
-    if (system_taskq)
-        taskq_destroy(system_delay_taskq);
-    if (system_taskq)
-        taskq_destroy(system_taskq);
+	if (system_taskq)
+		taskq_destroy(system_delay_taskq);
+	if (system_taskq)
+		taskq_destroy(system_taskq);
 	system_taskq = NULL;
 }
 
@@ -1261,8 +1261,9 @@ taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
 	} else {
 		int loopcount;
 		taskq_bucket_t *b;
-		//uintptr_t h = ((uintptr_t)CPU + (uintptr_t)arg) >> 3;
-		uintptr_t h = ((uintptr_t)(cpu_number()<<3) + (uintptr_t)arg) >> 3;
+		// uintptr_t h = ((uintptr_t)CPU + (uintptr_t)arg) >> 3;
+		uintptr_t h = ((uintptr_t)(cpu_number()<<3) +
+		    (uintptr_t)arg) >> 3;
 
 		h = TQ_HASH(h);
 
@@ -1376,13 +1377,13 @@ taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg,
 		return (taskq_dispatch(tq, func, arg, flags));
 
 	/* Insert delayed code here: */
-    return 0;
+	return (0);
 }
 
 void
 taskq_init_ent(taskq_ent_t *t)
 {
-	memset(t, 0, sizeof(*t));
+	memset(t, 0, sizeof (*t));
 }
 
 void
@@ -1470,7 +1471,7 @@ taskq_wait(taskq_t *tq)
 void
 taskq_wait_id(taskq_t *tq, taskqid_t id)
 {
-	return taskq_wait(tq);
+	return (taskq_wait(tq));
 }
 
 /*
@@ -1540,30 +1541,7 @@ taskq_resume(taskq_t *tq)
 int
 taskq_member(taskq_t *tq, kthread_t *thread)
 {
-
 	return (tq == (taskq_t *)tsd_get_by_thread(taskq_tsd, thread));
-
-
-#ifdef __APPLE__
-	int i;
-
-    mutex_enter(&tq->tq_lock);
-	if (tq->tq_thread != NULL) /* nthreads==1 case */
-		if (tq->tq_thread == thread) {
-            mutex_exit(&tq->tq_lock);
-            return 1;
-        }
-
-	for (i = 0;i < tq->tq_nthreads; i++)
-		if (tq->tq_threadlist[i] == thread) {
-            mutex_exit(&tq->tq_lock);
-			return (1);
-        }
-    mutex_exit(&tq->tq_lock);
-	return (0);
-#else
-	return (thread->t_taskq == tq);
-#endif
 }
 
 taskq_t *
@@ -1581,13 +1559,13 @@ taskq_of_curthread(void)
 int
 taskq_cancel_id(taskq_t *tq, taskqid_t id)
 {
-	//taskq_t *task = (taskq_t *) id;
+	// taskq_t *task = (taskq_t *) id;
 
 	/* So we want to tell task to stop, and wait until it does */
 	if (!EMPTY_TASKQ(tq))
 		taskq_wait(tq);
 
-	return 0;
+	return (0);
 }
 
 /*
@@ -1608,7 +1586,6 @@ taskq_thread_create(taskq_t *tq)
 	ASSERT(tq->tq_flags & TASKQ_CHANGING);
 	ASSERT(tq->tq_nthreads < tq->tq_nthreads_target);
 	ASSERT(!(tq->tq_flags & TASKQ_THREAD_CREATED));
-
 
 	tq->tq_flags |= TASKQ_THREAD_CREATED;
 	tq->tq_active++;
@@ -1700,7 +1677,7 @@ taskq_thread(void *arg)
 	boolean_t freeit;
 
 	CALLB_CPR_INIT(&cprinfo, &tq->tq_lock, callb_generic_cpr,
-				   tq->tq_name);
+	    tq->tq_name);
 
 	tsd_set(taskq_tsd, tq);
 	mutex_enter(&tq->tq_lock);
@@ -2061,7 +2038,8 @@ taskq_create_common(const char *name, int instance, int nthreads, pri_t pri,
 	uint_t bsize;	/* # of buckets - always power of 2 */
 	int max_nthreads;
 
-	/* We are not allowed to use TASKQ_DYNAMIC with taskq_dispatch_ent()
+	/*
+	 * We are not allowed to use TASKQ_DYNAMIC with taskq_dispatch_ent()
 	 * but that is done by spa.c - so we will simply mask DYNAMIC out.
 	 */
 	flags &= ~TASKQ_DYNAMIC;
@@ -2111,7 +2089,7 @@ taskq_create_common(const char *name, int instance, int nthreads, pri_t pri,
 		 * we won't be creating LWPs, so new threads will be assigned
 		 * to the default processor set.
 		 */
-		/*ASSERT(curproc == proc || proc == &p0);*/
+		/* ASSERT(curproc == proc || proc == &p0); */
 		tq->tq_threads_ncpus_pct = pct;
 		nthreads = 1;		/* corrected in taskq_thread_create() */
 		max_nthreads = TASKQ_THREADS_PCT(max_ncpus, pct);
@@ -2418,8 +2396,8 @@ taskq_bucket_extend(void *arg)
 	 * for it to be initialized (below).
 	 */
 	tqe->tqent_thread = (kthread_t *)0xCEDEC0DE;
-	thread = thread_create(NULL, 0, (void (*)(void *))taskq_d_thread, tqe, 0, pp0, TS_RUN,
-	                       tq->tq_pri);
+	thread = thread_create(NULL, 0, (void (*)(void *))taskq_d_thread,
+	    tqe, 0, pp0, TS_RUN, tq->tq_pri);
 #else
 
 	/*
@@ -2428,7 +2406,7 @@ taskq_bucket_extend(void *arg)
 	 */
 	tqe->tqent_thread = thread_create(NULL, 0, taskq_d_thread, tqe,
 	    0, tq->tq_proc, TS_STOPPED, tq->tq_pri);
-#endif /*__APPLE__*/
+#endif /* __APPLE__ */
 
 	/*
 	 * Once the entry is ready, link it to the the bucket free list.
@@ -2461,7 +2439,7 @@ taskq_bucket_extend(void *arg)
 	tqe->tqent_thread->t_schedflag |= TS_ALLSTART;
 	setrun_locked(tqe->tqent_thread);
 	thread_unlock(tqe->tqent_thread);
-#endif /*__APPLE__*/
+#endif /* __APPLE__ */
 }
 
 static int
@@ -2540,10 +2518,11 @@ taskq_d_kstat_update(kstat_t *ksp, int rw)
 	return (0);
 }
 
-int EMPTY_TASKQ(taskq_t *tq)
+int
+EMPTY_TASKQ(taskq_t *tq)
 {
 #ifdef _KERNEL
-	return  ((tq)->tq_task.tqent_next == &(tq)->tq_task);
+	return ((tq)->tq_task.tqent_next == &(tq)->tq_task);
 #else
 	return (tq->tq_task.tqent_next == &tq->tq_task || tq->tq_active == 0);
 #endif

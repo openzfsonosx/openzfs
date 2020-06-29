@@ -59,25 +59,24 @@
 #include <sys/debug.h>
 
 /* Initial size of array, and realloc growth size */
-#define TSD_ALLOC_SIZE 10
+#define	TSD_ALLOC_SIZE 10
 
 /* array of dtors, allocated in init */
-static dtor_func_t *tsd_dtor_array = NULL;
-static uint32_t     tsd_dtor_size  = 0;
-
-static avl_tree_t   tsd_tree;
+static dtor_func_t	*tsd_dtor_array = NULL;
+static uint32_t		tsd_dtor_size  = 0;
+static avl_tree_t	tsd_tree;
 
 struct spl_tsd_node_s
 {
 	/* The index/key */
-	uint_t      tsd_key;
-	thread_t    tsd_thread;
+	uint_t		tsd_key;
+	thread_t	tsd_thread;
 
 	/* The payload */
-	void       *tsd_value;
+	void		*tsd_value;
 
 	/* Internal mumbo */
-	avl_node_t tsd_link_node;
+	avl_node_t	tsd_link_node;
 };
 typedef struct spl_tsd_node_s spl_tsd_node_t;
 
@@ -105,13 +104,14 @@ tsd_set(uint_t key, void *value)
 
 	/* Invalid key values? */
 	if ((key < 1) ||
-		(key >= tsd_dtor_size)) {
-		return EINVAL;
+	    (key >= tsd_dtor_size)) {
+		return (EINVAL);
 	}
 
 	i = key - 1;
 
-	/* First handle the easy case, <key,thread> already has a node/value
+	/*
+	 * First handle the easy case, <key,thread> already has a node/value
 	 * so we just need to find it, update it.
 	 */
 
@@ -129,29 +129,29 @@ tsd_set(uint_t key, void *value)
 			mutex_enter(&spl_tsd_mutex);
 			avl_remove(&tsd_tree, entry);
 			mutex_exit(&spl_tsd_mutex);
-			kmem_free(entry, sizeof(*entry));
-			return 0;
+			kmem_free(entry, sizeof (*entry));
+			return (0);
 		}
 		entry->tsd_value = value;
-		return 0;
+		return (0);
 	}
 
 	/* No node, we need to create a new one and insert it. */
 	/* But if the value is NULL, then why create one eh? */
 	if (value == NULL)
-		return 0;
+		return (0);
 
-	entry = kmem_alloc(sizeof(spl_tsd_node_t), KM_SLEEP);
+	entry = kmem_alloc(sizeof (spl_tsd_node_t), KM_SLEEP);
 
-	entry->tsd_key    = i;
-	entry->tsd_thread = current_thread();
-	entry->tsd_value  = value;
+	entry->tsd_key		= i;
+	entry->tsd_thread	= current_thread();
+	entry->tsd_value	= value;
 
 	mutex_enter(&spl_tsd_mutex);
 	avl_add(&tsd_tree, entry);
 	mutex_exit(&spl_tsd_mutex);
 
-	return 0;
+	return (0);
 }
 
 /*
@@ -172,8 +172,8 @@ tsd_get_by_thread(uint_t key, thread_t thread)
 
 	/* Invalid key values? */
 	if ((key < 1) ||
-		(key >= tsd_dtor_size)) {
-		return NULL;
+	    (key >= tsd_dtor_size)) {
+		return (NULL);
 	}
 
 	i = key - 1;
@@ -185,13 +185,13 @@ tsd_get_by_thread(uint_t key, thread_t thread)
 	entry = avl_find(&tsd_tree, &search, &loc);
 	mutex_exit(&spl_tsd_mutex);
 
-	return entry ? entry->tsd_value : NULL;
+	return (entry ? entry->tsd_value : NULL);
 }
 
 void *
 tsd_get(uint_t key)
 {
-	return tsd_get_by_thread(key, current_thread());
+	return (tsd_get_by_thread(key, current_thread()));
 }
 
 static void
@@ -209,7 +209,8 @@ tsd_create(uint_t *keyp, dtor_func_t dtor)
 {
 	uint_t i;
 
-	if (*keyp) return; // Should be 0
+	if (*keyp)
+		return;
 
 	// Iterate the dtor_array, looking for first NULL
 	for (i = 0; i < TSD_ALLOC_SIZE; i++) {
@@ -241,7 +242,7 @@ tsd_destroy(uint_t *keyp)
 
 	/* Invalid key values? */
 	if ((*keyp < 1) ||
-		(*keyp >= tsd_dtor_size)) {
+	    (*keyp >= tsd_dtor_size)) {
 		return;
 	}
 
@@ -264,8 +265,10 @@ tsd_destroy(uint_t *keyp)
 	mutex_enter(&spl_tsd_mutex);
 	entry = avl_find(&tsd_tree, &search, &loc);
 
-	/* "entry" should really be NULL here, as we searched for the
-	 * NULL thread */
+	/*
+	 * "entry" should really be NULL here, as we searched for the
+	 * NULL thread
+	 */
 	if (entry == NULL)
 		entry = avl_nearest(&tsd_tree, loc, AVL_AFTER);
 
@@ -279,13 +282,12 @@ tsd_destroy(uint_t *keyp)
 
 		avl_remove(&tsd_tree, entry);
 
-		kmem_free(entry, sizeof(*entry));
+		kmem_free(entry, sizeof (*entry));
 
 		entry = next;
 	}
 
 	mutex_exit(&spl_tsd_mutex);
-
 }
 
 
@@ -293,7 +295,8 @@ tsd_destroy(uint_t *keyp)
 /*
  * A thread is exiting, clear out any tsd values it might have.
  */
-void tsd_thread_exit(void)
+void
+tsd_thread_exit(void)
 {
 	spl_tsd_node_t *entry = NULL;
 	spl_tsd_node_t search;
@@ -322,46 +325,45 @@ void tsd_thread_exit(void)
 		if (entry->tsd_value)
 			tsd_dtor_array[i](entry->tsd_value);
 
-		kmem_free(entry, sizeof(*entry));
+		kmem_free(entry, sizeof (*entry));
 	} // for all i
 }
 
-
-
-
-static int tsd_tree_cmp(const void *arg1, const void *arg2)
+static int
+tsd_tree_cmp(const void *arg1, const void *arg2)
 {
 	const spl_tsd_node_t *node1 = arg1;
 	const spl_tsd_node_t *node2 = arg2;
 	if (node1->tsd_key > node2->tsd_key)
-		return 1;
+		return (1);
 	if (node1->tsd_key < node2->tsd_key)
-		return -1;
+		return (-1);
 	if (node1->tsd_thread > node2->tsd_thread)
-		return 1;
+		return (1);
 	if (node1->tsd_thread < node2->tsd_thread)
-		return -1;
-	return 0;
+		return (-1);
+	return (0);
 }
 
 int
 spl_tsd_init(void)
 {
-	tsd_dtor_array = kmem_zalloc(sizeof(dtor_func_t) * TSD_ALLOC_SIZE,
-								 KM_SLEEP);
+	tsd_dtor_array = kmem_zalloc(sizeof (dtor_func_t) * TSD_ALLOC_SIZE,
+	    KM_SLEEP);
 	tsd_dtor_size = TSD_ALLOC_SIZE;
 
 	mutex_init(&spl_tsd_mutex, NULL, MUTEX_DEFAULT, NULL);
 	avl_create(&tsd_tree, tsd_tree_cmp,
-			   sizeof (spl_tsd_node_t),
-			   offsetof(spl_tsd_node_t, tsd_link_node));
-	return 0;
+	    sizeof (spl_tsd_node_t),
+	    offsetof(spl_tsd_node_t, tsd_link_node));
+	return (0);
 }
 
 
-uint64_t spl_tsd_size(void)
+uint64_t
+spl_tsd_size(void)
 {
-	return avl_numnodes(&tsd_tree);
+	return (avl_numnodes(&tsd_tree));
 }
 
 void
@@ -370,18 +372,18 @@ spl_tsd_fini(void)
 	spl_tsd_node_t *entry = NULL;
 	void *cookie = NULL;
 
-	printf("SPL: tsd unloading %llu\n", spl_tsd_size() );
+	printf("SPL: tsd unloading %llu\n", spl_tsd_size());
 
 	mutex_enter(&spl_tsd_mutex);
 	cookie = NULL;
-	while((entry = avl_destroy_nodes(&tsd_tree, &cookie))) {
-		kmem_free(entry, sizeof(*entry));
+	while ((entry = avl_destroy_nodes(&tsd_tree, &cookie))) {
+		kmem_free(entry, sizeof (*entry));
 	}
 	mutex_exit(&spl_tsd_mutex);
 
 	avl_destroy(&tsd_tree);
 	mutex_destroy(&spl_tsd_mutex);
 
-	kmem_free(tsd_dtor_array, sizeof(dtor_func_t) * tsd_dtor_size);
+	kmem_free(tsd_dtor_array, sizeof (dtor_func_t) * tsd_dtor_size);
 	tsd_dtor_size = 0;
 }

@@ -22,7 +22,7 @@
 /*
  *
  * Copyright (C) 2008 MacZFS
- * Copyright (C) 2013 Jorgen Lundman <lundman@lundman.net>
+ * Copyright (C) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  *
  */
 
@@ -39,9 +39,9 @@
 #include <sys/debug.h>
 
 
-static lck_attr_t       *zfs_rwlock_attr = NULL;
-static lck_grp_attr_t   *zfs_rwlock_group_attr = NULL;
-static lck_grp_t  *zfs_rwlock_group = NULL;
+static lck_attr_t	*zfs_rwlock_attr = NULL;
+static lck_grp_attr_t	*zfs_rwlock_group_attr = NULL;
+static lck_grp_t	*zfs_rwlock_group = NULL;
 
 uint64_t zfs_active_rwlock = 0;
 
@@ -50,34 +50,36 @@ uint64_t zfs_active_rwlock = 0;
 static list_t rwlock_list;
 static kmutex_t rwlock_list_mutex;
 struct leak {
-    list_node_t     rwlock_leak_node;
+	list_node_t	rwlock_leak_node;
 
-#define SPL_DEBUG_RWLOCK_MAXCHAR 32
+#define	SPL_DEBUG_RWLOCK_MAXCHAR 32
 	char location_file[SPL_DEBUG_RWLOCK_MAXCHAR];
 	char location_function[SPL_DEBUG_RWLOCK_MAXCHAR];
 	uint64_t location_line;
 	void *mp;
 
-	uint64_t     wdlist_locktime;       // time lock was taken
-	char         wdlist_file[32];  // storing holder
-	uint64_t     wdlist_line;
+	uint64_t wdlist_locktime; // time lock was taken
+	char wdlist_file[32]; // storing holder
+	uint64_t wdlist_line;
 };
 
 #endif
 
-/* We run rwlock with DEBUG on for now, as it protects against
+/*
+ * We run rwlock with DEBUG on for now, as it protects against
  * uninitialised access etc, and almost no cost.
  */
 #ifndef DEBUG
-#define DEBUG
+#define	DEBUG
 #endif
 
 #ifdef DEBUG
-int rw_isinit(krwlock_t *rwlp)
+int
+rw_isinit(krwlock_t *rwlp)
 {
 	if (rwlp->rw_pad != 0x012345678)
-		return 0;
-	return 1;
+		return (0);
+	return (1);
 }
 #endif
 
@@ -85,22 +87,22 @@ int rw_isinit(krwlock_t *rwlp)
 #ifdef SPL_DEBUG_RWLOCK
 void
 rw_initx(krwlock_t *rwlp, char *name, krw_type_t type, __unused void *arg,
-					const char *file, const char *fn, int line)
+    const char *file, const char *fn, int line)
 #else
 void
 rw_init(krwlock_t *rwlp, char *name, krw_type_t type, __unused void *arg)
 #endif
 {
-    ASSERT(type != RW_DRIVER);
+	ASSERT(type != RW_DRIVER);
 
 #ifdef DEBUG
 	VERIFY3U(rwlp->rw_pad, !=, 0x012345678);
 #endif
 
-    lck_rw_init((lck_rw_t *)&rwlp->rw_lock[0],
-                zfs_rwlock_group, zfs_rwlock_attr);
-    rwlp->rw_owner = NULL;
-    rwlp->rw_readers = 0;
+	lck_rw_init((lck_rw_t *)&rwlp->rw_lock[0],
+	    zfs_rwlock_group, zfs_rwlock_attr);
+	rwlp->rw_owner = NULL;
+	rwlp->rw_readers = 0;
 #ifdef DEBUG
 	rwlp->rw_pad = 0x012345678;
 #endif
@@ -110,10 +112,10 @@ rw_init(krwlock_t *rwlp, char *name, krw_type_t type, __unused void *arg)
 	struct leak *leak;
 
 	MALLOC(leak, struct leak *,
-		   sizeof(struct leak),  M_TEMP, M_WAITOK);
+	    sizeof (struct leak),  M_TEMP, M_WAITOK);
 
 	if (leak) {
-		bzero(leak, sizeof(struct leak));
+		bzero(leak, sizeof (struct leak));
 		strlcpy(leak->location_file, file, SPL_DEBUG_RWLOCK_MAXCHAR);
 		strlcpy(leak->location_function, fn, SPL_DEBUG_RWLOCK_MAXCHAR);
 		leak->location_line = line;
@@ -138,7 +140,7 @@ rw_destroy(krwlock_t *rwlp)
 	VERIFY3U(rwlp->rw_pad, ==, 0x012345678);
 #endif
 
-    lck_rw_destroy((lck_rw_t *)&rwlp->rw_lock[0], zfs_rwlock_group);
+	lck_rw_destroy((lck_rw_t *)&rwlp->rw_lock[0], zfs_rwlock_group);
 #ifdef DEBUG
 	rwlp->rw_pad = 0x99;
 #endif
@@ -166,18 +168,18 @@ rw_enter(krwlock_t *rwlp, krw_t rw)
 		panic("rwlock %p not initialised\n", rwlp);
 #endif
 
-    if (rw == RW_READER) {
-        lck_rw_lock_shared((lck_rw_t *)&rwlp->rw_lock[0]);
-        atomic_inc_32((volatile uint32_t *)&rwlp->rw_readers);
-        ASSERT(rwlp->rw_owner == 0);
-    } else {
-        if (rwlp->rw_owner == current_thread())
-            panic("rw_enter: locking against myself!");
-        lck_rw_lock_exclusive((lck_rw_t *)&rwlp->rw_lock[0]);
-        ASSERT(rwlp->rw_owner == 0);
-        ASSERT(rwlp->rw_readers == 0);
-        rwlp->rw_owner = current_thread();
-    }
+	if (rw == RW_READER) {
+		lck_rw_lock_shared((lck_rw_t *)&rwlp->rw_lock[0]);
+		atomic_inc_32((volatile uint32_t *)&rwlp->rw_readers);
+		ASSERT(rwlp->rw_owner == 0);
+	} else {
+		if (rwlp->rw_owner == current_thread())
+			panic("rw_enter: locking against myself!");
+		lck_rw_lock_exclusive((lck_rw_t *)&rwlp->rw_lock[0]);
+		ASSERT(rwlp->rw_owner == 0);
+		ASSERT(rwlp->rw_readers == 0);
+		rwlp->rw_owner = current_thread();
+	}
 }
 
 /*
@@ -188,31 +190,29 @@ extern boolean_t lck_rw_try_lock(lck_rw_t *lck, lck_rw_type_t lck_rw_type);
 int
 rw_tryenter(krwlock_t *rwlp, krw_t rw)
 {
-    int held = 0;
+	int held = 0;
 
 #ifdef DEBUG
 	if (rwlp->rw_pad != 0x012345678)
 		panic("rwlock %p not initialised\n", rwlp);
 #endif
 
-    if (rw == RW_READER) {
-        held = lck_rw_try_lock((lck_rw_t *)&rwlp->rw_lock[0],
-                               LCK_RW_TYPE_SHARED);
-        if (held)
-            atomic_inc_32((volatile uint32_t *)&rwlp->rw_readers);
-    } else {
-        if (rwlp->rw_owner == current_thread())
-            panic("rw_tryenter: locking against myself!");
-        held = lck_rw_try_lock((lck_rw_t *)&rwlp->rw_lock[0],
-                               LCK_RW_TYPE_EXCLUSIVE);
-        if (held)
-            rwlp->rw_owner = current_thread();
-    }
+	if (rw == RW_READER) {
+		held = lck_rw_try_lock((lck_rw_t *)&rwlp->rw_lock[0],
+		    LCK_RW_TYPE_SHARED);
+		if (held)
+			atomic_inc_32((volatile uint32_t *)&rwlp->rw_readers);
+	} else {
+		if (rwlp->rw_owner == current_thread())
+			panic("rw_tryenter: locking against myself!");
+		held = lck_rw_try_lock((lck_rw_t *)&rwlp->rw_lock[0],
+		    LCK_RW_TYPE_EXCLUSIVE);
+		if (held)
+			rwlp->rw_owner = current_thread();
+	}
 
-    return (held);
+	return (held);
 }
-
-
 
 /*
  * It appears a difference between Darwin's
@@ -228,13 +228,14 @@ rw_tryenter(krwlock_t *rwlp, krw_t rw)
 int
 rw_tryupgrade(krwlock_t *rwlp)
 {
-    int held = 0;
+	int held = 0;
 
 	if (rwlp->rw_owner == current_thread())
 		panic("rw_enter: locking against myself!");
 
 	/* More readers than us? give up */
-	if (rwlp->rw_readers != 1) return 0;
+	if (rwlp->rw_readers != 1)
+		return (0);
 
 	/*
 	 * It is ON. We need to drop our READER lock, and try to
@@ -245,13 +246,13 @@ rw_tryupgrade(krwlock_t *rwlp)
 
 	/* Grab the WRITER lock */
 	held = lck_rw_try_lock((lck_rw_t *)&rwlp->rw_lock[0],
-						   LCK_RW_TYPE_EXCLUSIVE);
+	    LCK_RW_TYPE_EXCLUSIVE);
 
 	if (held) {
 		/* Looks like we won */
 		rwlp->rw_owner = current_thread();
-        ASSERT(rwlp->rw_readers == 0);
-		return 1;
+		ASSERT(rwlp->rw_readers == 0);
+		return (1);
 	}
 
 	/*
@@ -261,38 +262,38 @@ rw_tryupgrade(krwlock_t *rwlp)
 	 * so we need to grab it.
 	 */
 	rw_enter(rwlp, RW_READER);
-	return 0;
+	return (0);
 
 }
 
 void
 rw_exit(krwlock_t *rwlp)
 {
-    if (rwlp->rw_owner == current_thread()) {
-        rwlp->rw_owner = NULL;
-        ASSERT(rwlp->rw_readers == 0);
-        lck_rw_unlock_exclusive((lck_rw_t *)&rwlp->rw_lock[0]);
-    } else {
-        atomic_dec_32((volatile uint32_t *)&rwlp->rw_readers);
-        ASSERT(rwlp->rw_owner == 0);
-        lck_rw_unlock_shared((lck_rw_t *)&rwlp->rw_lock[0]);
-    }
+	if (rwlp->rw_owner == current_thread()) {
+		rwlp->rw_owner = NULL;
+		ASSERT(rwlp->rw_readers == 0);
+		lck_rw_unlock_exclusive((lck_rw_t *)&rwlp->rw_lock[0]);
+	} else {
+		atomic_dec_32((volatile uint32_t *)&rwlp->rw_readers);
+		ASSERT(rwlp->rw_owner == 0);
+		lck_rw_unlock_shared((lck_rw_t *)&rwlp->rw_lock[0]);
+	}
 }
 
 
 int
 rw_lock_held(krwlock_t *rwlp)
 {
-    /*
-     * ### not sure about this one ###
-     */
-    return (rwlp->rw_owner == current_thread() || rwlp->rw_readers > 0);
+	/*
+	 * ### not sure about this one ###
+	 */
+	return (rwlp->rw_owner == current_thread() || rwlp->rw_readers > 0);
 }
 
 int
 rw_write_held(krwlock_t *rwlp)
 {
-    return (rwlp->rw_owner == current_thread());
+	return (rwlp->rw_owner == current_thread());
 }
 
 void
@@ -300,28 +301,31 @@ rw_downgrade(krwlock_t *rwlp)
 {
 	if (rwlp->rw_owner != current_thread())
 		panic("SPL: rw_downgrade not WRITE lock held\n");
-    rwlp->rw_owner = NULL;
-    lck_rw_lock_exclusive_to_shared((lck_rw_t *)&rwlp->rw_lock[0]);
-    atomic_inc_32((volatile uint32_t *)&rwlp->rw_readers);
+	rwlp->rw_owner = NULL;
+	lck_rw_lock_exclusive_to_shared((lck_rw_t *)&rwlp->rw_lock[0]);
+	atomic_inc_32((volatile uint32_t *)&rwlp->rw_readers);
 }
 
-int spl_rwlock_init(void)
+int
+spl_rwlock_init(void)
 {
-    zfs_rwlock_attr = lck_attr_alloc_init();
-    zfs_rwlock_group_attr = lck_grp_attr_alloc_init();
-    zfs_rwlock_group = lck_grp_alloc_init("zfs-rwlock", zfs_rwlock_group_attr);
+	zfs_rwlock_attr = lck_attr_alloc_init();
+	zfs_rwlock_group_attr = lck_grp_attr_alloc_init();
+	zfs_rwlock_group = lck_grp_alloc_init("zfs-rwlock",
+	    zfs_rwlock_group_attr);
 
 #ifdef SPL_DEBUG_RWLOCK
 	list_create(&rwlock_list, sizeof (struct leak),
-				offsetof(struct leak, rwlock_leak_node));
-	lck_mtx_init((lck_mtx_t *)&rwlock_list_mutex.m_lock, zfs_rwlock_group, zfs_rwlock_attr);
+	    offsetof(struct leak, rwlock_leak_node));
+	lck_mtx_init((lck_mtx_t *)&rwlock_list_mutex.m_lock,
+	    zfs_rwlock_group, zfs_rwlock_attr);
 #endif
 
-
-	return 0;
+	return (0);
 }
 
-void spl_rwlock_fini(void)
+void
+spl_rwlock_fini(void)
 {
 
 #ifdef SPL_DEBUG_RWLOCK
@@ -329,7 +333,7 @@ void spl_rwlock_fini(void)
 	printf("Dumping leaked rwlock allocations...\n");
 
 	mutex_enter(&rwlock_list_mutex);
-	while(1) {
+	while (1) {
 		struct leak *leak, *runner;
 		uint32_t found;
 
@@ -343,13 +347,15 @@ void spl_rwlock_fini(void)
 		// Run through list and count up how many times this leak is
 		// found, removing entries as we go.
 		for (found = 1, runner = list_head(&rwlock_list);
-			 runner;
-			 runner = runner ? list_next(&rwlock_list, runner) :
-				 list_head(&rwlock_list)) {
+		    runner;
+		    runner = runner ? list_next(&rwlock_list, runner) :
+		    list_head(&rwlock_list)) {
 
-			if (!strcmp(leak->location_file, runner->location_file) &&
-				!strcmp(leak->location_function, runner->location_function) &&
-				leak->location_line == runner->location_line) {
+			if (strcmp(leak->location_file, runner->location_file)
+			    == 0 &&
+			    strcmp(leak->location_function,
+			    runner->location_function) == 0 &&
+			    leak->location_line == runner->location_line) {
 				// Same place
 				found++;
 				list_remove(&rwlock_list, runner);
@@ -360,32 +366,32 @@ void spl_rwlock_fini(void)
 		} // for all nodes
 
 		printf("  rwlock %p : %s %s %llu : # leaks: %u\n",
-			   leak->mp,
-			   leak->location_file,
-			   leak->location_function,
-			   leak->location_line,
-			   found);
+		    leak->mp,
+		    leak->location_file,
+		    leak->location_function,
+		    leak->location_line,
+		    found);
 
 		FREE(leak, M_TEMP);
-		total+=found;
+		total += found;
 
 	}
 	mutex_exit(&rwlock_list_mutex);
 	printf("Dumped %llu leaked allocations.\n", total);
 
-	lck_mtx_destroy((lck_mtx_t *)&rwlock_list_mutex.m_lock, zfs_rwlock_group);
+	lck_mtx_destroy((lck_mtx_t *)&rwlock_list_mutex.m_lock,
+	    zfs_rwlock_group);
 	list_destroy(&rwlock_list);
 #endif
 
-
 	lck_grp_free(zfs_rwlock_group);
-    zfs_rwlock_group = NULL;
+	zfs_rwlock_group = NULL;
 
-    lck_grp_attr_free(zfs_rwlock_group_attr);
-    zfs_rwlock_group_attr = NULL;
+	lck_grp_attr_free(zfs_rwlock_group_attr);
+	zfs_rwlock_group_attr = NULL;
 
-    lck_attr_free(zfs_rwlock_attr);
-    zfs_rwlock_attr = NULL;
+	lck_attr_free(zfs_rwlock_attr);
+	zfs_rwlock_attr = NULL;
 
 	ASSERT3U(zfs_active_rwlock, ==, 0);
 }
