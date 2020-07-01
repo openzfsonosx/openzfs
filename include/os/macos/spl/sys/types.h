@@ -29,22 +29,22 @@
 #ifndef _SPL_TYPES_H
 #define	_SPL_TYPES_H
 
-#define likely(x)      __builtin_expect(!!(x), 1)
-#define unlikely(x)    __builtin_expect(!!(x), 0)
+#define	likely(x)		__builtin_expect(!!(x), 1)
+#define	unlikely(x)		__builtin_expect(!!(x), 0)
 
 #include_next <sys/types.h>
 #include <string.h>
 #include <sys/sysmacros.h>
 #include <stddef.h>
 
-/* Avoid kcdata.h header error */
-#ifdef     __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
-extern unsigned long  strnlen(const char *, unsigned long);
+/* Avoid kcdata.h header error */
+extern unsigned long strnlen(const char *, unsigned long);
 
-#ifdef     __cplusplus
+#ifdef  __cplusplus
 }
 #endif
 
@@ -52,73 +52,67 @@ extern unsigned long  strnlen(const char *, unsigned long);
 
 #include <sys/stropts.h>
 
-#if 0
-#ifndef HAVE_UINTPTR_T
-typedef unsigned long			uintptr_t;
-#endif
-#endif
-
 #ifndef ULLONG_MAX
-#define ULLONG_MAX			(~0ULL)
+#define	ULLONG_MAX			(~0ULL)
 #endif
 
 #ifndef LLONG_MAX
-#define LLONG_MAX			((long long)(~0ULL>>1))
+#define	LLONG_MAX			((long long)(~0ULL>>1))
 #endif
 
-enum { B_FALSE=0, B_TRUE=1 };
-typedef short				pri_t;
+enum { B_FALSE = 0, B_TRUE = 1 };
+typedef short			pri_t;
 typedef unsigned long		ulong_t;
 typedef unsigned long long	u_longlong_t;
 typedef unsigned long long	rlim64_t;
 typedef unsigned long long	loff_t;
-typedef long long			longlong_t;
+typedef long long		longlong_t;
 typedef unsigned char		uchar_t;
 typedef unsigned int		uint_t;
 typedef unsigned short		ushort_t;
-typedef void *spinlock_t;
-typedef long long			offset_t;
+typedef void 			*spinlock_t;
+typedef long long		offset_t;
 typedef struct timespec		timestruc_t; /* definition per SVr4 */
 typedef struct timespec		timespec_t;
-typedef ulong_t				pgcnt_t;
-typedef unsigned int umode_t ;
-#define	NODEV32				(dev32_t)(-1)
-typedef	uint32_t			dev32_t;
-typedef uint_t				minor_t;
-typedef	short				index_t;
+typedef ulong_t			pgcnt_t;
+typedef unsigned int 		umode_t;
+#define	NODEV32			(dev32_t)(-1)
+typedef	uint32_t		dev32_t;
+typedef uint_t			minor_t;
+typedef	short			index_t;
 
 #include  <sys/fcntl.h>
-#define FCREAT          O_CREAT
-#define FTRUNC          O_TRUNC
-#define FEXCL           O_EXCL
-#define FNOCTTY         O_NOCTTY
-//#define       FASYNC          O_SYNC
-#define FNOFOLLOW       O_NOFOLLOW
+#define	FCREAT		O_CREAT
+#define	FTRUNC		O_TRUNC
+#define	FEXCL		O_EXCL
+#define	FNOCTTY		O_NOCTTY
+#define	FNOFOLLOW	O_NOFOLLOW
 
 #ifdef __APPLE__
-#define FSYNC           O_SYNC  /* file (data+inode) integrity while writing */
-#define FDSYNC          O_DSYNC /* file data only integrity while writing */
-#define FOFFMAX         0x0000  /* not used */
-#define FRSYNC          0x0000  /* not used */
+#define	FSYNC		O_SYNC  /* file (data+inode) integrity while writing */
+#define	FDSYNC		O_DSYNC /* file data only integrity while writing */
+#define	FOFFMAX		0x0000  /* not used */
+#define	FRSYNC		0x0000  /* not used */
 #else
-#define FRSYNC          0x8000  /* sync read operations at same level of */
-                                /* integrity as specified for writes by */
-                                /* FSYNC and FDSYNC flags */
-#define FOFFMAX         0x2000  /* large file */
+#define	FRSYNC		0x8000  /* sync read operations at same level of */
+				/* integrity as specified for writes by */
+				/* FSYNC and FDSYNC flags */
+#define	FOFFMAX		0x2000  /* large file */
 #endif
 
-#define EXPORT_SYMBOL(X)
-#define module_param(X,Y,Z)
-#define MODULE_PARM_DESC(X,Y)
+#define	EXPORT_SYMBOL(X)
+#define	module_param(X, Y, Z)
+#define	MODULE_PARM_DESC(X, Y)
 
 #ifdef __GNUC__
-#define member_type(type, member) __typeof__ (((type *)0)->member)
+#define	member_type(type, member) __typeof__(((type *)0)->member)
 #else
-#define member_type(type, member) void
+#define	member_type(type, member) void
 #endif
 
-#define container_of(ptr, type, member) ((type *)(                      \
-      (char *)(member_type(type, member) *){ ptr } - offsetof(type, member)))
+#define	container_of(ptr, type, member) ((type *) \
+	((char *)(member_type(type, member) *) \
+	{ ptr } - offsetof(type, member)))
 
 typedef struct timespec inode_timespec_t;
 

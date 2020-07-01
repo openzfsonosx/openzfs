@@ -27,7 +27,7 @@
  */
 
 #ifndef _SPL_TIME_H
-#define _SPL_TIME_H
+#define	_SPL_TIME_H
 
 #include <sys/types.h>
 #include_next <sys/time.h>
@@ -35,20 +35,20 @@
 #include <mach/mach_time.h>
 
 #if defined(CONFIG_64BIT)
-#define TIME_MAX			INT64_MAX
-#define TIME_MIN			INT64_MIN
+#define	TIME_MAX			INT64_MAX
+#define	TIME_MIN			INT64_MIN
 #else
-#define TIME_MAX			INT32_MAX
-#define TIME_MIN			INT32_MIN
+#define	TIME_MAX			INT32_MAX
+#define	TIME_MIN			INT32_MIN
 #endif
 
-#define SEC				1
-#define MILLISEC			1000
-#define MICROSEC			1000000
-#define NANOSEC				1000000000
+#define	SEC				1
+#define	MILLISEC			1000
+#define	MICROSEC			1000000
+#define	NANOSEC				1000000000
 
-#define        NSEC2SEC(n)     ((n) / (NANOSEC / SEC))
-#define        SEC2NSEC(m)     ((hrtime_t)(m) * (NANOSEC / SEC))
+#define	NSEC2SEC(n)			((n) / (NANOSEC / SEC))
+#define	SEC2NSEC(m)			((hrtime_t)(m) * (NANOSEC / SEC))
 
 /* Already defined in include/linux/time.h */
 #undef CLOCK_THREAD_CPUTIME_ID
@@ -57,25 +57,17 @@
 #undef CLOCK_PROCESS_CPUTIME_ID
 
 typedef enum clock_type {
-	__CLOCK_REALTIME0 =		0,	/* obsolete; same as CLOCK_REALTIME */
-	CLOCK_VIRTUAL =			1,	/* thread's user-level CPU clock */
-	CLOCK_THREAD_CPUTIME_ID	=	2,	/* thread's user+system CPU clock */
-	CLOCK_REALTIME =		3,	/* wall clock */
-	CLOCK_MONOTONIC =		4,	/* high resolution monotonic clock */
-	CLOCK_PROCESS_CPUTIME_ID =	5,	/* process's user+system CPU clock */
-	CLOCK_HIGHRES =			CLOCK_MONOTONIC,	/* alternate name */
-	CLOCK_PROF =			CLOCK_THREAD_CPUTIME_ID,/* alternate name */
+	__CLOCK_REALTIME0 =	0,	/* obsolete; same as CLOCK_REALTIME */
+	CLOCK_VIRTUAL =		1,	/* thread's user-level CPU clock */
+	CLOCK_THREAD_CPUTIME_ID	= 2,	/* thread's user+system CPU clock */
+	CLOCK_REALTIME =	3,	/* wall clock */
+	CLOCK_MONOTONIC =	4,	/* high resolution monotonic clock */
+	CLOCK_PROCESS_CPUTIME_ID = 5,	/* process's user+system CPU clock */
+	CLOCK_HIGHRES =		CLOCK_MONOTONIC,	 /* alternate name */
+	CLOCK_PROF =		CLOCK_THREAD_CPUTIME_ID, /* alternate name */
 } clock_type_t;
 
-#if 0
-#define hz					\
-({						\
-        ASSERT(HZ >= 100 && HZ <= MICROSEC);	\
-        HZ;					\
-})
-#endif
-
-#define TIMESPEC_OVERFLOW(ts)		\
+#define	TIMESPEC_OVERFLOW(ts)		\
 	((ts)->tv_sec < TIME_MIN || (ts)->tv_sec > TIME_MAX)
 
 typedef long long	hrtime_t;

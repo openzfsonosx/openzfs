@@ -487,30 +487,31 @@ typedef struct dk_updatefw_32 {
 #define	FW_TYPE_TEMP	0x0		/* temporary use */
 #define	FW_TYPE_PERM	0x1		/* permanent use */
 
-#define DKIOC                   (0x04 << 8)
-#define DKIOCTRIM               (DKIOC | 35)
+#define	DKIOC		(0x04 << 8)
+#define	DKIOCTRIM	(DKIOC | 35)
 
 /*
  * ioctl to free space (e.g. SCSI UNMAP) off a disk.
  * Pass a dkioc_free_list_t containing a list of extents to be freed.
  */
-#define DKIOCFREE       (DKIOC|50)
+#define	DKIOCFREE	(DKIOC|50)
 
-#define DF_WAIT_SYNC    0x00000001      /* Wait for full write-out of free. */
-	typedef struct dkioc_free_list_ext_s {
-        uint64_t                dfle_start;
-        uint64_t                dfle_length;
-	} dkioc_free_list_ext_t;
+#define	DF_WAIT_SYNC	0x00000001	/* Wait for full write-out of free. */
 
-	typedef struct dkioc_free_list_s {
-        uint64_t                dfl_flags;
-        uint64_t                dfl_num_exts;
-        uint64_t                dfl_offset;
-        dkioc_free_list_ext_t   dfl_exts[1];
-	} dkioc_free_list_t;
-#define DFL_SZ(num_exts) \
+typedef struct dkioc_free_list_ext_s {
+	uint64_t	dfle_start;
+	uint64_t	dfle_length;
+} dkioc_free_list_ext_t;
+
+typedef struct dkioc_free_list_s {
+	uint64_t	dfl_flags;
+	uint64_t	dfl_num_exts;
+	uint64_t	dfl_offset;
+	dkioc_free_list_ext_t	dfl_exts[1];
+} dkioc_free_list_t;
+#define	DFL_SZ(num_exts) \
 	(sizeof (dkioc_free_list_t) + \
-        (num_exts - 1) * sizeof (dkioc_free_list_ext_t))
+	(num_exts - 1) * sizeof (dkioc_free_list_ext_t))
 
 /* Frees a variable-length dkioc_free_list_t structure. */
 static inline void

@@ -20,8 +20,6 @@
  * CDDL HEADER END
  */
 #ifndef _SPL_KMEM_CACHE_H
-#define _SPL_KMEM_CACHE_H
-
+#define	_SPL_KMEM_CACHE_H
 
 #endif
-

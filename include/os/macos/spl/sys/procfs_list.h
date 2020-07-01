@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 #ifndef _SPL_PROCFS_LIST_H
-#define _SPL_PROCFS_LIST_H
+#define	_SPL_PROCFS_LIST_H
 
 #ifdef  __cplusplus
 extern "C" {
@@ -62,4 +62,3 @@ void procfs_list_add(procfs_list_t *procfs_list, void *p);
 #endif
 
 #endif
-

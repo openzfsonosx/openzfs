@@ -26,7 +26,7 @@
  */
 
 #ifndef _SPL_CRED_H
-#define _SPL_CRED_H
+#define	_SPL_CRED_H
 
 #include <sys/types.h>
 #include <sys/vfs.h>
@@ -34,8 +34,8 @@
 
 typedef struct ucred cred_t;
 
-#define kcred   (cred_t *)NOCRED
-#define CRED()          (cred_t *)kauth_cred_get()
+#define	kcred	(cred_t *)NOCRED
+#define	CRED()	(cred_t *)kauth_cred_get()
 #define	KUID_TO_SUID(x)		(x)
 #define	KGID_TO_SGID(x)		(x)
 
@@ -43,10 +43,10 @@ typedef struct ucred cred_t;
 
 // Older OSX API
 #if !(MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
-#define kauth_cred_getruid(x) (x)->cr_ruid
-#define kauth_cred_getrgid(x) (x)->cr_rgid
-#define kauth_cred_getsvuid(x) (x)->cr_svuid
-#define kauth_cred_getsvgid(x) (x)->cr_svgid
+#define	kauth_cred_getruid(x) (x)->cr_ruid
+#define	kauth_cred_getrgid(x) (x)->cr_rgid
+#define	kauth_cred_getsvuid(x) (x)->cr_svuid
+#define	kauth_cred_getsvgid(x) (x)->cr_svgid
 #endif
 
 
@@ -61,10 +61,10 @@ extern gid_t crgetrgid(const cred_t *cr);
 extern gid_t crgetsgid(const cred_t *cr);
 extern gid_t crgetfsgid(const cred_t *cr);
 extern int crgetngroups(const cred_t *cr);
-extern gid_t * crgetgroups(const cred_t *cr);
+extern gid_t *crgetgroups(const cred_t *cr);
 extern void crgetgroupsfree(gid_t *gids);
 extern int spl_cred_ismember_gid(cred_t *cr, gid_t gid);
 
-#define crgetsid(cred, i)       (NULL)
+#define	crgetsid(cred, i)	(NULL)
 
 #endif  /* _SPL_CRED_H */

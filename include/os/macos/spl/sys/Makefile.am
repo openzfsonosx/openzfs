@@ -14,7 +14,6 @@ KERNEL_H = \
 	$(top_srcdir)/include/os/macos/spl/sys/isa_defs.h \
 	$(top_srcdir)/include/os/macos/spl/sys/kmem.h \
 	$(top_srcdir)/include/os/macos/spl/sys/kmem_impl.h \
-	$(top_srcdir)/include/os/macos/spl/sys/kobj.h \
 	$(top_srcdir)/include/os/macos/spl/sys/kstat.h \
 	$(top_srcdir)/include/os/macos/spl/sys/list.h \
 	$(top_srcdir)/include/os/macos/spl/sys/mod_os.h \

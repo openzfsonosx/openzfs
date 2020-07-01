@@ -22,40 +22,41 @@
 #ifndef _SPL_MOD_H
 #define	_SPL_MOD_H
 
-#define MODULE_INIT(s)
-#define MODULE_AUTHOR(s)
-#define MODULE_LICENSE(s)
-#define MODULE_VERSION(s)
+#define	MODULE_INIT(s)
+#define	MODULE_AUTHOR(s)
+#define	MODULE_LICENSE(s)
+#define	MODULE_VERSION(s)
 #define	ZFS_MODULE_DESCRIPTION(s)
 #define	ZFS_MODULE_AUTHOR(s)
 #define	ZFS_MODULE_LICENSE(s)
 #define	ZFS_MODULE_VERSION(s)
 
-#define ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, getfunc, perm, desc)
+#define	ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, \
+    getfunc, perm, desc)
 
-#define __init __attribute__((unused))
-#define __exit __attribute__((unused))
+#define	__init __attribute__((unused))
+#define	__exit __attribute__((unused))
 
 /*
  * The init/fini functions need to be called, but they are all static
  */
-#define module_init(fn)	   \
-	int wrap_ ## fn(void)  \
-	{					   \
-		return fn();	   \
+#define	module_init(fn)		\
+	int wrap_ ## fn(void)	\
+	{			\
+		return (fn());	\
 	}
 
-#define module_exit(fn)	   \
-	void wrap_ ## fn(void) \
-	{					   \
-		fn();			   \
+#define	module_exit(fn)		\
+	void wrap_ ## fn(void)	\
+	{			\
+		fn();		\
 	}
 
 #define	ZFS_MODULE_PARAM_ARGS	void
 
 #define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-#define module_param_call(a, b, c, d, e)
-#define module_param_named(a, b, c, d)
+#define	module_param_call(a, b, c, d, e)
+#define	module_param_named(a, b, c, d)
 
 #ifdef __cplusplus
 extern "C" {

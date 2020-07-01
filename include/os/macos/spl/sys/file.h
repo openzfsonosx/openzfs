@@ -26,7 +26,7 @@
  */
 
 #ifndef _SPL_FILE_H
-#define _SPL_FILE_H
+#define	_SPL_FILE_H
 
 #define	FIGNORECASE			0x00080000
 #define	FKIOCTL				0x80000000
@@ -45,15 +45,15 @@
  * In kernel space file ops, we use vn_rdwr on the vnode.
  */
 struct spl_fileproc {
-	void			*f_vnode;	/* underlying vnode */
-	list_node_t		f_next;		/* * next getf() link for releasef() */
-	int				f_fd;		/* * userland file descriptor */
-	off_t			f_offset;	/* offset for stateful IO */
-	void			*f_proc;	/* opaque */
-	void			*f_fp;		/* opaque */
-	int				f_writes;	/* did write? for close sync */
-	minor_t			f_file;		/* minor of the file */
-	void			*f_private;	/* zfsdev_state_t */
+	void		*f_vnode;	/* underlying vnode */
+	list_node_t	f_next;		/* * next getf() link for releasef() */
+	int		f_fd;		/* * userland file descriptor */
+	off_t		f_offset;	/* offset for stateful IO */
+	void		*f_proc;	/* opaque */
+	void		*f_fp;		/* opaque */
+	int		f_writes;	/* did write? for close sync */
+	minor_t		f_file;		/* minor of the file */
+	void		*f_private;	/* zfsdev_state_t */
 };
 /* Members with '*' are not used when 'fd' is not given */
 

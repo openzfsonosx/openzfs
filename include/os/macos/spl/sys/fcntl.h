@@ -26,14 +26,14 @@
  */
 
 #ifndef _SPL_FCNTL_H
-#define _SPL_FCNTL_H
+#define	_SPL_FCNTL_H
 
 #include_next <sys/fcntl.h>
 
-#define F_FREESP		11
+#define	F_FREESP		11
 
 #define	O_LARGEFILE		0
 #define	O_RSYNC			0
-#define O_DIRECT		0
+#define	O_DIRECT		0
 
 #endif /* _SPL_FCNTL_H */

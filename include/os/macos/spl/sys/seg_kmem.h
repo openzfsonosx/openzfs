@@ -33,21 +33,24 @@ extern "C" {
 
 #include <sys/vmem.h>
 
-	/*
-	 * VM - Kernel Segment Driver
-	 */
+/*
+ * VM - Kernel Segment Driver
+ */
 
 #if defined(_KERNEL)
 
-	extern uint64_t segkmem_total_allocated;
+extern uint64_t segkmem_total_allocated;
 
-	extern vmem_t *zio_arena_parent; /* qcaching for zio arenas and abd arena */
-	extern vmem_t *zio_arena;	/* arena for zio caches for file blocks */
-	extern vmem_t *zio_metadata_arena;	/* arena for zio caches for (zfs) metadata blocks */
+/* qcaching for zio arenas and abd arena */
+extern vmem_t *zio_arena_parent;
+/* arena for zio caches for file blocks */
+extern vmem_t *zio_arena;
+/* arena for zio caches for (zfs) metadata blocks */
+extern vmem_t *zio_metadata_arena;
 
-	/*
-	 * segkmem page vnodes
-	 */
+/*
+ * segkmem page vnodes
+ */
 #define	kvp		(kvps[KV_KVP])
 #define	zvp		(kvps[KV_ZVP])
 #if defined(__sparc)
@@ -55,30 +58,30 @@ extern "C" {
 #define	promvp		(kvps[KV_PROMVP])
 #endif	/* __sparc */
 
-	void *segkmem_alloc(vmem_t *, size_t, int);
-	extern void segkmem_free(vmem_t *, void *, size_t);
-	extern void kernelheap_init(void);
-	extern void kernelheap_fini(void);
+void *segkmem_alloc(vmem_t *, size_t, int);
+extern void segkmem_free(vmem_t *, void *, size_t);
+extern void kernelheap_init(void);
+extern void kernelheap_fini(void);
 
-	extern void *segkmem_zio_alloc(vmem_t *, size_t, int);
-	extern void segkmem_zio_free(vmem_t *, void *, size_t);
-	extern void segkmem_zio_init(void);
-	extern void segkmem_zio_fini(void);
+extern void *segkmem_zio_alloc(vmem_t *, size_t, int);
+extern void segkmem_zio_free(vmem_t *, void *, size_t);
+extern void segkmem_zio_init(void);
+extern void segkmem_zio_fini(void);
 
-	/*
-	 * Flags for segkmem_xalloc().
-	 *
-	 * SEGKMEM_SHARELOCKED requests pages which are locked SE_SHARED to be
-	 * returned rather than unlocked which is now the default.  Note that
-	 * memory returned by SEGKMEM_SHARELOCKED cannot be freed by segkmem_free().
-	 * This is a hack for seg_dev that should be cleaned up in the future.
-	 */
+/*
+ * Flags for segkmem_xalloc().
+ *
+ * SEGKMEM_SHARELOCKED requests pages which are locked SE_SHARED to be
+ * returned rather than unlocked which is now the default.  Note that
+ * memory returned by SEGKMEM_SHARELOCKED cannot be freed by segkmem_free().
+ * This is a hack for seg_dev that should be cleaned up in the future.
+ */
 #define	SEGKMEM_SHARELOCKED	0x20000
 
 #define	SEGKMEM_USE_LARGEPAGES (segkmem_lpsize > PAGESIZE)
 
 #define	IS_KMEM_VA_LARGEPAGE(vaddr)				        \
-(((vaddr) >= heap_lp_base) && ((vaddr) < heap_lp_end))
+	(((vaddr) >= heap_lp_base) && ((vaddr) < heap_lp_end))
 
 #endif	/* _KERNEL */
 

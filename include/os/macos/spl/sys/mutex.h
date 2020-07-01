@@ -28,7 +28,7 @@
  */
 
 #ifndef OSX_MUTEX_H
-#define OSX_MUTEX_H
+#define	OSX_MUTEX_H
 
 #include <libkern/locks.h>
 
@@ -36,39 +36,39 @@
 #include <kern/locks.h>
 #include <kern/thread.h>
 
-#ifdef     __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef enum {
-    MUTEX_ADAPTIVE = 0,     /* spin if owner is running, otherwise block */
-    MUTEX_SPIN = 1,         /* block interrupts and spin */
-    MUTEX_DRIVER = 4,       /* driver (DDI) mutex */
-    MUTEX_DEFAULT = 6       /* kernel default mutex */
+	MUTEX_ADAPTIVE = 0,	/* spin if owner is running, otherwise block */
+	MUTEX_SPIN = 1,		/* block interrupts and spin */
+	MUTEX_DRIVER = 4,	/* driver (DDI) mutex */
+	MUTEX_DEFAULT = 6	/* kernel default mutex */
 } kmutex_type_t;
 
-#define	MUTEX_NOLOCKDEP		0
+#define	MUTEX_NOLOCKDEP	0
 
-/* Alas lck_mtx_t; is opaque and not available at compile time, and we
+/*
+ * Alas lck_mtx_t; is opaque and not available at compile time, and we
  * really want to embed them. Luckily, mutex size has not changed in
  * many versions of OSX. We should possibly to a startup check of
  * the size though.
  */
 typedef struct {
-        uint32_t  opaque[4];
+	uint32_t opaque[4];
 } wrapper_mutex_t;
 
-/* To enable watchdog to keep an eye on mutex being held for too long
+/*
+ * To enable watchdog to keep an eye on mutex being held for too long
  * define this debug variable.
  */
 
-#define SPL_DEBUG_MUTEX
-
-
+#define	SPL_DEBUG_MUTEX
 
 #ifdef SPL_DEBUG_MUTEX
-#define SPL_MUTEX_WATCHDOG_SLEEP   10 /* How long to sleep between checking */
-#define SPL_MUTEX_WATCHDOG_TIMEOUT 60 /* When is a mutex held too long? */
+#define	SPL_MUTEX_WATCHDOG_SLEEP   10 /* How long to sleep between checking */
+#define	SPL_MUTEX_WATCHDOG_TIMEOUT 60 /* When is a mutex held too long? */
 #endif
 
 /*
@@ -80,22 +80,22 @@ typedef struct {
  */
 
 typedef struct kmutex {
-    void				*m_owner;
-	wrapper_mutex_t		m_lock;
+	void		*m_owner;
+	wrapper_mutex_t	m_lock;
 
 #ifdef SPL_DEBUG_MUTEX
-	void 				*leak;
-	uint64_t			m_initialised;
-#define MUTEX_INIT			0x123456789abcdef0ULL
-#define MUTEX_DESTROYED		0xaabbccddaabbccddULL
+	void		*leak;
+	uint64_t	m_initialised;
+#define	MUTEX_INIT	0x123456789abcdef0ULL
+#define	MUTEX_DESTROYED	0xaabbccddaabbccddULL
 #endif
 
 } kmutex_t;
 
 #include <sys/proc.h>
 
-#define MUTEX_HELD(x)           (mutex_owned(x))
-#define MUTEX_NOT_HELD(x)       (!mutex_owned(x))
+#define	MUTEX_HELD(x)		(mutex_owned(x))
+#define	MUTEX_NOT_HELD(x)	(!mutex_owned(x))
 
 /*
  * On OS X, CoreStorage provides these symbols, so we have to redefine them,
@@ -103,25 +103,27 @@ typedef struct kmutex {
  */
 #ifdef SPL_DEBUG_MUTEX
 
-#define mutex_init(A,B,C,D) spl_mutex_init(A,B,C,D,__FILE__,__FUNCTION__,__LINE__)
-void spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type, void *ibc, const char *f, const char *fn, int l);
+#define	mutex_init(A, B, C, D) \
+    spl_mutex_init(A, B, C, D, __FILE__, __FUNCTION__, __LINE__)
+void spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type,
+    void *ibc, const char *f, const char *fn, int l);
 
 #else
 
-#define mutex_init spl_mutex_init
+#define	mutex_init spl_mutex_init
 void spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type, void *ibc);
 
 #endif
 
 #ifdef SPL_DEBUG_MUTEX
-#define mutex_enter(X) spl_mutex_enter((X), __FILE__, __LINE__)
+#define	mutex_enter(X) spl_mutex_enter((X), __FILE__, __LINE__)
 void spl_mutex_enter(kmutex_t *mp, char *file, int line);
 #else
-#define mutex_enter spl_mutex_enter
+#define	mutex_enter spl_mutex_enter
 void spl_mutex_enter(kmutex_t *mp);
 #endif
 
-#define	mutex_enter_nested(A,B)	mutex_enter(A)
+#define	mutex_enter_nested(A, B)	mutex_enter(A)
 
 #define	mutex_destroy spl_mutex_destroy
 #define	mutex_exit spl_mutex_exit
@@ -139,7 +141,7 @@ struct thread *spl_mutex_owner(kmutex_t *mp);
 int  spl_mutex_subsystem_init(void);
 void spl_mutex_subsystem_fini(void);
 
-#ifdef     __cplusplus
+#ifdef __cplusplus
 }
 #endif
 

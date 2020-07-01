@@ -198,7 +198,7 @@ sym1	= sym2
 	.globl	_##x; \
 	.globl	_##x; \
 	.globl	x; \
-_##x:	; \
+_##x:; \
 x:	MCOUNT(x)
 
 #define	ENTRY_NP(x) \
@@ -206,7 +206,7 @@ x:	MCOUNT(x)
 	.align	ASM_ENTRY_ALIGN; \
 	.globl	_##x; \
 	.globl	x; \
-_##x:	; \
+_##x:; \
 x:
 
 #define	RTENTRY(x) \
@@ -214,7 +214,7 @@ x:
 	.align	ASM_ENTRY_ALIGN; \
 	.globl	_##x; \
 	.globl	x; \
-_##x:	; \
+_##x:; \
 x:	RTMCOUNT(x)
 
 /*
@@ -225,7 +225,7 @@ x:	RTMCOUNT(x)
 	.align	ASM_ENTRY_ALIGN; \
 	.globl	x, y; \
 /* CSTYLED */ \
-x:	; \
+x:; \
 y:	MCOUNT(x)
 
 #define	ENTRY_NP2(x, y) \
@@ -233,7 +233,7 @@ y:	MCOUNT(x)
 	.align	ASM_ENTRY_ALIGN; \
 	.globl	x, y; \
 /* CSTYLED */ \
-x:	; \
+x:; \
 y:
 
 
@@ -243,7 +243,7 @@ y:
 #define	ALTENTRY(x) \
 	.globl	_##x; \
 	.globl x; \
-_##x:	; \
+_##x:; \
 x:
 
 /*

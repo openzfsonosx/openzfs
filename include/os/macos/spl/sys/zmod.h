@@ -1,4 +1,4 @@
-/*****************************************************************************\
+/*
  *  zlib.h -- interface of the 'zlib' general purpose compression library
  *  version 1.2.5, April 19th, 2010
  *
@@ -22,10 +22,10 @@
  *
  *  Jean-loup Gailly
  *  Mark Adler
-\*****************************************************************************/
+ */
 
 #ifndef _SPL_ZMOD_H
-#define _SPL_ZMOD_H
+#define	_SPL_ZMOD_H
 
 
 #include <sys/types.h>
@@ -33,27 +33,27 @@
 #include <sys/kmem.h>
 
 struct _zmemheader {
-    uint64_t        length;
-    char            data[0];
+	uint64_t	length;
+	char		data[0];
 };
 
 static inline void *
 zfs_zalloc(void* opaque, uInt items, uInt size)
 {
-    struct _zmemheader *hdr;
-    size_t alloc_size = (items * size) + sizeof (uint64_t);
-    hdr = kmem_zalloc(alloc_size, KM_SLEEP);
-    hdr->length = alloc_size;
-    return (&hdr->data);
+	struct _zmemheader *hdr;
+	size_t alloc_size = (items * size) + sizeof (uint64_t);
+	hdr = kmem_zalloc(alloc_size, KM_SLEEP);
+	hdr->length = alloc_size;
+	return (&hdr->data);
 }
 
 static inline void
 zfs_zfree(void *opaque, void *addr)
 {
-    struct _zmemheader *hdr;
-    hdr = addr;
-    hdr--;
-    kmem_free(hdr, hdr->length);
+	struct _zmemheader *hdr;
+	hdr = addr;
+	hdr--;
+	kmem_free(hdr, hdr->length);
 }
 
 /*
@@ -65,54 +65,54 @@ zfs_zfree(void *opaque, void *addr)
 static inline int
     z_uncompress(void *dst, size_t *dstlen, const void *src, size_t srclen)
 {
-    z_stream zs;
-    int err;
+	z_stream zs;
+	int err;
 
-    bzero(&zs, sizeof (zs));
-    zs.next_in = (uchar_t *)src;
-    zs.avail_in = srclen;
-    zs.next_out = dst;
-    zs.avail_out = *dstlen;
-    zs.zalloc = zfs_zalloc;
-    zs.zfree = zfs_zfree;
-    if ((err = inflateInit(&zs)) != Z_OK)
-        return (err);
-    if ((err = inflate(&zs, Z_FINISH)) != Z_STREAM_END) {
-        (void) inflateEnd(&zs);
-        return (err == Z_OK ? Z_BUF_ERROR : err);
-    }
-    *dstlen = zs.total_out;
-    return (inflateEnd(&zs));
+	bzero(&zs, sizeof (zs));
+	zs.next_in = (uchar_t *)src;
+	zs.avail_in = srclen;
+	zs.next_out = dst;
+	zs.avail_out = *dstlen;
+	zs.zalloc = zfs_zalloc;
+	zs.zfree = zfs_zfree;
+	if ((err = inflateInit(&zs)) != Z_OK)
+		return (err);
+	if ((err = inflate(&zs, Z_FINISH)) != Z_STREAM_END) {
+		(void) inflateEnd(&zs);
+		return (err == Z_OK ? Z_BUF_ERROR : err);
+	}
+	*dstlen = zs.total_out;
+	return (inflateEnd(&zs));
 }
 
 static inline int
 z_compress_level(void *dst, size_t *dstlen, const void *src, size_t srclen,
-                 int level)
+    int level)
 {
-    z_stream zs;
-    int err;
-    bzero(&zs, sizeof (zs));
-    zs.next_in = (uchar_t *)src;
-    zs.avail_in = srclen;
-    zs.next_out = dst;
-    zs.avail_out = *dstlen;
-    zs.zalloc = zfs_zalloc;
-    zs.zfree = zfs_zfree;
-    if ((err = deflateInit(&zs, level)) != Z_OK)
-        return (err);
-    if ((err = deflate(&zs, Z_FINISH)) != Z_STREAM_END) {
-        (void) deflateEnd(&zs);
-        return (err == Z_OK ? Z_BUF_ERROR : err);
-    }
-    *dstlen = zs.total_out;
-    return (deflateEnd(&zs));
+	z_stream zs;
+	int err;
+	bzero(&zs, sizeof (zs));
+	zs.next_in = (uchar_t *)src;
+	zs.avail_in = srclen;
+	zs.next_out = dst;
+	zs.avail_out = *dstlen;
+	zs.zalloc = zfs_zalloc;
+	zs.zfree = zfs_zfree;
+	if ((err = deflateInit(&zs, level)) != Z_OK)
+		return (err);
+	if ((err = deflate(&zs, Z_FINISH)) != Z_STREAM_END) {
+		(void) deflateEnd(&zs);
+		return (err == Z_OK ? Z_BUF_ERROR : err);
+	}
+	*dstlen = zs.total_out;
+	return (deflateEnd(&zs));
 }
 
 static inline int
 z_compress(void *dst, size_t *dstlen, const void *src, size_t srclen)
 {
-    return (z_compress_level(dst, dstlen, src, srclen,
-                             Z_DEFAULT_COMPRESSION));
+	return (z_compress_level(dst, dstlen, src, srclen,
+	    Z_DEFAULT_COMPRESSION));
 }
 
 

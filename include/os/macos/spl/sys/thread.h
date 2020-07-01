@@ -27,7 +27,7 @@
  */
 
 #ifndef _SPL_THREAD_H
-#define _SPL_THREAD_H
+#define	_SPL_THREAD_H
 
 #include <sys/types.h>
 #include <sys/sysmacros.h>
@@ -45,47 +45,47 @@ extern "C" {
  *
  * Map that to the ZFS thread type: kthread_t
  */
-//typedef struct thread kthread;
-//typedef struct kthread kthread_t;
-#define kthread thread
-#define kthread_t struct kthread
+#define	kthread thread
+#define	kthread_t struct kthread
 
 /*
  * Thread interfaces
  */
-#define TP_MAGIC			0x53535353
+#define	TP_MAGIC			0x53535353
 
-#define TS_FREE         0x00    /* Thread at loose ends */
-#define TS_SLEEP        0x01    /* Awaiting an event */
-#define TS_RUN          0x02    /* Runnable, but not yet on a processor */
-#define TS_ONPROC       0x04    /* Thread is being run on a processor */
-#define TS_ZOMB         0x08    /* Thread has died but hasn't been reaped */
-#define TS_STOPPED      0x10    /* Stopped, initial state */
-#define TS_WAIT         0x20    /* Waiting to become runnable */
+#define	TS_FREE		0x00 /* Thread at loose ends */
+#define	TS_SLEEP	0x01 /* Awaiting an event */
+#define	TS_RUN		0x02 /* Runnable, but not yet on a processor */
+#define	TS_ONPROC	0x04 /* Thread is being run on a processor */
+#define	TS_ZOMB		0x08 /* Thread has died but hasn't been reaped */
+#define	TS_STOPPED	0x10 /* Stopped, initial state */
+#define	TS_WAIT		0x20 /* Waiting to become runnable */
 
 
 typedef void (*thread_func_t)(void *);
 
 
-#define   curthread       ((kthread_t *)current_thread())      /* current thread pointer */
-#define   curproj         (ttoproj(curthread))    /* current project pointer */
+#define	curthread ((kthread_t *)current_thread()) /* current thread pointer */
+#define	curproj   (ttoproj(curthread))		  /* current project pointer */
 
-#define thread_join(t)			VERIFY(0)
+#define	thread_join(t)	VERIFY(0)
 
 // Drop the p0 argument, not used.
 
 #ifdef SPL_DEBUG_THREAD
 
-#define	thread_create(A,B,C,D,E,F,G,H) spl_thread_create(A,B,C,D,E,G,__FILE__, __LINE__, H)
+#define	thread_create(A, B, C, D, E, F, G, H) \
+    spl_thread_create(A, B, C, D, E, G, __FILE__, __LINE__, H)
 extern kthread_t *spl_thread_create(caddr_t stk, size_t stksize,
-	void (*proc)(void *), void *arg, size_t len, /*proc_t *pp,*/ int state,
-									char *, int, pri_t pri);
+    void (*proc)(void *), void *arg, size_t len, /* proc_t *pp, */ int state,
+    char *, int, pri_t pri);
 
 #else
 
-#define	thread_create(A,B,C,D,E,F,G,H) spl_thread_create(A,B,C,D,E,G,H)
+#define	thread_create(A, B, C, D, E, F, G, H) \
+    spl_thread_create(A, B, C, D, E, G, H)
 extern kthread_t *spl_thread_create(caddr_t stk, size_t stksize,
-	void (*proc)(void *), void *arg, size_t len, /*proc_t *pp,*/ int state,
+    void (*proc)(void *), void *arg, size_t len, /* proc_t *pp, */ int state,
     pri_t pri);
 
 #endif
@@ -98,10 +98,10 @@ extern kthread_t *spl_current_thread(void);
 #define	delay osx_delay
 extern void osx_delay(int);
 
-#define KPREEMPT_SYNC 0
+#define	KPREEMPT_SYNC 0
 static inline void kpreempt(int flags)
 {
-	 (void)thread_block(THREAD_CONTINUE_NULL);
+	(void) thread_block(THREAD_CONTINUE_NULL);
 }
 
 

@@ -80,10 +80,12 @@
 
 #ifdef __APPLE__
 // XNU fpu.h
-static inline uint64_t xgetbv(uint32_t c) {
-        uint32_t        mask_hi, mask_lo;
-        __asm__ __volatile__("xgetbv" : "=a"(mask_lo), "=d"(mask_hi) : "c" (c));
-        return ((uint64_t) mask_hi<<32) + (uint64_t) mask_lo;
+static inline uint64_t
+xgetbv(uint32_t c)
+{
+	uint32_t mask_hi, mask_lo;
+	__asm__ __volatile__("xgetbv" : "=a"(mask_lo), "=d"(mask_hi) : "c" (c));
+	return (((uint64_t) mask_hi<<32) + (uint64_t) mask_lo);
 }
 
 #endif
@@ -100,8 +102,8 @@ extern uint64_t spl_cpuid_leaf7_features(void);
 #define	kfpu_init()		(0)
 #define	kfpu_fini()		do {} while (0)
 
-#define kfpu_begin()  ((void)0)
-#define kfpu_end()    ((void)0)
+#define	kfpu_begin()  ((void)0)
+#define	kfpu_end()    ((void)0)
 
 /*
  * CPUID feature tests for user-space. Linux kernel provides an interface for
@@ -311,7 +313,7 @@ static inline boolean_t
 zfs_sse_available(void)
 {
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_SSE);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_SSE));
 #elif !defined(_KERNEL)
 	return (__cpuid_has_sse());
 #endif
@@ -324,7 +326,7 @@ static inline boolean_t
 zfs_sse2_available(void)
 {
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_SSE2);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_SSE2));
 #elif !defined(_KERNEL)
 	return (__cpuid_has_sse2());
 #endif
@@ -337,7 +339,7 @@ static inline boolean_t
 zfs_sse3_available(void)
 {
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_SSE3);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_SSE3));
 #elif !defined(_KERNEL)
 	return (__cpuid_has_sse3());
 #endif
@@ -350,7 +352,7 @@ static inline boolean_t
 zfs_ssse3_available(void)
 {
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_SSSE3);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_SSSE3));
 #elif !defined(_KERNEL)
 	return (__cpuid_has_ssse3());
 #endif
@@ -363,7 +365,7 @@ static inline boolean_t
 zfs_sse4_1_available(void)
 {
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_SSE4_1);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_SSE4_1));
 #elif !defined(_KERNEL)
 	return (__cpuid_has_sse4_1());
 #endif
@@ -376,7 +378,7 @@ static inline boolean_t
 zfs_sse4_2_available(void)
 {
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_SSE4_2);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_SSE4_2));
 #elif !defined(_KERNEL)
 	return (__cpuid_has_sse4_2());
 #endif
@@ -390,7 +392,7 @@ zfs_avx_available(void)
 {
 	boolean_t has_avx;
 #if defined(_KERNEL)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_AVX1_0);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_AVX1_0));
 #elif !defined(_KERNEL)
 	has_avx = __cpuid_has_avx();
 #endif
@@ -407,7 +409,7 @@ zfs_avx2_available(void)
 	boolean_t has_avx2;
 #if defined(_KERNEL)
 #if defined(HAVE_AVX2)
-	has_avx2 = !!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_AVX2);
+	has_avx2 = (!!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_AVX2));
 #else
 	has_avx2 = B_FALSE;
 #endif
@@ -426,7 +428,7 @@ zfs_bmi1_available(void)
 {
 #if defined(_KERNEL)
 #if defined(CPUID_LEAF7_FEATURE_BMI1)
-	return !!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_BMI1);
+	return (!!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_BMI1));
 #else
 	return (B_FALSE);
 #endif
@@ -443,7 +445,7 @@ zfs_bmi2_available(void)
 {
 #if defined(_KERNEL)
 #if defined(CPUID_LEAF7_FEATURE_BMI2)
-	return !!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_BMI2);
+	return (!!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_BMI2));
 #else
 	return (B_FALSE);
 #endif
@@ -460,7 +462,7 @@ zfs_aes_available(void)
 {
 #if defined(_KERNEL)
 #if defined(HAVE_AES)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_AES);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_AES));
 #else
 	return (B_FALSE);
 #endif
@@ -477,7 +479,7 @@ zfs_pclmulqdq_available(void)
 {
 #if defined(_KERNEL)
 #if defined(HAVE_PCLMULQDQ)
-	return !!(spl_cpuid_features() & CPUID_FEATURE_PCLMULQDQ);
+	return (!!(spl_cpuid_features() & CPUID_FEATURE_PCLMULQDQ));
 #else
 	return (B_FALSE);
 #endif
@@ -511,7 +513,7 @@ zfs_avx512f_available(void)
 
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F)
-	return !!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_AVX512F);
+	return (!!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_AVX512F));
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -529,10 +531,12 @@ zfs_avx512cd_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512F) && defined(HAVE_AVX512CD) && defined(CPUID_LEAF7_FEATURE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512CD)
+#if defined(HAVE_AVX512F) && defined(HAVE_AVX512CD) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512CD)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512CD)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512CD);
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512CD)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512CD);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -550,10 +554,11 @@ zfs_avx512er_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512F) && defined(HAVE_AVX512ER) && defined(CPUID_LEAF7_FEATURE_AVX512ER)
+#if defined(HAVE_AVX512F) && defined(HAVE_AVX512ER) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512ER)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512ER)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512ER);
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512ER)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512ER);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -571,10 +576,11 @@ zfs_avx512pf_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512PF) && defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512PF)
+#if defined(HAVE_AVX512PF) && defined(HAVE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512PF)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512PF)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512PF);
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512PF)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512PF);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -592,10 +598,12 @@ zfs_avx512bw_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512BW) && defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512BW)
+#if defined(HAVE_AVX512BW) && defined(HAVE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512BW)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512BW)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512BW);
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512BW)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F | CPUID_LEAF7_FEATURE_AVX512BW);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -613,10 +621,12 @@ zfs_avx512dq_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512DQ) && defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512DQ)
+#if defined(HAVE_AVX512DQ) && defined(HAVE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512DQ)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512DQ)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512DQ);
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512DQ)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512DQ);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -634,10 +644,12 @@ zfs_avx512vl_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512VL) && defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512VL)
+#if defined(HAVE_AVX512VL) && defined(HAVE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512VL)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VL)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VL);
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VL)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VL);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -655,10 +667,12 @@ zfs_avx512ifma_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512IFMA) && defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512IFMA)
+#if defined(HAVE_AVX512IFMA) && defined(HAVE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512IFMA)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512IFMA)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512IFMA);
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512IFMA)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512IFMA);
 #else
 	has_avx512 = B_FALSE;
 #endif
@@ -676,10 +690,12 @@ zfs_avx512vbmi_available(void)
 	boolean_t has_avx512 = B_FALSE;
 
 #if defined(_KERNEL)
-#if defined(HAVE_AVX512VBMI) && defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512VBMI)
+#if defined(HAVE_AVX512VBMI) && defined(HAVE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
+	defined(CPUID_LEAF7_FEATURE_AVX512VBMI)
 	has_avx512 = (spl_cpuid_leaf7_features() &
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VBMI)) ==
-		(CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VBMI);
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VBMI)) ==
+	    (CPUID_LEAF7_FEATURE_AVX512F|CPUID_LEAF7_FEATURE_AVX512VBMI);
 #else
 	has_avx512 = B_FALSE;
 #endif

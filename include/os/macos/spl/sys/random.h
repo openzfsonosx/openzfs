@@ -34,15 +34,15 @@
 static inline int
 random_get_bytes(uint8_t *ptr, size_t len)
 {
-    read_random(ptr, len);
-	return 0;
+	read_random(ptr, len);
+	return (0);
 }
 
 static inline int
 random_get_pseudo_bytes(uint8_t *ptr, size_t len)
 {
-    read_random(ptr, len);
-	return 0;
+	read_random(ptr, len);
+	return (0);
 }
 
 #endif	/* _SPL_RANDOM_H */

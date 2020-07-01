@@ -26,45 +26,42 @@
  */
 
 #ifndef _SPL_BYTEORDER_H
-#define _SPL_BYTEORDER_H
+#define	_SPL_BYTEORDER_H
 
 #include <libkern/OSByteOrder.h>
 #include <machine/byte_order.h>
 
+#define	LE_16(x) OSSwapHostToLittleInt16(x)
+#define	LE_32(x) OSSwapHostToLittleInt32(x)
+#define	LE_64(x) OSSwapHostToLittleInt64(x)
+#define	BE_16(x) OSSwapHostToBigInt16(x)
+#define	BE_32(x) OSSwapHostToBigInt32(x)
+#define	BE_64(x) OSSwapHostToBigInt64(x)
 
-#define LE_16(x) OSSwapHostToLittleInt16(x)
-#define LE_32(x) OSSwapHostToLittleInt32(x)
-#define LE_64(x) OSSwapHostToLittleInt64(x)
-#define BE_16(x) OSSwapHostToBigInt16(x)
-#define BE_32(x) OSSwapHostToBigInt32(x)
-#define BE_64(x) OSSwapHostToBigInt64(x)
+#define	BE_IN8(xa) \
+	*((uint8_t *)(xa))
 
-#define BE_IN8(xa)                              \
-    *((uint8_t *)(xa))
+#define	BE_IN16(xa) \
+	(((uint16_t)BE_IN8(xa) << 8) | BE_IN8((uint8_t *)(xa)+1))
 
-#define BE_IN16(xa)                                             \
-    (((uint16_t)BE_IN8(xa) << 8) | BE_IN8((uint8_t *)(xa)+1))
-
-#define BE_IN32(xa)                                             \
-    (((uint32_t)BE_IN16(xa) << 16) | BE_IN16((uint8_t *)(xa)+2))
+#define	BE_IN32(xa) \
+	(((uint32_t)BE_IN16(xa) << 16) | BE_IN16((uint8_t *)(xa)+2))
 
 
 /* 10.8 is lacking in htonll */
 #if !defined(htonll)
-#define htonll(x)       __DARWIN_OSSwapInt64(x)
+#define	htonll(x)	__DARWIN_OSSwapInt64(x)
 #endif
 #if !defined(ntohll)
-#define ntohll(x)       __DARWIN_OSSwapInt64(x)
+#define	ntohll(x)	__DARWIN_OSSwapInt64(x)
 #endif
 
-
-
 #ifdef __LITTLE_ENDIAN__
-#define _LITTLE_ENDIAN
+#define	_LITTLE_ENDIAN
 #endif
 
 #ifdef __BIG_ENDIAN__
-#define _BIG_ENDIAN
+#define	_BIG_ENDIAN
 #endif
 
 #endif /* SPL_BYTEORDER_H */

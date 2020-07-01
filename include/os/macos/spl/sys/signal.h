@@ -26,7 +26,7 @@
  */
 
 #ifndef _SPL_SYS_SIGNAL_H
-#define _SPL_SYS_SIGNAL_H
+#define	_SPL_SYS_SIGNAL_H
 
 #include <sys/vm.h>
 #include_next <sys/signal.h>
@@ -39,7 +39,7 @@ struct proc;
 
 extern int thread_issignal(struct proc *, thread_t, sigset_t);
 
-#define THREADMASK (sigmask(SIGILL)|sigmask(SIGTRAP)|\
+#define	THREADMASK (sigmask(SIGILL)|sigmask(SIGTRAP)|\
 		sigmask(SIGIOT)|sigmask(SIGEMT)|\
 		sigmask(SIGFPE)|sigmask(SIGBUS)|\
 		sigmask(SIGSEGV)|sigmask(SIGSYS)|\
@@ -54,6 +54,6 @@ issig(int why)
 }
 
 /* Always called with curthread */
-#define signal_pending(p) issig(0)
+#define	signal_pending(p) issig(0)
 
 #endif /* SPL_SYS_SIGNAL_H */

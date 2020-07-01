@@ -34,7 +34,7 @@
  */
 
 #ifndef _SPL_RPC_XDR_H
-#define _SPL_RPC_XDR_H
+#define	_SPL_RPC_XDR_H
 
 
 #include <sys/types.h>
@@ -51,11 +51,11 @@ enum xdr_op {
 struct xdr_ops;
 
 typedef struct {
-	struct xdr_ops *x_ops;      /* Also used to let caller know if
-	                               xdrmem_create() succeeds (sigh..) */
-	caddr_t         x_addr;     /* Current buffer addr */
-	caddr_t         x_addr_end; /* End of the buffer */
-	enum xdr_op     x_op;       /* Stream direction */
+	struct xdr_ops *x_ops;	/* Also used to let caller know if */
+				/* xdrmem_create() succeeds (sigh..) */
+	caddr_t		x_addr;	/* Current buffer addr */
+	caddr_t		x_addr_end; /* End of the buffer */
+	enum xdr_op	x_op;	/* Stream direction */
 } XDR;
 
 typedef bool_t (*xdrproc_t)(XDR *xdrs, void *ptr);
@@ -71,13 +71,13 @@ struct xdr_ops {
 	bool_t (*xdr_opaque)(XDR *, caddr_t, const uint_t);
 	bool_t (*xdr_string)(XDR *, char **, const uint_t);
 	bool_t (*xdr_array)(XDR *, caddr_t *, uint_t *, const uint_t,
-	                    const uint_t, const xdrproc_t);
+	    const uint_t, const xdrproc_t);
 };
 
 /*
  * XDR control operator.
  */
-#define XDR_GET_BYTES_AVAIL 1
+#define	XDR_GET_BYTES_AVAIL 1
 
 struct xdr_bytesrec {
 	bool_t xc_is_last_record;
@@ -89,11 +89,10 @@ struct xdr_bytesrec {
  */
 void xdrmem_create(XDR *xdrs, const caddr_t addr, const uint_t size,
     const enum xdr_op op);
-#define xdr_destroy(xdrs) ((void) 0) /* Currently not needed. If needed later,
-                                        we'll add it to struct xdr_ops */
+#define	xdr_destroy(xdrs) ((void) 0)
 
-#define xdr_control(xdrs, req, info) (xdrs)->x_ops->xdr_control((xdrs),        \
-                                         (req), (info))
+#define	xdr_control(xdrs, req, info) \
+	(xdrs)->x_ops->xdr_control((xdrs), (req), (info))
 
 /*
  * For precaution, the following are defined as static inlines instead of macros
@@ -102,59 +101,65 @@ void xdrmem_create(XDR *xdrs, const caddr_t addr, const uint_t size,
  * Also, macros wouldn't work in the case where typecasting is done, because it
  * must be possible to reference the functions' addresses by these names.
  */
-static inline bool_t xdr_char(XDR *xdrs, char *cp)
+static inline bool_t
+xdr_char(XDR *xdrs, char *cp)
 {
-	return xdrs->x_ops->xdr_char(xdrs, cp);
+	return (xdrs->x_ops->xdr_char(xdrs, cp));
 }
 
-static inline bool_t xdr_u_short(XDR *xdrs, unsigned short *usp)
+static inline bool_t
+xdr_u_short(XDR *xdrs, unsigned short *usp)
 {
-	return xdrs->x_ops->xdr_u_short(xdrs, usp);
+	return (xdrs->x_ops->xdr_u_short(xdrs, usp));
 }
 
-static inline bool_t xdr_short(XDR *xdrs, short *sp)
+static inline bool_t
+xdr_short(XDR *xdrs, short *sp)
 {
-	//BUILD_BUG_ON(sizeof(short) != 2);
-	return xdrs->x_ops->xdr_u_short(xdrs, (unsigned short *) sp);
+	return (xdrs->x_ops->xdr_u_short(xdrs, (unsigned short *) sp));
 }
 
-static inline bool_t xdr_u_int(XDR *xdrs, unsigned *up)
+static inline bool_t
+xdr_u_int(XDR *xdrs, unsigned *up)
 {
-	return xdrs->x_ops->xdr_u_int(xdrs, up);
+	return (xdrs->x_ops->xdr_u_int(xdrs, up));
 }
 
-static inline bool_t xdr_int(XDR *xdrs, int *ip)
+static inline bool_t
+xdr_int(XDR *xdrs, int *ip)
 {
-	//BUILD_BUG_ON(sizeof(int) != 4);
-	return xdrs->x_ops->xdr_u_int(xdrs, (unsigned *) ip);
+	return (xdrs->x_ops->xdr_u_int(xdrs, (unsigned *) ip));
 }
 
-static inline bool_t xdr_u_longlong_t(XDR *xdrs, u_longlong_t *ullp)
+static inline bool_t
+xdr_u_longlong_t(XDR *xdrs, u_longlong_t *ullp)
 {
-	return xdrs->x_ops->xdr_u_longlong_t(xdrs, ullp);
+	return (xdrs->x_ops->xdr_u_longlong_t(xdrs, ullp));
 }
 
-static inline bool_t xdr_longlong_t(XDR *xdrs, longlong_t *llp)
+static inline bool_t
+xdr_longlong_t(XDR *xdrs, longlong_t *llp)
 {
-	//BUILD_BUG_ON(sizeof(longlong_t) != 8);
-	return xdrs->x_ops->xdr_u_longlong_t(xdrs, (u_longlong_t *) llp);
+	return (xdrs->x_ops->xdr_u_longlong_t(xdrs, (u_longlong_t *) llp));
 }
 
 /*
  * Fixed-length opaque data.
  */
-static inline bool_t xdr_opaque(XDR *xdrs, caddr_t cp, const uint_t cnt)
+static inline bool_t
+xdr_opaque(XDR *xdrs, caddr_t cp, const uint_t cnt)
 {
-	return xdrs->x_ops->xdr_opaque(xdrs, cp, cnt);
+	return (xdrs->x_ops->xdr_opaque(xdrs, cp, cnt));
 }
 
 /*
  * Variable-length string.
  * The *sp buffer must have (maxsize + 1) bytes.
  */
-static inline bool_t xdr_string(XDR *xdrs, char **sp, const uint_t maxsize)
+static inline bool_t
+xdr_string(XDR *xdrs, char **sp, const uint_t maxsize)
 {
-	return xdrs->x_ops->xdr_string(xdrs, sp, maxsize);
+	return (xdrs->x_ops->xdr_string(xdrs, sp, maxsize));
 }
 
 /*
@@ -163,8 +168,8 @@ static inline bool_t xdr_string(XDR *xdrs, char **sp, const uint_t maxsize)
 static inline bool_t xdr_array(XDR *xdrs, caddr_t *arrp, uint_t *sizep,
     const uint_t maxsize, const uint_t elsize, const xdrproc_t elproc)
 {
-	return xdrs->x_ops->xdr_array(xdrs, arrp, sizep, maxsize, elsize,
-	    elproc);
+	return (xdrs->x_ops->xdr_array(xdrs, arrp, sizep, maxsize, elsize,
+	    elproc));
 }
 
 #endif /* SPL_RPC_XDR_H */

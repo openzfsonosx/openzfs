@@ -38,14 +38,14 @@
 
 
 #ifndef _SPL_UIO_H
-#define _SPL_UIO_H
+#define	_SPL_UIO_H
 
 
 // OSX defines "uio_t" as "struct uio *"
 // ZFS defines "uio_t" as "struct uio"
 #undef uio_t
 #include_next <sys/uio.h>
-#define uio_t struct uio
+#define	uio_t struct uio
 
 #include <sys/types.h>
 
@@ -69,7 +69,7 @@ typedef enum xuio_type {
 } xuio_type_t;
 
 
-#define UIOA_IOV_MAX    16
+#define	UIOA_IOV_MAX    16
 
 typedef struct uioa_page_s {
 	int	uioa_pfncnt;
@@ -98,24 +98,27 @@ typedef struct xuio {
 	} xu_ext;
 } xuio_t;
 
-#define XUIO_XUZC_PRIV(xuio)	xuio->xu_ext.xu_zc.xu_zc_priv
-#define XUIO_XUZC_RW(xuio)	xuio->xu_ext.xu_zc.xu_zc_rw
+#define	XUIO_XUZC_PRIV(xuio)	xuio->xu_ext.xu_zc.xu_zc_priv
+#define	XUIO_XUZC_RW(xuio)	xuio->xu_ext.xu_zc.xu_zc_rw
 
-#define uio_segflg(U)		(uio_isuserspace((struct uio *)(U))?UIO_USERSPACE:UIO_SYSSPACE)
+#define	uio_segflg(U) \
+	(uio_isuserspace((struct uio *)(U))?UIO_USERSPACE:UIO_SYSSPACE)
 #define	uio_advance(U, N)	uio_update((struct uio *)(U), (N))
 
-static inline uint64_t uio_iovlen(const struct uio *u, unsigned int i)
+static inline uint64_t
+uio_iovlen(const struct uio *u, unsigned int i)
 {
 	user_size_t iov_len;
 	uio_getiov((struct uio *)u, i, NULL, &iov_len);
-	return iov_len;
+	return (iov_len);
 }
 
-static inline void *uio_iovbase(const struct uio *u, unsigned int i)
+static inline void *
+uio_iovbase(const struct uio *u, unsigned int i)
 {
 	user_addr_t iov_base;
 	uio_getiov((struct uio *)u, i, &iov_base, NULL);
-	return (void *)iov_base;
+	return ((void *)iov_base);
 }
 
 static inline void
@@ -130,7 +133,7 @@ uio_index_at_offset(struct uio *uio, long long off, unsigned int *vec_idx)
 	uint64_t len;
 	*vec_idx = 0;
 	while (*vec_idx < uio_iovcnt(uio) && off >=
-		(len = uio_iovlen(uio, *vec_idx))) {
+	    (len = uio_iovlen(uio, *vec_idx))) {
 		off -= len;
 		(*vec_idx)++;
 	}
@@ -141,23 +144,26 @@ uio_index_at_offset(struct uio *uio, long long off, unsigned int *vec_idx)
  * same as uiomove() but doesn't modify uio structure.
  * return in cbytes how many bytes were copied.
  */
-static inline int uiocopy(const char *p, size_t n, enum uio_rw rw, struct uio *uio, size_t *cbytes) \
-{                                                                       \
-    int result;                                                         \
-    struct uio *nuio = uio_duplicate(uio);                              \
-    unsigned long long x = uio_resid(uio);                              \
-    if (!nuio) return ENOMEM;                                           \
-	uio_setrw(nuio, rw);												\
-    result = uiomove(p,n,nuio);                                         \
-    *cbytes = x-uio_resid(nuio);                                        \
-    uio_free(nuio);                                                     \
-    return result;                                                      \
+static inline int
+uiocopy(const char *p, size_t n, enum uio_rw rw, struct uio *uio,
+    size_t *cbytes)
+{
+	int result;
+	struct uio *nuio = uio_duplicate(uio);
+	unsigned long long x = uio_resid(uio);
+	if (!nuio)
+		return (ENOMEM);
+	uio_setrw(nuio, rw);
+	result = uiomove(p, n, nuio);
+	*cbytes = x-uio_resid(nuio);
+	uio_free(nuio);
+	return (result);
 }
 
 
 // Apple's uiomove puts the uio_rw in uio_create
-#define uiomove(A,B,C,D) uiomove((A),(B),(D))
-#define uioskip(A,B)     uio_update((A), (B))
+#define	uiomove(A, B, C, D)	uiomove((A), (B), (D))
+#define	uioskip(A, B)		uio_update((A), (B))
 
 extern int uio_prefaultpages(ssize_t, uio_t *);
 

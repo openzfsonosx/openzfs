@@ -26,7 +26,7 @@
  */
 
 #ifndef _SPL_PROC_H
-#define _SPL_PROC_H
+#define	_SPL_PROC_H
 
 #include <sys/ucred.h>
 #include <i386/locks.h>
@@ -34,9 +34,9 @@
 #include <sys/kernel_types.h>
 #include <sys/vnode.h>
 
-#define proc_t struct proc
+#define	proc_t struct proc
 
-extern proc_t p0;              /* process 0 */
+extern proc_t p0; /* process 0 */
 
 static inline boolean_t
 zfs_proc_is_caller(proc_t *p)

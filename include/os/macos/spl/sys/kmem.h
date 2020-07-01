@@ -49,25 +49,25 @@ extern uint64_t physmem;
 #define	KM_NOSLEEP	0x0001	/* cannot block for memory; may fail */
 #define	KM_PANIC	0x0002	/* if memory cannot be allocated, panic */
 #define	KM_PUSHPAGE	0x0004	/* can block for memory; may use reserve */
-#define	KM_NORMALPRI 0x0008  /* with KM_NOSLEEP, lower priority allocation */
-#define KM_NODEBUG  0x0010  /* NOT IMPLEMENTED ON OSX */
-#define KM_NO_VBA   0x0020  /* OSX: don't descend to the bucket layer */
+#define	KM_NORMALPRI	0x0008  /* with KM_NOSLEEP, lower priority allocation */
+#define	KM_NODEBUG	0x0010  /* NOT IMPLEMENTED ON OSX */
+#define	KM_NO_VBA	0x0020  /* OSX: don't descend to the bucket layer */
 #define	KM_VMFLAGS	0x00ff	/* flags that must match VM_* flags */
 
 #define	KM_FLAGS	0xffff	/* all settable kmem flags */
 
-	/*
-	 * Kernel memory allocator: DDI interfaces.
-	 * See kmem_alloc(9F) for details.
-	 */
+/*
+ * Kernel memory allocator: DDI interfaces.
+ * See kmem_alloc(9F) for details.
+ */
 
 // Work around symbol collisions in XNU
-#define kmem_alloc(size, kmflags)   zfs_kmem_alloc((size), (kmflags))
-#define kmem_zalloc(size, kmflags)  zfs_kmem_zalloc((size), (kmflags))
-#define kmem_free(buf, size)        zfs_kmem_free((buf), (size))
+#define	kmem_alloc(size, kmflags)	zfs_kmem_alloc((size), (kmflags))
+#define	kmem_zalloc(size, kmflags)	zfs_kmem_zalloc((size), (kmflags))
+#define	kmem_free(buf, size)		zfs_kmem_free((buf), (size))
 
-void* zfs_kmem_alloc(size_t size, int kmflags);
-void* zfs_kmem_zalloc(size_t size, int kmflags);
+void *zfs_kmem_alloc(size_t size, int kmflags);
+void *zfs_kmem_zalloc(size_t size, int kmflags);
 void zfs_kmem_free(void *buf, size_t size);
 
 void spl_kmem_init(uint64_t);
@@ -90,15 +90,15 @@ void spl_free_set_pressure(int64_t);
 void spl_free_set_fast_pressure(boolean_t);
 uint64_t spl_free_last_pressure_wrapper(void);
 
-#define KMC_NOTOUCH     0x00010000
-#define KMC_NODEBUG     0x00020000
-#define KMC_NOMAGAZINE  0x00040000
-#define KMC_NOHASH      0x00080000
-#define KMC_QCACHE      0x00100000
-#define KMC_KMEM_ALLOC  0x00200000      /* internal use only */
-#define KMC_IDENTIFIER  0x00400000      /* internal use only */
-#define KMC_PREFILL     0x00800000
-#define KMC_ARENA_SLAB  0x01000000      /* use a bigger kmem cache */
+#define	KMC_NOTOUCH	0x00010000
+#define	KMC_NODEBUG	0x00020000
+#define	KMC_NOMAGAZINE	0x00040000
+#define	KMC_NOHASH	0x00080000
+#define	KMC_QCACHE	0x00100000
+#define	KMC_KMEM_ALLOC	0x00200000	/* internal use only */
+#define	KMC_IDENTIFIER	0x00400000	/* internal use only */
+#define	KMC_PREFILL	0x00800000
+#define	KMC_ARENA_SLAB	0x01000000	/* use a bigger kmem cache */
 
 struct kmem_cache;
 
@@ -113,8 +113,8 @@ typedef enum kmem_cbrc {
 	KMEM_CBRC_DONT_KNOW
 } kmem_cbrc_t;
 
-#define POINTER_IS_VALID(p)     (!((uintptr_t)(p) & 0x3))
-#define POINTER_INVALIDATE(pp)  (*(pp) = (void *)((uintptr_t)(*(pp)) | 0x1))
+#define	POINTER_IS_VALID(p)	(!((uintptr_t)(p) & 0x3))
+#define	POINTER_INVALIDATE(pp)	(*(pp) = (void *)((uintptr_t)(*(pp)) | 0x1))
 
 kmem_cache_t *kmem_cache_create(char *name, size_t bufsize, size_t align,
     int (*constructor)(void *, void *, int),

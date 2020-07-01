@@ -24,42 +24,43 @@
  */
 
 #ifndef _SPL_RWLOCK_H
-#define _SPL_RWLOCK_H
+#define	_SPL_RWLOCK_H
 
 #include <sys/types.h>
 #include <kern/locks.h>
 
 typedef enum {
-        RW_DRIVER  = 2,
-        RW_DEFAULT = 4
+	RW_DRIVER  = 2,
+	RW_DEFAULT = 4
 } krw_type_t;
 
 typedef enum {
-        RW_NONE   = 0,
-        RW_WRITER = 1,
-        RW_READER = 2
+	RW_NONE   = 0,
+	RW_WRITER = 1,
+	RW_READER = 2
 } krw_t;
 
 #define	RW_NOLOCKDEP	0
 
 struct krwlock {
-    uint32_t   rw_lock[4];   /* opaque lck_rw_t data */
-    void       *rw_owner;    /* writer (exclusive) lock only */
-    int        rw_readers;   /* reader lock only */
-    int        rw_pad;       /* */
+	uint32_t	rw_lock[4];	/* opaque lck_rw_t data */
+	void		*rw_owner;	/* writer (exclusive) lock only */
+	int		rw_readers;	/* reader lock only */
+	int		rw_pad;		/* */
 #ifdef SPL_DEBUG_RWLOCK
-	void *leak;
+	void		*leak;
 #endif
 };
 typedef struct krwlock  krwlock_t;
 
-#define RW_WRITE_HELD(x)        (rw_write_held((x)))
-#define RW_LOCK_HELD(x)         (rw_lock_held((x)))
+#define	RW_WRITE_HELD(x)	(rw_write_held((x)))
+#define	RW_LOCK_HELD(x)		(rw_lock_held((x)))
 
 #ifdef SPL_DEBUG_RWLOCK
-#define rw_init(A, B, C, D) rw_initx(A,B,C,D,__FILE__,__FUNCTION__,__LINE__)
+#define	rw_init(A, B, C, D) \
+    rw_initx(A, B, C, D, __FILE__, __FUNCTION__, __LINE__)
 extern  void  rw_initx(krwlock_t *, char *, krw_type_t, void *,
-	const char *, const char *, int);
+    const char *, const char *, int);
 #else
 extern  void  rw_init(krwlock_t *, char *, krw_type_t, void *);
 #endif

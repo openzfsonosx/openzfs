@@ -58,8 +58,8 @@ typedef struct taskq_ent {
 	kcondvar_t		tqent_cv;
 #ifdef __APPLE__
 	/* Used to simulate TS_STOPPED */
-	kmutex_t                tqent_thread_lock;
-	kcondvar_t              tqent_thread_cv;
+	kmutex_t		tqent_thread_lock;
+	kcondvar_t		tqent_thread_cv;
 #endif
 } taskq_ent_t;
 
@@ -142,7 +142,7 @@ struct taskq {
 	}		tq_thr;
 
 	list_node_t	tq_cpupct_link;	/* linkage for taskq_cpupct_list */
-	proc_t	*tq_proc;	/* process for taskq threads */
+	proc_t		*tq_proc;	/* process for taskq threads */
 	int		tq_cpupart;	/* cpupart id bound to */
 	uint_t		tq_DC;		/* duty cycle for SDC */
 
@@ -171,7 +171,7 @@ void taskq_dispatch_ent(taskq_t *, task_func_t, void *, uint_t, taskq_ent_t *);
 /* Extra ZOL / Apple */
 extern void taskq_init_ent(taskq_ent_t *t);
 extern taskqid_t taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg,
-									  uint_t flags, clock_t expire_time);
+    uint_t flags, clock_t expire_time);
 
 
 #ifdef	__cplusplus
