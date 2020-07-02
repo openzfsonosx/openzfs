@@ -357,8 +357,8 @@
 #define	LDI_EVDBG(args)		cmn_err args
 #define	LDI_EVTRC(args)		cmn_err args
 #else
-#define	LDI_EVDBG(args)		do {} while(0)
-#define	LDI_EVTRC(args)		do {} while(0)
+#define	LDI_EVDBG(args)		do {} while (0)
+#define	LDI_EVTRC(args)		do {} while (0)
 #endif
 
 #ifdef DEBUG
@@ -404,20 +404,20 @@ static boolean_t ldi_use_vnode_from_path = 1;
  */
 #include <libkern/sysctl.h>
 SYSCTL_DECL(_ldi);
-SYSCTL_NODE( , OID_AUTO, ldi, CTLFLAG_RD | CTLFLAG_LOCKED, 0, "");
+SYSCTL_NODE(, OID_AUTO, ldi, CTLFLAG_RD | CTLFLAG_LOCKED, 0, "");
 SYSCTL_NODE(_ldi, OID_AUTO, debug, CTLFLAG_RD | CTLFLAG_LOCKED, 0, "");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_iokit_from_dev,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_dev, 0,
-    "ZFS LDI use iokit_from_path");
+	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_dev, 0,
+	"ZFS LDI use iokit_from_path");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_iokit_from_path,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_path, 0,
-    "ZFS LDI use iokit_from_dev");
+	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_path, 0,
+	"ZFS LDI use iokit_from_dev");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_dev_from_path,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_dev_from_path, 0,
-    "ZFS LDI use dev_from_path");
+	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_dev_from_path, 0,
+	"ZFS LDI use dev_from_path");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_vnode_from_path,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_vnode_from_path, 0,
-    "ZFS LDI use vnode_from_path");
+	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_vnode_from_path, 0,
+	"ZFS LDI use vnode_from_path");
 
 /*
  * Globals
@@ -1142,7 +1142,8 @@ do_close:
 #ifdef DEBUG
 	if (error != 0) {
 		/* We will still set the handle to Closed status */
-		dprintf("%s error %d from handle_close_{type}\n", __func__, error);
+		dprintf("%s error %d from handle_close_{type}\n",
+		    __func__, error);
 	}
 #endif
 
@@ -1561,8 +1562,9 @@ ldi_invoke_notify(__unused dev_info_t *dip, dev_t dev, int spec_type,
 		}
 
 		lecp->lec_lhp->lh_flags |= LH_FLAGS_NOTIFY;
-		if (lecp->lec_notify((ldi_handle_t)lecp->lec_lhp, lecp->lec_cookie,
-		    lecp->lec_arg, ev_data) != LDI_EV_SUCCESS) {
+		if (lecp->lec_notify((ldi_handle_t)lecp->lec_lhp,
+		    lecp->lec_cookie, lecp->lec_arg, ev_data) !=
+		    LDI_EV_SUCCESS) {
 			ret = LDI_EV_FAILURE;
 			LDI_EVDBG((CE_NOTE, "ldi_invoke_notify(): notify"
 			    " FAILURE"));
@@ -1721,8 +1723,9 @@ ldi_invoke_finalize(__unused dev_info_t *dip, dev_t dev, int spec_type,
 
 		found = 1;
 
-		lecp->lec_finalize((ldi_handle_t)lecp->lec_lhp, lecp->lec_cookie,
-		    ldi_result, lecp->lec_arg, ev_data);
+		lecp->lec_finalize((ldi_handle_t)lecp->lec_lhp,
+		    lecp->lec_cookie, ldi_result, lecp->lec_arg,
+		    ev_data);
 
 		/*
 		 * If LDI native event and LDI handle closed in context
@@ -2194,33 +2197,33 @@ ldi_ioctl(ldi_handle_t lh, int cmd, intptr_t arg,
 			return (ENOTSUP);
 		}
 
-    case DKIOCGETFEATURES: /* UNMAP? */
+	case DKIOCGETFEATURES: /* UNMAP? */
 		/* IOMedia or vnode */
 		switch (handlep->lh_type) {
-        case LDI_TYPE_IOKIT:
+		case LDI_TYPE_IOKIT:
 			return (handle_features_iokit(handlep,
-					(uint32_t *)arg));
+			    (uint32_t *)arg));
 
-        case LDI_TYPE_VNODE:
+		case LDI_TYPE_VNODE:
 			return (handle_features_vnode(handlep,
-					(uint32_t *)arg));
+			    (uint32_t *)arg));
 
-        default:
+		default:
 			return (ENOTSUP);
 		}
 
 	case DKIOCFREE: /* UNMAP */
 		/* IOMedia or vnode */
 		switch (handlep->lh_type) {
-        case LDI_TYPE_IOKIT:
+		case LDI_TYPE_IOKIT:
 			return (handle_unmap_iokit(handlep,
-					(dkioc_free_list_ext_t *)arg));
+			    (dkioc_free_list_ext_t *)arg));
 
-        case LDI_TYPE_VNODE:
+		case LDI_TYPE_VNODE:
 			return (handle_unmap_vnode(handlep,
-					(dkioc_free_list_ext_t *)arg));
+			    (dkioc_free_list_ext_t *)arg));
 
-        default:
+		default:
 			return (ENOTSUP);
 		}
 

@@ -53,7 +53,8 @@ spa_history_zone(void)
 	return ("macos");
 }
 
-void spa_create_os(void *arg)
+void
+spa_create_os(void *arg)
 {
 	spa_t *spa = (spa_t *)arg;
 	int haslock = 0;
@@ -71,7 +72,7 @@ void spa_create_os(void *arg)
 	/* Create IOKit pool proxy */
 	if ((error = spa_iokit_pool_proxy_create(spa)) != 0) {
 		printf("%s spa_iokit_pool_proxy_create error %d\n",
-			__func__, error);
+		    __func__, error);
 		/* spa_create succeeded, ignore proxy error */
 	}
 
@@ -90,7 +91,8 @@ void spa_create_os(void *arg)
 	spa_close(spa, FTAG);
 }
 
-void spa_export_os(void *arg)
+void
+spa_export_os(void *arg)
 {
 	spa_t *spa = (spa_t *)arg;
 
@@ -98,14 +100,16 @@ void spa_export_os(void *arg)
 	spa_iokit_pool_proxy_destroy(spa);
 }
 
-void spa_activate_os(void *arg)
+void
+spa_activate_os(void *arg)
 {
 	/* spa_t *spa = (spa_t *)arg; */
 	/* Lock kext in kernel while mounted */
 	OSKextRetainKextWithLoadTag(OSKextGetCurrentLoadTag());
 }
 
-void spa_deactivate_os(void *arg)
+void
+spa_deactivate_os(void *arg)
 {
 	/* spa_t *spa = (spa_t *)arg; */
 	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());

@@ -138,7 +138,8 @@ __dprintf(boolean_t dprint, const char *file, const char *func,
 	size = vsnprintf(NULL, 0, fmt, adx);
 	va_end(adx);
 
-	size += snprintf(NULL, 0, "%s%s:%d:%s(): ", prefix, newfile, line, func);
+	size += snprintf(NULL, 0, "%s%s:%d:%s(): ", prefix, newfile, line,
+	    func);
 
 	size++; /* null byte in the "buf" string */
 
@@ -151,7 +152,7 @@ __dprintf(boolean_t dprint, const char *file, const char *func,
 
 	va_start(adx, fmt);
 	i = snprintf(buf, size + 1, "%s%s:%d:%s(): ",
-		prefix, newfile, line, func);
+	    prefix, newfile, line, func);
 	roger = vsnprintf(buf + i, size -i + 1, fmt, adx);
 	va_end(adx);
 
@@ -183,4 +184,3 @@ zfs_dbgmsg_print(const char *tag)
 		(void) printf("%s\n", zdm->zdm_msg);
 	mutex_exit(&zfs_dbgmsgs_lock);
 }
-

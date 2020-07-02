@@ -74,13 +74,13 @@
 /* Used by fstat(1). */
 #ifndef __APPLE__
 SYSCTL_INT(_debug_sizeof, OID_AUTO, znode, CTLFLAG_RD, 0, sizeof (znode_t),
-			"sizeof(znode_t)");
+			"sizeof (znode_t)");
 #endif
 void
 zfs_release_sa_handle(sa_handle_t *hdl, dmu_buf_t *db, void *tag);
 
 
-// #define dprintf printf
+// #define	dprintf printf
 
 
 /*
@@ -243,14 +243,14 @@ zfs_znode_init(void)
 	ASSERT(znode_cache == NULL);
 	znode_cache = kmem_cache_create("zfs_znode_cache",
 	    sizeof (znode_t), 0,
-		zfs_znode_cache_constructor,
+	    zfs_znode_cache_constructor,
 	    zfs_znode_cache_destructor, NULL, NULL,
 	    NULL, 0);
 
 	ASSERT(znode_hold_cache == NULL);
 	znode_hold_cache = kmem_cache_create("zfs_znode_hold_cache",
-		sizeof (znode_hold_t), 0, zfs_znode_hold_cache_constructor,
-		zfs_znode_hold_cache_destructor, NULL, NULL, NULL, 0);
+	    sizeof (znode_hold_t), 0, zfs_znode_hold_cache_constructor,
+	    zfs_znode_hold_cache_destructor, NULL, NULL, NULL, 0);
 }
 
 void
@@ -495,7 +495,7 @@ void
 zfs_znode_dmu_fini(znode_t *zp)
 {
 	ASSERT(zfs_znode_held(ZTOZSB(zp), zp->z_id) || zp->z_unlinked ||
-		RW_WRITE_HELD(&ZTOZSB(zp)->z_teardown_inactive_lock));
+	    RW_WRITE_HELD(&ZTOZSB(zp)->z_teardown_inactive_lock));
 
 	sa_handle_destroy(zp->z_sa_hdl);
 	zp->z_sa_hdl = NULL;
@@ -693,7 +693,8 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 	int err = 0;
 	znode_hold_t	*zh;
 
-	ASSERT(vap && (vap->va_mask & (ATTR_TYPE|ATTR_MODE)) == (ATTR_TYPE|ATTR_MODE));
+	ASSERT(vap && (vap->va_mask & (ATTR_TYPE|ATTR_MODE)) ==
+	    (ATTR_TYPE|ATTR_MODE));
 
 	if (zfsvfs->z_replay) {
 		obj = vap->va_nodeid;
@@ -792,7 +793,7 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 		 * project ID stored on disk or not. See zfs_space_delta_cb().
 		 */
 		if (obj_type != DMU_OT_ZNODE &&
-			dmu_objset_projectquota_enabled(zfsvfs->z_os))
+		    dmu_objset_projectquota_enabled(zfsvfs->z_os))
 			pflags |= ZFS_PROJID;
 
 		/*
@@ -885,9 +886,9 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 		SA_ADD_BULK_ATTR(sa_attrs, cnt, SA_ZPL_XATTR(zfsvfs), NULL,
 		    &empty_xattr, 8);
 	} else if (dmu_objset_projectquota_enabled(zfsvfs->z_os) &&
-		pflags & ZFS_PROJID) {
+	    pflags & ZFS_PROJID) {
 		SA_ADD_BULK_ATTR(sa_attrs, cnt, SA_ZPL_PROJID(zfsvfs),
-			NULL, &projid, 8);
+		    NULL, &projid, 8);
 	}
 	if (obj_type == DMU_OT_ZNODE ||
 	    (vap->va_type == VBLK || vap->va_type == VCHR)) {
@@ -1059,7 +1060,7 @@ zfs_xvattr_set(znode_t *zp, xvattr_t *xvap, dmu_tx_t *tx)
 int
 zfs_zget(zfsvfs_t *zfsvfs, uint64_t obj_num, znode_t **zpp)
 {
-	return zfs_zget_ext(zfsvfs, obj_num, zpp, 0);
+	return (zfs_zget_ext(zfsvfs, obj_num, zpp, 0));
 }
 
 int
@@ -1072,7 +1073,7 @@ zfs_zget_ext(zfsvfs_t *zfsvfs, uint64_t obj_num, znode_t **zpp,
 	znode_hold_t	*zh;
 	struct vnode	*vp = NULL;
 	sa_handle_t		*hdl;
-	uint32_t        vid;
+	uint32_t		vid;
 	int err;
 
 	dprintf("+zget %llu\n", obj_num);
@@ -1141,34 +1142,38 @@ again:
 		sa_buf_rele(db, NULL);
 		zfs_znode_hold_exit(zfsvfs, zh);
 
-		/* We are racing zfs_znode_getvnode() and we got here first, we
-		 * need to let it get ahead */
+		/*
+		 * We are racing zfs_znode_getvnode() and we got here first, we
+		 * need to let it get ahead
+		 */
 		if (!vp) {
 
 			// Wait until attached, if we can.
 			if ((flags & ZGET_FLAG_ASYNC) &&
-				zfs_znode_asyncwait(zp) == 0) {
+			    zfs_znode_asyncwait(zp) == 0) {
 				dprintf("%s: waited on z_vnode OK\n", __func__);
 			} else {
 				dprintf("%s: async racing attach\n", __func__);
-				// Could be zp is being torn down, idle a bit, and retry
-				// This branch is rarely executed.
+				// Could be zp is being torn down, idle a bit,
+				// and retry. This branch is rarely executed.
 				kpreempt(KPREEMPT_SYNC);
 			}
 			goto again;
 		}
 
-		/* Due to vnode_create() -> zfs_fsync() -> zil_commit() -> zget()
-		 * -> vnode_getwithvid() -> deadlock. Unsure why vnode_getwithvid()
-		 * ends up sleeping in msleep() but vnode_get() does not.
+		/*
+		 * Due to vnode_create() -> zfs_fsync() -> zil_commit() ->
+		 * zget() -> vnode_getwithvid() -> deadlock. Unsure why
+		 * vnode_getwithvid() ends up sleeping in msleep() but
+		 * vnode_get() does not.
 		 * As we can deadlock here using vnode_getwithvid() we will use
 		 * the simpler vnode_get() in the ASYNC cases. We verify the
 		 * vids match below.
 		 */
 		if ((flags & ZGET_FLAG_ASYNC))
-			err=vnode_get(vp);
+			err = vnode_get(vp);
 		else
-			err=vnode_getwithvid(vp, vid);
+			err = vnode_getwithvid(vp, vid);
 
 		if (err != 0) {
 			dprintf("ZFS: vnode_get() returned %d\n", err);
@@ -1183,8 +1188,9 @@ again:
 		mutex_enter(&zp->z_lock);
 		if ((vid != zp->z_vid) || (vp != ZTOV(zp))) {
 			mutex_exit(&zp->z_lock);
-			/* Release the wrong vp from vnode_getwithvid(). This
-			 * call is missing in 10a286 - lundman */
+			/*
+			 * Release the wrong vp from vnode_getwithvid().
+			 */
 			VN_RELE(vp);
 			dprintf("ZFS: the vids do not match part 1\n");
 			goto again;
@@ -1323,7 +1329,7 @@ zfs_rezget(znode_t *zp)
 
 	if (dmu_objset_projectquota_enabled(zfsvfs->z_os)) {
 		err = sa_lookup(zp->z_sa_hdl, SA_ZPL_PROJID(zfsvfs),
-			&projid, 8);
+		    &projid, 8);
 		if (err != 0 && err != ENOENT) {
 			zfs_znode_dmu_fini(zp);
 			zfs_znode_hold_exit(zfsvfs, zh);
@@ -1426,7 +1432,8 @@ zfs_zinactive(znode_t *zp)
 	if (zp->z_unlinked) {
 		ASSERT(!zfsvfs->z_issnap);
 
-		if (!(vfs_isrdonly(zfsvfs->z_vfs)) && !zfs_unlink_suspend_progress) {
+		if (!(vfs_isrdonly(zfsvfs->z_vfs)) &&
+		    !zfs_unlink_suspend_progress) {
 			mutex_exit(&zp->z_lock);
 			zfs_znode_hold_exit(zfsvfs, zh);
 			zfs_rmnode(zp);
@@ -1849,7 +1856,7 @@ zfs_freesp(znode_t *zp, uint64_t off, uint64_t len, int flag, boolean_t log)
 	int error;
 
 	if (vnode_isfifo(ZTOV(zp)))
-		return 0;
+		return (0);
 
 	if ((error = sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zfsvfs), &mode,
 	    sizeof (mode))) != 0)
@@ -1988,7 +1995,6 @@ zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)
 	vattr.va_gid = crgetgid(cr);
 
 	rootzp = kmem_cache_alloc(znode_cache, KM_SLEEP);
-	//zfs_znode_cache_constructor(rootzp, NULL, 0);
 	ASSERT(!POINTER_IS_VALID(rootzp->z_zfsvfs));
 	rootzp->z_moved = 0;
 	rootzp->z_unlinked = 0;
@@ -2032,11 +2038,11 @@ zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)
 	size = MIN(1 << (highbit64(zfs_object_mutex_size)-1), ZFS_OBJ_MTX_MAX);
 	zfsvfs->z_hold_size = size;
 	zfsvfs->z_hold_trees = kmem_zalloc(sizeof (avl_tree_t) * size,
-		KM_SLEEP);
+	    KM_SLEEP);
 	zfsvfs->z_hold_locks = kmem_zalloc(sizeof (kmutex_t) * size, KM_SLEEP);
 	for (i = 0; i != size; i++) {
 		avl_create(&zfsvfs->z_hold_trees[i], zfs_znode_hold_compare,
-			sizeof (znode_hold_t), offsetof(znode_hold_t, zh_node));
+		    sizeof (znode_hold_t), offsetof(znode_hold_t, zh_node));
 		mutex_init(&zfsvfs->z_hold_locks[i], NULL, MUTEX_DEFAULT, NULL);
 	}
 

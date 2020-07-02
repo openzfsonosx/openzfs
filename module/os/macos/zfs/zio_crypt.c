@@ -508,13 +508,13 @@ zio_crypt_key_wrap(crypto_key_t *cwkey, zio_crypt_key_t *key, uint8_t *iv,
 
 	/* initialize uio_ts */
 	VERIFY0(uio_addiov(puio, (user_addr_t)key->zk_master_keydata,
-					   keydata_len));
+	    keydata_len));
 	VERIFY0(uio_addiov(puio, (user_addr_t)key->zk_hmac_keydata,
-					   SHA512_HMAC_KEYLEN));
+	    SHA512_HMAC_KEYLEN));
 
 	VERIFY0(uio_addiov(cuio, (user_addr_t)keydata_out, keydata_len));
 	VERIFY0(uio_addiov(cuio, (user_addr_t)hmac_keydata_out,
-					   SHA512_HMAC_KEYLEN));
+	    SHA512_HMAC_KEYLEN));
 	VERIFY0(uio_addiov(cuio, (user_addr_t)mac, WRAPPING_MAC_LEN));
 
 	/*
@@ -585,13 +585,13 @@ zio_crypt_key_unwrap(crypto_key_t *cwkey, uint64_t crypt, uint64_t version,
 
 	/* initialize uio_ts */
 	VERIFY0(uio_addiov(puio, (user_addr_t)key->zk_master_keydata,
-					   keydata_len));
+	    keydata_len));
 	VERIFY0(uio_addiov(puio, (user_addr_t)key->zk_hmac_keydata,
-					   SHA512_HMAC_KEYLEN));
+	    SHA512_HMAC_KEYLEN));
 
 	VERIFY0(uio_addiov(cuio, (user_addr_t)keydata, keydata_len));
 	VERIFY0(uio_addiov(cuio, (user_addr_t)hmac_keydata,
-					   SHA512_HMAC_KEYLEN));
+	    SHA512_HMAC_KEYLEN));
 	VERIFY0(uio_addiov(cuio, (user_addr_t)mac, WRAPPING_MAC_LEN));
 
 	if (version == 0) {
@@ -1490,10 +1490,12 @@ zio_crypt_init_uios_zil(boolean_t encrypt, uint8_t *plainbuf,
 			crypt_len = sizeof (lr_write_t) -
 			    sizeof (lr_t) - sizeof (blkptr_t);
 
-			VERIFY0(uio_addiov(srcuio, (user_addr_t)slrp + sizeof (lr_t),
-							   crypt_len));
-			VERIFY0(uio_addiov(dstuio, (user_addr_t)dlrp + sizeof (lr_t),
-							   crypt_len));
+			VERIFY0(uio_addiov(srcuio,
+			    (user_addr_t)slrp + sizeof (lr_t),
+			    crypt_len));
+			VERIFY0(uio_addiov(dstuio,
+			    (user_addr_t)dlrp + sizeof (lr_t),
+			    crypt_len));
 
 			/* copy the bp now since it will not be encrypted */
 			bcopy(slrp + sizeof (lr_write_t) - sizeof (blkptr_t),
@@ -1510,20 +1512,22 @@ zio_crypt_init_uios_zil(boolean_t encrypt, uint8_t *plainbuf,
 				crypt_len = lr_len - sizeof (lr_write_t);
 
 				VERIFY0(uio_addiov(srcuio,
-								   (user_addr_t)slrp + sizeof (lr_write_t),
-								   crypt_len));
+				    (user_addr_t)slrp + sizeof (lr_write_t),
+				    crypt_len));
 				VERIFY0(uio_addiov(dstuio,
-								   (user_addr_t)dlrp + sizeof (lr_write_t),
-								   crypt_len));
+				    (user_addr_t)dlrp + sizeof (lr_write_t),
+				    crypt_len));
 				nr_iovecs++;
 				total_len += crypt_len;
 			}
 		} else {
 			crypt_len = lr_len - sizeof (lr_t);
-			VERIFY0(uio_addiov(srcuio, (user_addr_t)slrp + sizeof (lr_t),
-							   crypt_len));
-			VERIFY0(uio_addiov(dstuio, (user_addr_t)dlrp + sizeof (lr_t),
-							   crypt_len));
+			VERIFY0(uio_addiov(srcuio,
+			    (user_addr_t)slrp + sizeof (lr_t),
+			    crypt_len));
+			VERIFY0(uio_addiov(dstuio,
+			    (user_addr_t)dlrp + sizeof (lr_t),
+			    crypt_len));
 			nr_iovecs++;
 			total_len += crypt_len;
 		}
@@ -1653,7 +1657,7 @@ zio_crypt_init_uios_dnode(boolean_t encrypt, uint64_t version,
 			    sizeof (blkptr_t));
 		}
 
-        /*
+		/*
 		 * Handle authenticated data. We authenticate everything in
 		 * the dnode that can be brought over when we do a raw send.
 		 * This includes all of the core fields as well as the MACs
@@ -1699,7 +1703,8 @@ zio_crypt_init_uios_dnode(boolean_t encrypt, uint64_t version,
 			ASSERT3U(nr_iovecs, <, nr_dst);
 			VERIFY0(uio_addiov(src_uio, (user_addr_t)DN_BONUS(dnp),
 			    crypt_len));
-			VERIFY0(uio_addiov(dst_uio, (user_addr_t)DN_BONUS(&ddnp[i]),
+			VERIFY0(uio_addiov(dst_uio,
+			    (user_addr_t)DN_BONUS(&ddnp[i]),
 			    crypt_len));
 
 			nr_iovecs++;
@@ -1760,12 +1765,12 @@ zio_crypt_init_uios_normal(boolean_t encrypt, uint8_t *plainbuf,
 
 	return (0);
 
-  error:
+error:
 	zio_crypt_destroy_uio(*puio);
 	zio_crypt_destroy_uio(*cuio);
 
 	*enc_len = 0;
-	return ret;
+	return (ret);
 }
 
 
@@ -1849,7 +1854,8 @@ zio_do_crypt_data(boolean_t encrypt, zio_crypt_key_t *key,
 	boolean_t locked = B_FALSE;
 	uint64_t crypt = key->zk_crypt;
 	uint_t keydata_len = zio_crypt_table[crypt].ci_keylen;
-	/* We have to delay the allocation call uio_create() until we know
+	/*
+	 * We have to delay the allocation call uio_create() until we know
 	 * how many iovecs we want (as max).
 	 */
 	uio_t *puio = NULL, *cuio = NULL;

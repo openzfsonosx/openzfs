@@ -50,10 +50,10 @@
 #include <sys/zvol_os.h>
 #include <sys/kstat_osx.h>
 
-int zfs_major				= 0;
-int zfs_bmajor				= 0;
+int zfs_major			= 0;
+int zfs_bmajor			= 0;
 static void *zfs_devnode 	= NULL;
-#define ZFS_MAJOR			-24
+#define	ZFS_MAJOR		-24
 
 boolean_t
 zfs_vfs_held(zfsvfs_t *zfsvfs)
@@ -110,11 +110,7 @@ zfsdev_state_init(dev_t dev)
 	}
 
 	/* Store this dev_t in tsd, so zfs_get_private() can retrieve it */
-	//printf("%s: saving dev x%x (minor %d) for later\n", __func__, dev, minor);
 	tsd_set(zfsdev_private_tsd, (void *)(uintptr_t)dev);
-
-	//zs->zs_dev = dev;
-	//filp->f_private = zs;
 
 	zfs_onexit_init((zfs_onexit_t **)&zs->zs_onexit);
 	zfs_zevent_init((zfs_zevent_t **)&zs->zs_zevent);
@@ -137,9 +133,10 @@ zfsdev_state_init(dev_t dev)
 	return (0);
 }
 
-dev_t zfsdev_get_dev(void)
+dev_t
+zfsdev_get_dev(void)
 {
-	return (dev_t)tsd_get(zfsdev_private_tsd);
+	return ((dev_t)tsd_get(zfsdev_private_tsd));
 }
 
 static int
@@ -155,11 +152,9 @@ zfsdev_state_destroy(dev_t dev)
 
 	if (!zs) {
 		printf("%s: no cleanup for minor x%x\n", __func__,
-			minor(dev));
+		    minor(dev));
 		return (0);
 	}
-
-	//printf("%s: minor %d\n", __func__, zs->zs_minor);
 
 	ASSERT(zs != NULL);
 	if (zs->zs_minor != -1) {
@@ -215,16 +210,16 @@ zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
 	uaddr = (user_addr_t)zit->zfs_cmd;
 
 	if (len != sizeof (zfs_iocparm_t)) {
-		/* printf("len %d vecnum: %d sizeof (zfs_cmd_t) %lu\n",
-		   len, vecnum, sizeof (zfs_cmd_t)); */
+		/*
+		 * printf("len %d vecnum: %d sizeof (zfs_cmd_t) %lu\n",
+		 *  len, vecnum, sizeof (zfs_cmd_t));
+		 */
 		/*
 		 * We can get plenty raw ioctl()s here, for exaple open() will
 		 * cause spec_open() to issue DKIOCGETTHROTTLEMASK.
 		 */
 		return (EINVAL);
 	}
-
-	//printf("%s: incoming vecnum %d\n", __func__, vecnum);
 
 	zc = kmem_zalloc(sizeof (zfs_cmd_t), KM_SLEEP);
 
@@ -240,8 +235,10 @@ zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
 	if (error == 0 && rc != 0)
 		error = -SET_ERROR(EFAULT);
 
-	/* OSX must return(0) or XNU doesn't copyout(). Save the real
-	 * rc to userland */
+	/*
+	 * OSX must return(0) or XNU doesn't copyout(). Save the real
+	 * rc to userland
+	 */
 	zit->zfs_ioc_error = error;
 	error = 0;
 
@@ -269,7 +266,7 @@ zfs_ioc_osx_proxy_dataset(zfs_cmd_t *zc)
 
 	if (!error)
 		error = zfs_osx_proxy_get_bsdname(osname,
-		    zc->zc_value, sizeof(zc->zc_value));
+		    zc->zc_value, sizeof (zc->zc_value));
 	if (error)
 		printf("%s: Created virtual disk '%s' for '%s'\n", __func__,
 		    zc->zc_value, osname);
@@ -291,34 +288,34 @@ static int
 zfsdev_bioctl(dev_t dev, u_long cmd, caddr_t data,
     __unused int flag, struct proc *p)
 {
-    return (zvol_os_ioctl(dev, cmd, data, 1, NULL, NULL));
+	return (zvol_os_ioctl(dev, cmd, data, 1, NULL, NULL));
 }
 
 static struct bdevsw zfs_bdevsw = {
-	.d_open			= zvol_os_open,
-	.d_close		= zvol_os_close,
-	.d_strategy		= zvol_os_strategy,
-	.d_ioctl		= zfsdev_bioctl, /* block ioctl handler */
-	.d_dump			= eno_dump,
-	.d_psize		= zvol_os_get_volume_blocksize,
-	.d_type			= D_DISK,
+	.d_open		= zvol_os_open,
+	.d_close	= zvol_os_close,
+	.d_strategy	= zvol_os_strategy,
+	.d_ioctl	= zfsdev_bioctl, /* block ioctl handler */
+	.d_dump		= eno_dump,
+	.d_psize	= zvol_os_get_volume_blocksize,
+	.d_type		= D_DISK,
 };
 
 static struct cdevsw zfs_cdevsw = {
-	.d_open			= zfsdev_open,
-	.d_close		= zfsdev_release,
-	.d_read			= zvol_os_read,
-	.d_write		= zvol_os_write,
-	.d_ioctl		= zfsdev_ioctl,
-	.d_stop			= eno_stop,
-	.d_reset		= eno_reset,
-	.d_ttys			= NULL,
-	.d_select		= eno_select,
-	.d_mmap			= eno_mmap,
-	.d_strategy		= eno_strat,
+	.d_open		= zfsdev_open,
+	.d_close	= zfsdev_release,
+	.d_read		= zvol_os_read,
+	.d_write	= zvol_os_write,
+	.d_ioctl	= zfsdev_ioctl,
+	.d_stop		= eno_stop,
+	.d_reset	= eno_reset,
+	.d_ttys		= NULL,
+	.d_select	= eno_select,
+	.d_mmap		= eno_mmap,
+	.d_strategy	= eno_strat,
 	.d_reserved_1	= eno_getc,
 	.d_reserved_2	= eno_putc,
-	.d_type			= D_DISK
+	.d_type		= D_DISK
 };
 
 /* Callback to create a unique minor for each open */
@@ -331,9 +328,9 @@ zfs_devfs_clone(__unused dev_t dev, int action)
 		mutex_enter(&zfsdev_state_lock);
 		minorx = zfsdev_minor_alloc();
 		mutex_exit(&zfsdev_state_lock);
-		return minorx;
+		return (minorx);
 	}
-	return -1;
+	return (-1);
 }
 
 int
@@ -349,9 +346,9 @@ zfsdev_attach(void)
 		return (-1);
 	}
 
-	dev = makedev(zfs_major, 0);/* Get the device number */
-	zfs_devnode = devfs_make_node_clone(dev, DEVFS_CHAR, UID_ROOT, GID_WHEEL,
-	    0666, zfs_devfs_clone, "zfs", 0);
+	dev = makedev(zfs_major, 0); /* Get the device number */
+	zfs_devnode = devfs_make_node_clone(dev, DEVFS_CHAR, UID_ROOT,
+	    GID_WHEEL, 0666, zfs_devfs_clone, "zfs", 0);
 	if (!zfs_devnode) {
 		printf("ZFS: devfs_make_node() failed\n");
 		return (-1);
@@ -378,11 +375,11 @@ zfsdev_detach(void)
 	tsd_destroy(&zfsdev_private_tsd);
 
 	wrap_lua_fini();
-    wrap_icp_fini();
-    wrap_zcommon_fini();
-    wrap_nvpair_fini();
-    wrap_unicode_fini();
-    wrap_avl_fini();
+	wrap_icp_fini();
+	wrap_zcommon_fini();
+	wrap_nvpair_fini();
+	wrap_unicode_fini();
+	wrap_avl_fini();
 
 	if (zfs_devnode) {
 		devfs_remove(zfs_devnode);

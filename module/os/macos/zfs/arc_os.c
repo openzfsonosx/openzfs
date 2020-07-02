@@ -103,7 +103,7 @@ static _Atomic int64_t reclaim_shrink_target = 0;
 uint64_t
 arc_all_memory(void)
 {
-	return kmem_size();
+	return (kmem_size());
 }
 
 /*
@@ -117,7 +117,7 @@ arc_free_memory(void)
 	int64_t avail;
 
 	avail = spl_free_wrapper();
-	return avail >= 0LL ? avail : 0LL;
+	return (avail >= 0LL ? avail : 0LL);
 }
 
 /*
@@ -137,8 +137,7 @@ arc_available_memory(void)
 	 */
 	lowest = spl_free_wrapper();
 	r = FMR_NEEDFREE;
-	if(spl_free_fast_pressure_wrapper() != FALSE /* &&
-		arc_reclaim_in_loop == B_FALSE*/) {
+	if (spl_free_fast_pressure_wrapper() != FALSE) {
 		/* wake up arc_reclaim_thread() if it is sleeping */
 		cv_signal(&arc_reclaim_thread_cv);
 	}
@@ -178,18 +177,18 @@ arc_memory_throttle(spa_t *spa, uint64_t reserve, uint64_t txg)
 	 * continue to let page writes occur as quickly as possible.
 	 */
 
-	if(spl_free_manual_pressure_wrapper() != 0
-		 && arc_reclaim_in_loop == B_FALSE) {
+	if (spl_free_manual_pressure_wrapper() != 0 &&
+	    arc_reclaim_in_loop == B_FALSE) {
 		cv_signal(&arc_reclaim_thread_cv);
 		kpreempt(KPREEMPT_SYNC);
 		page_load = 0;
 	}
 
-	if(!spl_minimal_physmem_p() && page_load > 0) {
+	if (!spl_minimal_physmem_p() && page_load > 0) {
 		ARCSTAT_INCR(arcstat_memory_throttle_count, 1);
-		printf("ZFS: %s: !spl_minimal_physmem_p(), available_memory == %lld, "
-			"page_load = %llu, txg = %llu, reserve = %llu\n",
-			__func__, available_memory, page_load, txg, reserve);
+		printf("ZFS: %s: !spl_minimal_physmem_p(), available_memory "
+		    "== %lld, page_load = %llu, txg = %llu, reserve = %llu\n",
+		    __func__, available_memory, page_load, txg, reserve);
 		if (arc_reclaim_in_loop == B_FALSE)
 			cv_signal(&arc_reclaim_thread_cv);
 		kpreempt(KPREEMPT_SYNC);
@@ -197,11 +196,11 @@ arc_memory_throttle(spa_t *spa, uint64_t reserve, uint64_t txg)
 		return (SET_ERROR(EAGAIN));
 	}
 
-	if(arc_reclaim_needed() && page_load > 0) {
+	if (arc_reclaim_needed() && page_load > 0) {
 		ARCSTAT_INCR(arcstat_memory_throttle_count, 1);
-		printf("ZFS: %s: arc_reclaim_needed(), available_memory == %lld, "
-			"page_load = %llu, txg = %llu, reserve = %lld\n",
-			__func__, available_memory, page_load, txg, reserve);
+		printf("ZFS: %s: arc_reclaim_needed(), available_memory "
+		    "== %lld, page_load = %llu, txg = %llu, reserve = %lld\n",
+		    __func__, available_memory, page_load, txg, reserve);
 		if (arc_reclaim_in_loop == B_FALSE)
 			cv_signal(&arc_reclaim_thread_cv);
 		kpreempt(KPREEMPT_SYNC);
@@ -210,11 +209,11 @@ arc_memory_throttle(spa_t *spa, uint64_t reserve, uint64_t txg)
 	}
 
 	/* as with sun, assume we are reclaiming */
-	if(available_memory <= 0 || page_load > available_memory / 4) {
+	if (available_memory <= 0 || page_load > available_memory / 4) {
 		return (SET_ERROR(ERESTART));
 	}
 
-	if(!spl_minimal_physmem_p()) {
+	if (!spl_minimal_physmem_p()) {
 		page_load += reserve/8;
 		return (0);
 	}
@@ -305,8 +304,8 @@ static void arc_kmem_reap_now(void)
 static void
 arc_reclaim_thread(void *unused)
 {
-	hrtime_t                growtime = 0;
-	callb_cpr_t             cpr;
+	hrtime_t growtime = 0;
+	callb_cpr_t cpr;
 
 	CALLB_CPR_INIT(&cpr, &arc_reclaim_lock, callb_generic_cpr, FTAG);
 
@@ -321,7 +320,7 @@ arc_reclaim_thread(void *unused)
 			int64_t t = reclaim_shrink_target;
 			reclaim_shrink_target = 0;
 			evicted = arc_shrink(t);
-			extern kmem_cache_t     *abd_chunk_cache;
+			extern kmem_cache_t *abd_chunk_cache;
 			kmem_cache_reap_now(abd_chunk_cache);
 			IOSleep(1);
 			goto lock_and_sleep;
@@ -342,24 +341,30 @@ arc_reclaim_thread(void *unused)
 
 		int64_t free_memory = arc_available_memory();
 
-		int64_t post_adjust_manual_pressure = spl_free_manual_pressure_wrapper();
-		manual_pressure = MAX(manual_pressure,post_adjust_manual_pressure);
+		int64_t post_adjust_manual_pressure =
+		    spl_free_manual_pressure_wrapper();
+		manual_pressure = MAX(manual_pressure,
+		    post_adjust_manual_pressure);
 		spl_free_set_pressure(0);
 
-		int64_t post_adjust_free_memory = MIN(spl_free_wrapper(), arc_available_memory());
+		int64_t post_adjust_free_memory =
+		    MIN(spl_free_wrapper(), arc_available_memory());
 
-		// if arc_adjust() evicted, we expect post_adjust_free_memory to be
-		// larger than pre_adjust_free_memory (as there should be more free memory).
-		int64_t d_adj = post_adjust_free_memory - pre_adjust_free_memory;
+		// if arc_adjust() evicted, we expect post_adjust_free_memory
+		// to be larger than pre_adjust_free_memory (as there should
+		// be more free memory).
+		int64_t d_adj = post_adjust_free_memory -
+		    pre_adjust_free_memory;
 
 		if (manual_pressure > 0 && post_adjust_manual_pressure == 0) {
-			// pressure did not get re-signalled during the arc_adjust()
+			// pressure did not get re-signalled during arc_adjust()
 			if (d_adj >= 0) {
 				manual_pressure -= MIN(evicted, d_adj);
 			} else {
 				manual_pressure -= evicted;
 			}
-		} else if (evicted > 0 && manual_pressure > 0 && post_adjust_manual_pressure > 0) {
+		} else if (evicted > 0 && manual_pressure > 0 &&
+		    post_adjust_manual_pressure > 0) {
 			// otherwise use the most recent pressure value
 			manual_pressure = post_adjust_manual_pressure;
 		}
@@ -367,38 +372,39 @@ arc_reclaim_thread(void *unused)
 		free_memory = post_adjust_free_memory;
 
 		if (free_memory >= 0 && manual_pressure <= 0 && evicted > 0) {
-			extern kmem_cache_t     *abd_chunk_cache;
+			extern kmem_cache_t *abd_chunk_cache;
 			kmem_cache_reap_now(abd_chunk_cache);
 		}
 
 		if (free_memory < 0 || manual_pressure > 0) {
 
-			if (free_memory <= (arc_c >> arc_no_grow_shift) + SPA_MAXBLOCKSIZE) {
+			if (free_memory <=
+			    (arc_c >> arc_no_grow_shift) + SPA_MAXBLOCKSIZE) {
 				arc_no_grow = B_TRUE;
 
-				/*
-				 * Absorb occasional low memory conditions, as they
-				 * may be caused by a single sequentially writing thread
-				 * pushing a lot of dirty data into the ARC.
-				 *
-				 * In particular, we want to quickly
-				 * begin re-growing the ARC if we are
-				 * not in chronic high pressure.
-				 * However, if we're in chronic high
-				 * pressure, we want to reduce reclaim
-				 * thread work by keeping arc_no_grow set.
-				 *
-				 * If growtime is in the past, then set it to last
-				 * half a second (which is the length of the
-				 * cv_timedwait_hires() call below; if this works,
-				 * that value should be a parameter, #defined or constified.
-				 *
-				 * If growtime is in the future, then make sure that it
-				 * is no further than 60 seconds into the future.
-				 * If it's in the nearer future, then grow growtime by
-				 * an exponentially increasing value starting with 500msec.
-				 *
-				 */
+		/*
+		 * Absorb occasional low memory conditions, as they
+		 * may be caused by a single sequentially writing thread
+		 * pushing a lot of dirty data into the ARC.
+		 *
+		 * In particular, we want to quickly
+		 * begin re-growing the ARC if we are
+		 * not in chronic high pressure.
+		 * However, if we're in chronic high
+		 * pressure, we want to reduce reclaim
+		 * thread work by keeping arc_no_grow set.
+		 *
+		 * If growtime is in the past, then set it to last
+		 * half a second (which is the length of the
+		 * cv_timedwait_hires() call below; if this works,
+		 * that value should be a parameter, #defined or constified.
+		 *
+		 * If growtime is in the future, then make sure that it
+		 * is no further than 60 seconds into the future.
+		 * If it's in the nearer future, then grow growtime by
+		 * an exponentially increasing value starting with 500msec.
+		 *
+		 */
 				const hrtime_t curtime = gethrtime();
 				const hrtime_t agr = SEC2NSEC(arc_grow_retry);
 				static int grow_pass = 0;
@@ -408,28 +414,32 @@ arc_reclaim_thread(void *unused)
 					grow_pass = 0;
 				} else {
 					// check for 500ms not being enough
-					ASSERT3U(growtime,>,curtime);
+					ASSERT3U(growtime, >, curtime);
 					if (growtime <= curtime)
-						growtime = curtime + MSEC2NSEC(500);
+						growtime = curtime +
+						    MSEC2NSEC(500);
 
 					// growtime is in the future!
-					const hrtime_t difference = growtime - curtime;
+					const hrtime_t difference =
+					    growtime - curtime;
 
 					if (difference >= agr) {
-						// cap at arc_grow_retry seconds from now
+						// cap arc_grow_retry secs now
 						growtime = curtime + agr - 1LL;
 						grow_pass = 0;
 					} else {
-                                                hrtime_t grow_by =
-                                                    MSEC2NSEC(500) * (1LL << grow_pass);
+						hrtime_t grow_by =
+						    MSEC2NSEC(500) *
+						    (1LL << grow_pass);
 
-                                                if (grow_by > (agr >> 1))
-													grow_by = agr >> 1;
+						if (grow_by > (agr >> 1))
+							grow_by = agr >> 1;
 
-                                                growtime += grow_by;
+						growtime += grow_by;
 
-                                                if (grow_pass < 10) // add 512 seconds maximum
-													grow_pass++;
+						// add 512 seconds maximum
+						if (grow_pass < 10)
+							grow_pass++;
 					}
 				}
 			}
@@ -446,58 +456,80 @@ arc_reclaim_thread(void *unused)
 
 			static int64_t old_to_free = 0;
 
-                        int64_t to_free =
-                            (arc_c >> arc_shrink_shift) - free_memory;
+			int64_t to_free =
+			    (arc_c >> arc_shrink_shift) - free_memory;
 
-                        if(to_free > 0 || manual_pressure != 0) {
-							const int64_t large_amount = 32LL * 1024LL * 1024LL; // 2 * SPA_MAXBLOCKSIZE
-							const int64_t huge_amount = 128LL * 1024LL * 1024LL;
+			if (to_free > 0 || manual_pressure != 0) {
+				// 2 * SPA_MAXBLOCKSIZE
+				const int64_t large_amount =
+				    32LL * 1024LL * 1024LL;
+				const int64_t huge_amount =
+				    128LL * 1024LL * 1024LL;
 
-							if (to_free > large_amount || evicted > huge_amount)
-								printf("SPL: %s: post-reap %lld post-evict %lld adjusted %lld "
-									"pre-adjust %lld to-free %lld pressure %lld\n",
-									__func__, free_memory, d_adj, evicted,
-									pre_adjust_free_memory, to_free, manual_pressure);
-							to_free = MAX(to_free, manual_pressure);
+				if (to_free > large_amount ||
+				    evicted > huge_amount)
+					printf("SPL: %s: post-reap %lld "
+					    "post-evict %lld adjusted %lld "
+					    "pre-adjust %lld to-free %lld"
+					    " pressure %lld\n",
+					    __func__, free_memory, d_adj,
+					    evicted, pre_adjust_free_memory,
+					    to_free, manual_pressure);
+				to_free = MAX(to_free, manual_pressure);
 
-							int64_t old_arc_size = (int64_t)aggsum_value(&arc_size);
-							(void) arc_shrink(to_free);
-							int64_t new_arc_size = (int64_t)aggsum_value(&arc_size);
-							int64_t arc_shrink_freed = old_arc_size - new_arc_size;
-							int64_t left_to_free = to_free - arc_shrink_freed;
-							if (left_to_free <= 0) {
-								if (arc_shrink_freed > large_amount) {
-									printf("ZFS: %s, arc_shrink freed %lld, "
-										"zeroing old_to_free from %lld\n",
-										__func__, arc_shrink_freed, old_to_free);
-								}
-								old_to_free = 0;
-							} else if (arc_shrink_freed > 2LL * (int64_t)SPA_MAXBLOCKSIZE) {
-								printf("ZFS: %s, arc_shrink freed %lld, setting old_to_free to %lld from %lld\n",
-									__func__, arc_shrink_freed, left_to_free, old_to_free);
-								old_to_free = left_to_free;
-							} else {
-								old_to_free = left_to_free;
-							}
+				int64_t old_arc_size =
+				    (int64_t)aggsum_value(&arc_size);
+				(void) arc_shrink(to_free);
+				int64_t new_arc_size =
+				    (int64_t)aggsum_value(&arc_size);
+				int64_t arc_shrink_freed =
+				    old_arc_size - new_arc_size;
+				int64_t left_to_free =
+				    to_free - arc_shrink_freed;
+				if (left_to_free <= 0) {
+					if (arc_shrink_freed > large_amount) {
+						printf("ZFS: %s, arc_shrink "
+						    "freed %lld, zeroing "
+						    "old_to_free from %lld\n",
+						    __func__, arc_shrink_freed,
+						    old_to_free);
+					}
+					old_to_free = 0;
+				} else if (arc_shrink_freed > 2LL *
+				    (int64_t)SPA_MAXBLOCKSIZE) {
+					printf("ZFS: %s, arc_shrink freed "
+					    "%lld, setting old_to_free to "
+					    "%lld from %lld\n",
+					    __func__, arc_shrink_freed,
+					    left_to_free, old_to_free);
+					old_to_free = left_to_free;
+				} else {
+					old_to_free = left_to_free;
+				}
 
-							// If we have reduced ARC by a lot before this point,
-							// try to give memory back to lower arenas (and possibly xnu).
+				// If we have reduced ARC by a lot before
+				// this point, try to give memory back to
+				// lower arenas (and possibly xnu).
 
-							int64_t total_freed = arc_shrink_freed + evicted;
-							if (total_freed >= huge_amount) {
-								if (zio_arena_parent != NULL)
-									vmem_qcache_reap(zio_arena_parent);
-							}
-							if (arc_shrink_freed > 0)
-								evicted += arc_shrink_freed;
-                        } else if (old_to_free > 0) {
-							printf("ZFS: %s, (old_)to_free has returned to zero from %lld\n",
-								__func__, old_to_free);
-							old_to_free = 0;
-                        }
+				int64_t total_freed =
+				    arc_shrink_freed + evicted;
+				if (total_freed >= huge_amount) {
+					if (zio_arena_parent != NULL)
+						vmem_qcache_reap(
+						    zio_arena_parent);
+				}
+				if (arc_shrink_freed > 0)
+					evicted += arc_shrink_freed;
+			} else if (old_to_free > 0) {
+				printf("ZFS: %s, (old_)to_free has "
+				    "returned to zero from %lld\n",
+				    __func__, old_to_free);
+				old_to_free = 0;
+			}
 
 		} else if (free_memory < (arc_c >> arc_no_grow_shift) &&
-			aggsum_value(&arc_size) > arc_c_min + SPA_MAXBLOCKSIZE) {
+		    aggsum_value(&arc_size) >
+		    arc_c_min + SPA_MAXBLOCKSIZE) {
 			// relatively low memory and arc is above arc_c_min
 			arc_no_grow = B_TRUE;
 			growtime = gethrtime() + SEC2NSEC(1);
@@ -510,7 +542,7 @@ arc_reclaim_thread(void *unused)
 			arc_no_grow = B_FALSE;
 		}
 
-	  lock_and_sleep:
+lock_and_sleep:
 
 		mutex_enter(&arc_reclaim_lock);
 
@@ -523,7 +555,7 @@ arc_reclaim_thread(void *unused)
 		 * be helpful and could potentially cause us to enter an
 		 * infinite loop.
 		 */
-		if (aggsum_compare(&arc_size, arc_c) <= 0|| evicted == 0) {
+		if (aggsum_compare(&arc_size, arc_c) <= 0 || evicted == 0) {
 			/*
 			 * We're either no longer overflowing, or we
 			 * can't evict anything more, so we should wake
@@ -539,7 +571,7 @@ arc_reclaim_thread(void *unused)
 			 */
 			CALLB_CPR_SAFE_BEGIN(&cpr);
 			(void) cv_timedwait_hires(&arc_reclaim_thread_cv,
-				&arc_reclaim_lock, MSEC2NSEC(500), MSEC2NSEC(1), 0);
+			    &arc_reclaim_lock, MSEC2NSEC(500), MSEC2NSEC(1), 0);
 			CALLB_CPR_SAFE_END(&cpr, &arc_reclaim_lock);
 
 		} else if (evicted >= SPA_MAXBLOCKSIZE * 3) {
@@ -555,7 +587,7 @@ arc_reclaim_thread(void *unused)
 
 	arc_reclaim_thread_exit = B_FALSE;
 	cv_broadcast(&arc_reclaim_thread_cv);
-	CALLB_CPR_EXIT(&cpr);           /* drops arc_reclaim_lock */
+	CALLB_CPR_EXIT(&cpr); /* drops arc_reclaim_lock */
 	thread_exit();
 }
 
@@ -576,7 +608,7 @@ arc_os_init(void)
 	arc_reclaim_thread_exit = B_FALSE;
 
 	(void) thread_create(NULL, 0, arc_reclaim_thread, NULL, 0, &p0,
-		TS_RUN, minclsyspri);
+	    TS_RUN, minclsyspri);
 
 	arc_warm = B_FALSE;
 
@@ -618,7 +650,8 @@ arc_os_fini(void)
 
 /* So close, they made arc_min_prefetch_ms be static, but no others */
 
-int arc_kstat_update_osx(kstat_t *ksp, int rw)
+int
+arc_kstat_update_osx(kstat_t *ksp, int rw)
 {
 	osx_kstat_t *ks = ksp->ks_data;
 
@@ -631,7 +664,8 @@ int arc_kstat_update_osx(kstat_t *ksp, int rw)
 			zfs_arc_max = ks->arc_zfs_arc_max.value.ui64;
 
 			/* Update ARC with new value */
-			if (zfs_arc_max > 64<<20 && zfs_arc_max < physmem * PAGESIZE)
+			if (zfs_arc_max > 64<<20 && zfs_arc_max <
+			    physmem * PAGESIZE)
 				arc_c_max = zfs_arc_max;
 
 			arc_c = arc_c_max;
@@ -646,14 +680,17 @@ int arc_kstat_update_osx(kstat_t *ksp, int rw)
 			zfs_arc_min = ks->arc_zfs_arc_min.value.ui64;
 			if (zfs_arc_min > 64<<20 && zfs_arc_min <= arc_c_max) {
 				arc_c_min = zfs_arc_min;
-				printf("ZFS: set arc_c_min %llu, arc_meta_min %llu, zfs_arc_meta_min %llu\n",
-					arc_c_min, arc_meta_min, zfs_arc_meta_min);
-				if(arc_c < arc_c_min) {
-					printf("ZFS: raise arc_c %llu to arc_c_min %llu\n",
-					    arc_c, arc_c_min);
+				printf("ZFS: set arc_c_min %llu, arc_meta_min "
+				    "%llu, zfs_arc_meta_min %llu\n",
+				    arc_c_min, arc_meta_min, zfs_arc_meta_min);
+				if (arc_c < arc_c_min) {
+					printf("ZFS: raise arc_c %llu to "
+					    "arc_c_min %llu\n", arc_c,
+					    arc_c_min);
 					arc_c = arc_c_min;
-					if(arc_p < (arc_c >> 1)) {
-						printf("ZFS: raise arc_p %llu to %llu\n",
+					if (arc_p < (arc_c >> 1)) {
+						printf("ZFS: raise arc_p %llu "
+						    "to %llu\n",
 						    arc_p, (arc_c >> 1));
 						arc_p = (arc_c >> 1);
 					}
@@ -661,62 +698,61 @@ int arc_kstat_update_osx(kstat_t *ksp, int rw)
 			}
 		}
 
-		if (ks->arc_zfs_arc_meta_limit.value.ui64 != zfs_arc_meta_limit) {
-			zfs_arc_meta_limit  = ks->arc_zfs_arc_meta_limit.value.ui64;
+		if (ks->arc_zfs_arc_meta_limit.value.ui64 !=
+		    zfs_arc_meta_limit) {
+			zfs_arc_meta_limit =
+			    ks->arc_zfs_arc_meta_limit.value.ui64;
 
 			/* Allow the tunable to override if it is reasonable */
-			if (zfs_arc_meta_limit > 0 && zfs_arc_meta_limit <= arc_c_max)
+			if (zfs_arc_meta_limit > 0 &&
+			    zfs_arc_meta_limit <= arc_c_max)
 				arc_meta_limit = zfs_arc_meta_limit;
 
-			if (arc_c_min < arc_meta_limit / 2 && zfs_arc_min == 0)
+			if (arc_c_min < arc_meta_limit / 2 &&
+			    zfs_arc_min == 0)
 				arc_c_min = arc_meta_limit / 2;
 
-			printf("ZFS: set arc_meta_limit %llu, arc_c_min %llu, zfs_arc_meta_limit %lu\n",
-				arc_meta_limit, arc_c_min, zfs_arc_meta_limit);
+			printf("ZFS: set arc_meta_limit %llu, arc_c_min %llu,"
+			    "zfs_arc_meta_limit %lu\n",
+			    arc_meta_limit, arc_c_min, zfs_arc_meta_limit);
 		}
 
 		if (ks->arc_zfs_arc_meta_min.value.ui64 != zfs_arc_meta_min) {
 			zfs_arc_meta_min  = ks->arc_zfs_arc_meta_min.value.ui64;
 			if (zfs_arc_meta_min >= arc_c_min) {
-				printf("ZFS: probable error, zfs_arc_meta_min %llu >= arc_c_min %llu\n",
+				printf("ZFS: probable error, zfs_arc_meta_min "
+				    "%llu >= arc_c_min %llu\n",
 				    zfs_arc_meta_min, arc_c_min);
 			}
-			if (zfs_arc_meta_min > 0 && zfs_arc_meta_min <= arc_meta_limit)
+			if (zfs_arc_meta_min > 0 &&
+			    zfs_arc_meta_min <= arc_meta_limit)
 				arc_meta_min = zfs_arc_meta_min;
 			printf("ZFS: set arc_meta_min %llu\n", arc_meta_min);
 		}
 
-		zfs_arc_grow_retry        = ks->arc_zfs_arc_grow_retry.value.ui64;
-        arc_grow_retry = zfs_arc_grow_retry;
-		zfs_arc_shrink_shift      = ks->arc_zfs_arc_shrink_shift.value.ui64;
-		zfs_arc_p_min_shift       = ks->arc_zfs_arc_p_min_shift.value.ui64;
-		zfs_arc_average_blocksize = ks->arc_zfs_arc_average_blocksize.value.ui64;
+		zfs_arc_grow_retry = ks->arc_zfs_arc_grow_retry.value.ui64;
+		arc_grow_retry = zfs_arc_grow_retry;
+		zfs_arc_shrink_shift = ks->arc_zfs_arc_shrink_shift.value.ui64;
+		zfs_arc_p_min_shift = ks->arc_zfs_arc_p_min_shift.value.ui64;
+		zfs_arc_average_blocksize =
+		    ks->arc_zfs_arc_average_blocksize.value.ui64;
 
 	} else {
 
-		ks->arc_zfs_arc_max.value.ui64        = zfs_arc_max;
-		ks->arc_zfs_arc_min.value.ui64        = zfs_arc_min;
-
-		/* Valid range: 1 - N ms */
-//		if (zfs_arc_min_prefetch_ms)
-//			arc_min_prefetch_ms = zfs_arc_min_prefetch_ms;
-
-		/* Valid range: 1 - N ms */
-//		if (zfs_arc_min_prescient_prefetch_ms) {
-//                        arc_min_prescient_prefetch_ms =
-//							zfs_arc_min_prescient_prefetch_ms;
-//		}
+		ks->arc_zfs_arc_max.value.ui64 = zfs_arc_max;
+		ks->arc_zfs_arc_min.value.ui64 = zfs_arc_min;
 
 		ks->arc_zfs_arc_meta_limit.value.ui64 = zfs_arc_meta_limit;
-		ks->arc_zfs_arc_meta_min.value.ui64 =   zfs_arc_meta_min;
+		ks->arc_zfs_arc_meta_min.value.ui64 = zfs_arc_meta_min;
 
-		ks->arc_zfs_arc_grow_retry.value.ui64        =
-			zfs_arc_grow_retry ? zfs_arc_grow_retry : arc_grow_retry;
-		ks->arc_zfs_arc_shrink_shift.value.ui64      = zfs_arc_shrink_shift;
-		ks->arc_zfs_arc_p_min_shift.value.ui64       = zfs_arc_p_min_shift;
-		ks->arc_zfs_arc_average_blocksize.value.ui64 = zfs_arc_average_blocksize;
+		ks->arc_zfs_arc_grow_retry.value.ui64 =
+		    zfs_arc_grow_retry ? zfs_arc_grow_retry : arc_grow_retry;
+		ks->arc_zfs_arc_shrink_shift.value.ui64 = zfs_arc_shrink_shift;
+		ks->arc_zfs_arc_p_min_shift.value.ui64 = zfs_arc_p_min_shift;
+		ks->arc_zfs_arc_average_blocksize.value.ui64 =
+		    zfs_arc_average_blocksize;
 	}
-	return 0;
+	return (0);
 }
 
 /*
@@ -753,7 +789,7 @@ arc_prune_async(int64_t adjust)
 
 	mutex_enter(&arc_prune_mtx);
 	for (ap = list_head(&arc_prune_list); ap != NULL;
-		 ap = list_next(&arc_prune_list, ap)) {
+	    ap = list_next(&arc_prune_list, ap)) {
 
 		if (zfs_refcount_count(&ap->p_refcnt) >= 2)
 			continue;
@@ -761,7 +797,7 @@ arc_prune_async(int64_t adjust)
 		zfs_refcount_add(&ap->p_refcnt, ap->p_pfunc);
 		ap->p_adjust = adjust;
 		if (taskq_dispatch(arc_prune_taskq, arc_prune_task,
-				ap, TQ_SLEEP) == TASKQID_INVALID) {
+		    ap, TQ_SLEEP) == TASKQID_INVALID) {
 			zfs_refcount_remove(&ap->p_refcnt, ap->p_pfunc);
 			continue;
 		}
@@ -807,4 +843,3 @@ arc_free_memory(void)
 }
 
 #endif /* KERNEL */
-

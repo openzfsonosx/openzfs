@@ -48,28 +48,28 @@
 /*
  * ZVOL Device
  */
-#define DEBUG
+#define	DEBUG
 #if defined(DEBUG) || defined(ZFS_DEBUG)
 #ifdef	dprintf
 #undef	dprintf
 #endif
-#define	dprintf(fmt, ...) do {							\
+#define	dprintf(fmt, ...) do { \
 	IOLog("zvolIO %s " fmt "\n", __func__, ##__VA_ARGS__);	\
-_NOTE(CONSTCOND) } while (0)
+	_NOTE(CONSTCOND) } while (0)
 #else
 #ifndef dprintf
 #define	dprintf(fmt, ...)	do { } while (0);
 #endif
 #endif /* if DEBUG or ZFS_DEBUG */
 
-//#define dprintf IOLog
+// #define dprintf IOLog
 
 // Define the superclass
 #define	super IOBlockStorageDevice
 
 #define	ZVOL_BSIZE	DEV_BSIZE
 
-static const char* ZVOL_PRODUCT_NAME_PREFIX = "ZVOL ";
+static const char *ZVOL_PRODUCT_NAME_PREFIX = "ZVOL ";
 
 /* Wrapper for zvol_state pointer to IOKit device */
 typedef struct zvol_iokit {
@@ -256,7 +256,7 @@ net_lundman_zfs_zvol_device::attach(IOService* provider)
 	dataNumber	= 0;
 
 	/* Publish the Device / Media name */
-	(void)snprintf(product_name, sizeof(product_name), "%s%s",
+	(void) snprintf(product_name, sizeof (product_name), "%s%s",
 	    ZVOL_PRODUCT_NAME_PREFIX, zv->zv_name);
 	dataString = OSString::withCString(product_name);
 	deviceCharacteristics->setObject(kIOPropertyProductNameKey, dataString);
@@ -501,7 +501,7 @@ bool
 net_lundman_zfs_zvol_device::handleOpen(IOService *client,
     IOOptionBits options, void *argument)
 {
-	IOStorageAccess access = ( uintptr_t )argument;
+	IOStorageAccess access = (uintptr_t)argument;
 	bool ret = false;
 	int openflags = 0;
 
@@ -510,9 +510,9 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 
 	/* Device terminating? */
 	if (zv == NULL ||
-		zv->zv_zso == NULL ||
-		zv->zv_zso->zvo_iokitdev == NULL)
-		return false;
+	    zv->zv_zso == NULL ||
+	    zv->zv_zso->zvo_iokitdev == NULL)
+		return (false);
 
 	if (access & kIOStorageAccessReaderWriter) {
 		openflags = FWRITE | ZVOL_EXCL;
@@ -539,7 +539,7 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 
 
 	dprintf("Open %s (openflags %llx)\n", (ret ? "done" : "failed"),
-		ret ? zv->zv_zso->zvo_openflags : 0);
+	    ret ? zv->zv_zso->zvo_openflags : 0);
 
 	if (ret == false)
 		super::handleClose(client, options);
@@ -555,8 +555,8 @@ net_lundman_zfs_zvol_device::handleClose(IOService *client,
 
 	/* Terminating ? */
 	if (zv == NULL ||
-		zv->zv_zso == NULL ||
-		zv->zv_zso->zvo_iokitdev == NULL)
+	    zv->zv_zso == NULL ||
+	    zv->zv_zso->zvo_iokitdev == NULL)
 		return;
 
 	zvol_os_close_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL);
@@ -605,7 +605,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 		return (kIOReturnBadArgument);
 	}
 
-	//dprintf("%s offset @block %llu numblocks %llu: blksz %u\n",
+	// dprintf("%s offset @block %llu numblocks %llu: blksz %u\n",
 	//   direction == kIODirectionIn ? "Read" : "Write",
 	//  block, nblks, (ZVOL_BSIZE));
 
@@ -726,7 +726,8 @@ net_lundman_zfs_zvol_device::getProductString(void)
 {
 	dprintf("getProduct %p\n", zv);
 
-	if (zv) return (zv->zv_name);
+	if (zv)
+		return (zv->zv_name);
 
 	return ((char *)"ZVolume");
 }
@@ -785,9 +786,9 @@ net_lundman_zfs_zvol_device::doEjectMedia(void)
 	dprintf("ejectMedia\n");
 /* XXX */
 	// Only 10.6 needs special work to eject
-	//if ((version_major == 10) && (version_minor == 8))
+	// if ((version_major == 10) && (version_minor == 8))
 	//	destroyBlockStorageDevice(zvol);
-	//}
+	// }
 
 	return (kIOReturnSuccess);
 }
@@ -864,7 +865,8 @@ net_lundman_zfs_zvol_device::reportWriteProtection(bool *isWriteProtected)
 {
 	dprintf("reportWritePro: %d\n", *isWriteProtected);
 
-	if (!isWriteProtected) return (kIOReturnSuccess);
+	if (!isWriteProtected)
+		return (kIOReturnSuccess);
 
 	if (zv && (zv->zv_flags & ZVOL_RDONLY))
 		*isWriteProtected = true;
@@ -1022,7 +1024,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 		dprintf("%s Got bsd name [%s]\n",
 		    __func__, str);
 		zv->zv_zso->zvo_bsdname[0] = 'r';
-		snprintf(zv->zv_zso->zvo_bsdname+1, sizeof(zv->zv_zso->zvo_bsdname)-1,
+		snprintf(zv->zv_zso->zvo_bsdname+1,
+		    sizeof (zv->zv_zso->zvo_bsdname)-1,
 		    "%s", str);
 		dprintf("%s zvol bsdname set to %s\n", __func__,
 		    zv->zv_zso->zvo_bsdname);
@@ -1049,7 +1052,7 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 
 	if (!iokitdev) {
 		dprintf("%s missing argument\n", __func__);
-		return NULL;
+		return (NULL);
 	}
 
 	zvol = iokitdev->dev;
@@ -1058,7 +1061,7 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 
 	if (zvol == NULL) {
 		dprintf("%s couldn't get IOKit handle\n", __func__);
-		return NULL;
+		return (NULL);
 	}
 
 	/* Mark us as terminating */
@@ -1163,9 +1166,9 @@ zvolIO_kit_read(struct iomem *iomem, uint64_t offset,
     char *address, uint64_t len)
 {
 	IOByteCount done;
-	//IOLog("zvolIO_kit_read offset %p count %llx to offset %llx\n",
+	// IOLog("zvolIO_kit_read offset %p count %llx to offset %llx\n",
 	//    address, len, offset);
-	ASSERT (iomem && address && len > 0);
+	ASSERT(iomem && address && len > 0);
 
 	done = iomem->buf->writeBytes(offset, (void *)address, len);
 
@@ -1177,9 +1180,9 @@ zvolIO_kit_write(struct iomem *iomem, uint64_t offset,
     char *address, uint64_t len)
 {
 	IOByteCount done;
-	//IOLog("zvolIO_kit_write offset %p count %llx to offset %llx\n",
+	// IOLog("zvolIO_kit_write offset %p count %llx to offset %llx\n",
 	//    address, len, offset);
-	ASSERT (iomem && address && len > 0);
+	ASSERT(iomem && address && len > 0);
 
 	done = iomem->buf->readBytes(offset, (void *)address, len);
 

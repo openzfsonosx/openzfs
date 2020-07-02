@@ -87,7 +87,7 @@ zvol_os_spawn(void (*func)(void *), void *arg)
 	taskq_init_ent(&zvr->ent);
 
 	taskq_dispatch_ent(zvol_taskq,
-		zvol_os_spawn_cb, zvr, 0, &zvr->ent);
+	    zvol_os_spawn_cb, zvr, 0, &zvr->ent);
 }
 
 /*
@@ -128,7 +128,7 @@ zvol_os_verify_and_lock(zvol_state_t *node)
 
 	rw_enter(&zvol_state_lock, RW_READER);
 	for (zv = list_head(&zvol_state_list); zv != NULL;
-		 zv = list_next(&zvol_state_list, zv)) {
+	    zv = list_next(&zvol_state_list, zv)) {
 		mutex_enter(&zv->zv_state_lock);
 		if (zv == node) {
 
@@ -160,14 +160,16 @@ zvol_os_register_device_cb(void *param)
 	rw_exit(&zv->zv_suspend_lock);
 }
 
-int zvol_os_write(dev_t dev, struct uio *uio, int p)
+int
+zvol_os_write(dev_t dev, struct uio *uio, int p)
 {
-	return ENOTSUP;
+	return (ENOTSUP);
 }
 
-int zvol_os_read(dev_t dev, struct uio *uio, int p)
+int
+zvol_os_read(dev_t dev, struct uio *uio, int p)
 {
-	return ENOTSUP;
+	return (ENOTSUP);
 }
 
 int
@@ -187,11 +189,11 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 
 	/* Some requests are just for flush and nothing else. */
 	if (count == 0)
-		return 0;
+		return (0);
 
 	volsize = zv->zv_volsize;
 	if (count > 0 &&
-		(position >= volsize))
+	    (position >= volsize))
 		return (EIO);
 
 	rw_enter(&zv->zv_suspend_lock, RW_READER);
@@ -207,14 +209,14 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 		rw_enter(&zv->zv_suspend_lock, RW_WRITER);
 		if (zv->zv_zilog == NULL) {
 			zv->zv_zilog = zil_open(zv->zv_objset,
-				zvol_get_data);
+			    zvol_get_data);
 			zv->zv_flags |= ZVOL_WRITTEN_TO;
 		}
 		rw_downgrade(&zv->zv_suspend_lock);
 	}
 
 	dprintf("zvol_write_iokit(position %llu offset "
-		"0x%llx bytes 0x%llx)\n", position, offset, count);
+	    "0x%llx bytes 0x%llx)\n", position, offset, count);
 
 	sync = (zv->zv_objset->os_sync == ZFS_SYNC_ALWAYS);
 
@@ -241,11 +243,11 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 		}
 
 		error = dmu_write_iokit_dnode(zv->zv_dn, &offset,
-			position, &bytes, iomem, tx);
+		    position, &bytes, iomem, tx);
 
 		if (error == 0) {
 			count -= MIN(count,
-				(DMU_MAX_ACCESS >> 1)) + bytes;
+			    (DMU_MAX_ACCESS >> 1)) + bytes;
 			zvol_log_write(zv, tx, offset, bytes, sync);
 		}
 		dmu_tx_commit(tx);
@@ -277,13 +279,13 @@ zvol_os_read_zv(zvol_state_t *zv, uint64_t position,
 
 	volsize = zv->zv_volsize;
 	if (count > 0 &&
-		(position >= volsize))
+	    (position >= volsize))
 		return (EIO);
 
 	rw_enter(&zv->zv_suspend_lock, RW_READER);
 
 	lr = zfs_rangelock_enter(&zv->zv_rangelock, position, count,
-		RL_READER);
+	    RL_READER);
 
 	while (count > 0 && (position+offset) < volsize) {
 		uint64_t bytes = MIN(count, DMU_MAX_ACCESS >> 1);
@@ -293,11 +295,11 @@ zvol_os_read_zv(zvol_state_t *zv, uint64_t position,
 			bytes = volsize - (position + offset);
 
 		dprintf("%s %llu offset %llu len %llu bytes %llu\n",
-			"zvol_read_iokit: position",
-			position, offset, count, bytes);
+		    "zvol_read_iokit: position",
+		    position, offset, count, bytes);
 
 		error = dmu_read_iokit_dnode(zv->zv_dn, &offset, position,
-			&bytes, iomem);
+		    &bytes, iomem);
 
 		if (error) {
 			/* convert checksum errors into IO errors */
@@ -328,14 +330,14 @@ zvol_os_unmap(zvol_state_t *zv, uint64_t off, uint64_t bytes)
 	 * XNU's wipefs_wipe() will issue one giant unmap for the entire
 	 * device;
 	 * zfs create -V 8g BOOM/vol
-	 * zvolIO doDiscard calling zvol_unmap with offset, bytes (0, 8589934592)
+	 * zvolIO doDiscard calling zvol_unmap with offset, bytes (0, 858992)
 	 * Which will both take too long, and is uneccessary. We will ignore
 	 * any unmaps deemed "too large".
 	 */
 	if ((off == 0ULL) &&
-		(zv->zv_volsize > (1ULL << 24) ) && /* 16Mb slop */
-		(bytes >= ( zv->zv_volsize - (1ULL << 24) )))
-		return 0;
+	    (zv->zv_volsize > (1ULL << 24)) && /* 16Mb slop */
+	    (bytes >= (zv->zv_volsize - (1ULL << 24))))
+		return (0);
 
 	rw_enter(&zv->zv_suspend_lock, RW_READER);
 
@@ -350,7 +352,7 @@ zvol_os_unmap(zvol_state_t *zv, uint64_t off, uint64_t bytes)
 		rw_enter(&zv->zv_suspend_lock, RW_WRITER);
 		if (zv->zv_zilog == NULL) {
 			zv->zv_zilog = zil_open(zv->zv_objset,
-				zvol_get_data);
+			    zvol_get_data);
 			zv->zv_flags |= ZVOL_WRITTEN_TO;
 		}
 		rw_downgrade(&zv->zv_suspend_lock);
@@ -359,7 +361,7 @@ zvol_os_unmap(zvol_state_t *zv, uint64_t off, uint64_t bytes)
 	off = P2ROUNDUP(off, zv->zv_volblocksize);
 	end = P2ALIGN(end, zv->zv_volblocksize);
 
-	if (end > zv->zv_volsize)       /* don't write past the end */
+	if (end > zv->zv_volsize) /* don't write past the end */
 		end = zv->zv_volsize;
 
 	if (off >= end) {
@@ -385,7 +387,7 @@ zvol_os_unmap(zvol_state_t *zv, uint64_t off, uint64_t bytes)
 		dmu_tx_commit(tx);
 
 		error = dmu_free_long_range(zv->zv_objset,
-			ZVOL_OBJ, off, bytes);
+		    ZVOL_OBJ, off, bytes);
 	}
 
 	zfs_rangelock_exit(lr);
@@ -451,7 +453,7 @@ zvol_os_find_by_dev(dev_t dev)
 
 	rw_enter(&zvol_state_lock, RW_READER);
 	for (zv = list_head(&zvol_state_list); zv != NULL;
-		 zv = list_next(&zvol_state_list, zv)) {
+	    zv = list_next(&zvol_state_list, zv)) {
 		mutex_enter(&zv->zv_state_lock);
 		if (zv->zv_zso->zvo_dev == dev) {
 			rw_exit(&zvol_state_lock);
@@ -509,7 +511,7 @@ zvol_os_alloc(dev_t dev, const char *name)
 
 	return (zv);
 #if 0
-  out_kmem:
+out_kmem:
 	kmem_free(zso, sizeof (struct zvol_state_os));
 	kmem_free(zv, sizeof (zvol_state_t));
 	return (NULL);
@@ -600,7 +602,7 @@ zvol_os_create_minor(const char *name)
 	zv->zv_volsize = volsize;
 	zv->zv_objset = os;
 
-	//set_capacity(zv->zv_zso->zvo_disk, zv->zv_volsize >> 9);
+	// set_capacity(zv->zv_zso->zvo_disk, zv->zv_volsize >> 9);
 
 	if (spa_writeable(dmu_objset_spa(os))) {
 		if (zil_replay_disable)
@@ -612,7 +614,7 @@ zvol_os_create_minor(const char *name)
 	/* Create the IOKit zvol while owned */
 	if ((error = zvolCreateNewDevice(zv)) != 0) {
 		dprintf("%s zvolCreateNewDevice error %d\n",
-			__func__, error);
+		    __func__, error);
 	}
 
 	zv->zv_objset = NULL;
@@ -652,7 +654,7 @@ static void zvol_os_rename_device_cb(void *param)
 static void
 zvol_os_rename_minor(zvol_state_t *zv, const char *newname)
 {
-	//int readonly = get_disk_ro(zv->zv_zso->zvo_disk);
+	// int readonly = get_disk_ro(zv->zv_zso->zvo_disk);
 
 	ASSERT(RW_LOCK_HELD(&zvol_state_lock));
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
@@ -674,20 +676,20 @@ zvol_os_rename_minor(zvol_state_t *zv, const char *newname)
 	 * changes.  This would normally be done using kobject_uevent() but
 	 * that is a GPL-only symbol which is why we need this workaround.
 	 */
-	//set_disk_ro(zv->zv_zso->zvo_disk, !readonly);
-	//set_disk_ro(zv->zv_zso->zvo_disk, readonly);
+	// set_disk_ro(zv->zv_zso->zvo_disk, !readonly);
+	// set_disk_ro(zv->zv_zso->zvo_disk, readonly);
 }
 
 static void
 zvol_os_set_disk_ro(zvol_state_t *zv, int flags)
 {
-	//set_disk_ro(zv->zv_zso->zvo_disk, flags);
+	// set_disk_ro(zv->zv_zso->zvo_disk, flags);
 }
 
 static void
 zvol_os_set_capacity(zvol_state_t *zv, uint64_t capacity)
 {
-	//set_capacity(zv->zv_zso->zvo_disk, capacity);
+	// set_capacity(zv->zv_zso->zvo_disk, capacity);
 }
 
 int
@@ -783,7 +785,7 @@ zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 	mutex_exit(&zv->zv_state_lock);
 	rw_exit(&zv->zv_suspend_lock);
 
-	return 0;
+	return (0);
 }
 
 int
@@ -805,7 +807,7 @@ zvol_os_close(dev_t dev, int flag, int otyp, struct proc *p)
 	error = zvol_os_close_zv(zv, flag, otyp, p);
 
 	mutex_exit(&zv->zv_state_lock);
-	return 0;
+	return (0);
 }
 
 void
@@ -868,7 +870,7 @@ zvol_os_ioctl(dev_t dev, unsigned long cmd, caddr_t data, int isblk,
 
 		case DKIOCGETBLOCKSIZE:
 			dprintf("DKIOCGETBLOCKSIZE: %llu\n",
-				zv->zv_volblocksize);
+			    zv->zv_volblocksize);
 			*f = zv->zv_volblocksize;
 			break;
 
@@ -881,7 +883,8 @@ zvol_os_ioctl(dev_t dev, unsigned long cmd, caddr_t data, int isblk,
 				break;
 			}
 
-			if (zvol_check_volblocksize(zv->zv_name, (uint64_t)*f)) {
+			if (zvol_check_volblocksize(zv->zv_name,
+			    (uint64_t)*f)) {
 				error = EINVAL;
 				break;
 			}
@@ -889,7 +892,7 @@ zvol_os_ioctl(dev_t dev, unsigned long cmd, caddr_t data, int isblk,
 			/* set the new block size */
 			zv->zv_volblocksize = (uint64_t)*f;
 			dprintf("setblocksize changed: %llu\n",
-				zv->zv_volblocksize);
+			    zv->zv_volblocksize);
 			break;
 
 		case DKIOCISWRITABLE:
@@ -902,14 +905,14 @@ zvol_os_ioctl(dev_t dev, unsigned long cmd, caddr_t data, int isblk,
 #ifdef DKIOCGETBLOCKCOUNT32
 		case DKIOCGETBLOCKCOUNT32:
 			dprintf("DKIOCGETBLOCKCOUNT32: %lu\n",
-				(uint32_t)zv->zv_volsize / zv->zv_volblocksize);
+			    (uint32_t)zv->zv_volsize / zv->zv_volblocksize);
 			*f = (uint32_t)zv->zv_volsize / zv->zv_volblocksize;
 			break;
 #endif
 
 		case DKIOCGETBLOCKCOUNT:
 			dprintf("DKIOCGETBLOCKCOUNT: %llu\n",
-				zv->zv_volsize / zv->zv_volblocksize);
+			    zv->zv_volsize / zv->zv_volblocksize);
 			*o = (uint64_t)zv->zv_volsize / zv->zv_volblocksize;
 			break;
 
@@ -1019,4 +1022,3 @@ zvol_fini(void)
 	zvol_fini_impl();
 	taskq_destroy(zvol_taskq);
 }
-

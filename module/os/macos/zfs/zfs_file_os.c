@@ -25,7 +25,7 @@
 #include <sys/file.h>
 #include <sys/zfs_ioctl.h>
 
-#define FILE_FD_NOTUSED -1
+#define	FILE_FD_NOTUSED -1
 
 /*
  * Open file
@@ -40,19 +40,19 @@ int
 zfs_file_open(const char *path, int flags, int mode, zfs_file_t **fpp)
 {
 	struct vnode *vp = NULL;
-    vfs_context_t vctx;
+	vfs_context_t vctx;
 	int error;
 
 	if (!(flags & O_CREAT) && (flags & O_WRONLY))
 		flags |= O_EXCL;
 
-    vctx = vfs_context_create((vfs_context_t)0);
-    error = vnode_open(path, flags, mode, 0, &vp, vctx);
-    (void) vfs_context_rele(vctx);
+	vctx = vfs_context_create((vfs_context_t)0);
+	error = vnode_open(path, flags, mode, 0, &vp, vctx);
+	(void) vfs_context_rele(vctx);
 	if (error == 0 &&
 	    vp != NULL) {
 		zfs_file_t *zf;
-		zf = (zfs_file_t *)kmem_zalloc(sizeof(zfs_file_t), KM_SLEEP);
+		zf = (zfs_file_t *)kmem_zalloc(sizeof (zfs_file_t), KM_SLEEP);
 		zf->f_vnode = vp;
 		zf->f_fd = FILE_FD_NOTUSED;
 		*fpp = zf;
@@ -67,17 +67,17 @@ zfs_file_open(const char *path, int flags, int mode, zfs_file_t **fpp)
 void
 zfs_file_close(zfs_file_t *fp)
 {
-    vfs_context_t vctx;
-    vctx = vfs_context_create((vfs_context_t)0);
+	vfs_context_t vctx;
+	vctx = vfs_context_create((vfs_context_t)0);
 	vnode_close(fp->f_vnode, fp->f_writes ? FWRITE : 0, vctx);
-    (void) vfs_context_rele(vctx);
+	(void) vfs_context_rele(vctx);
 
-	kmem_free(fp, sizeof(zfs_file_t));
+	kmem_free(fp, sizeof (zfs_file_t));
 }
 
 static int
 zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
-	loff_t *off, ssize_t *resid)
+    loff_t *off, ssize_t *resid)
 {
 	int error;
 	ssize_t local_resid = count;
@@ -104,7 +104,7 @@ zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
 
 	*off += count - local_resid;
 
-	return 0;
+	return (0);
 }
 
 /*
@@ -146,12 +146,12 @@ int
 zfs_file_pwrite(zfs_file_t *fp, const void *buf, size_t count, loff_t off,
     ssize_t *resid)
 {
-	return zfs_file_write_impl(fp, buf, count, &off, resid);
+	return (zfs_file_write_impl(fp, buf, count, &off, resid));
 }
 
 static ssize_t
 zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off,
-	ssize_t *resid)
+    ssize_t *resid)
 {
 	int error;
 	ssize_t local_resid = count;
@@ -167,13 +167,13 @@ zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off,
 		    kcred, &local_resid);
 
 	if (error)
-		return SET_ERROR(error);
+		return (SET_ERROR(error));
 
 	*off += count - local_resid;
 	if (resid != NULL)
 		*resid = local_resid;
 
-	return SET_ERROR(0);
+	return (SET_ERROR(0));
 }
 
 /*
@@ -232,7 +232,7 @@ zfs_file_seek(zfs_file_t *fp, loff_t *offp, int whence)
 	if (*offp < 0 || *offp > MAXOFFSET_T)
 		return (EINVAL);
 
-	switch(whence) {
+	switch (whence) {
 		case SEEK_SET:
 			fp->f_offset = *offp;
 			break;
@@ -262,7 +262,7 @@ zfs_file_seek(zfs_file_t *fp, loff_t *offp, int whence)
 int
 zfs_file_getattr(zfs_file_t *filp, zfs_file_attr_t *zfattr)
 {
-    vfs_context_t vctx;
+	vfs_context_t vctx;
 	int rc;
 	vattr_t vap;
 
@@ -271,8 +271,8 @@ zfs_file_getattr(zfs_file_t *filp, zfs_file_attr_t *zfattr)
 	VATTR_WANTED(&vap, va_mode);
 
 	vctx = vfs_context_create((vfs_context_t)0);
-    rc = vnode_getattr(filp->f_vnode, &vap, vctx);
-    (void) vfs_context_rele(vctx);
+	rc = vnode_getattr(filp->f_vnode, &vap, vctx);
+	(void) vfs_context_rele(vctx);
 
 	if (rc)
 		return (rc);
@@ -294,13 +294,13 @@ zfs_file_getattr(zfs_file_t *filp, zfs_file_attr_t *zfattr)
 int
 zfs_file_fsync(zfs_file_t *filp, int flags)
 {
-    vfs_context_t vctx;
-    int rc;
+	vfs_context_t vctx;
+	int rc;
 
-    vctx = vfs_context_create((vfs_context_t)0);
-    rc = VNOP_FSYNC(filp->f_vnode, (flags == FSYNC), vctx);
-    (void) vfs_context_rele(vctx);
-    return (rc);
+	vctx = vfs_context_create((vfs_context_t)0);
+	rc = VNOP_FSYNC(filp->f_vnode, (flags == FSYNC), vctx);
+	(void) vfs_context_rele(vctx);
+	return (rc);
 }
 
 /*
@@ -351,7 +351,7 @@ zfs_file_private(zfs_file_t *fp)
 	dev = zfsdev_get_dev();
 	printf("%s: fetching dev x%x\n", __func__, dev);
 	if (dev == 0)
-		return NULL;
+		return (NULL);
 
 	mutex_enter(&zfsdev_state_lock);
 	zs = zfsdev_get_state(minor(dev), ZST_ALL);
@@ -389,8 +389,8 @@ zfs_file_get(int fd, zfs_file_t **fpp)
 {
 	*fpp = getf(fd);
 	if (*fpp == NULL)
-		return EBADF;
-	return 0;
+		return (EBADF);
+	return (0);
 }
 
 /*

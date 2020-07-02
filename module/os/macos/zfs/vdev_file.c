@@ -79,7 +79,7 @@ vdev_file_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	zfs_file_attr_t zfa;
 	int error = 0;
 
-    dprintf("vdev_file_open %p\n", vd->vdev_tsd);
+	dprintf("vdev_file_open %p\n", vd->vdev_tsd);
 
 	/*
 	 * Rotational optimizations only make sense on block devices.
@@ -115,7 +115,6 @@ vdev_file_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	if (vd->vdev_tsd != NULL) {
 		ASSERT(vd->vdev_reopening);
 		vf = vd->vdev_tsd;
-        dprintf("skip to open\n");
 		goto skip_open;
 	}
 #endif
@@ -131,7 +130,7 @@ vdev_file_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	ASSERT(vd->vdev_path != NULL && vd->vdev_path[0] == '/');
 
 	error = zfs_file_open(vd->vdev_path + 1,
-		vdev_file_open_mode(spa_mode(vd->vdev_spa)), 0, &fp);
+	    vdev_file_open_mode(spa_mode(vd->vdev_spa)), 0, &fp);
 
 	if (error) {
 		vd->vdev_stat.vs_aux = VDEV_AUX_OPEN_FAILED;
@@ -159,7 +158,7 @@ skip_open:
 	}
 
 	*max_psize = *psize = zfa.zfa_size;
-    *ashift = SPA_MINBLOCKSHIFT;
+	*ashift = SPA_MINBLOCKSHIFT;
 
 	return (0);
 }
@@ -199,12 +198,12 @@ vdev_file_io_strategy(void *arg)
 
 	if (zio->io_type == ZIO_TYPE_READ) {
 		data =
-			abd_borrow_buf(zio->io_abd, size);
+		    abd_borrow_buf(zio->io_abd, size);
 		err = zfs_file_pread(vf->vf_file, data, size, off, &resid);
-			abd_return_buf_copy(zio->io_abd, data, size);
+		abd_return_buf_copy(zio->io_abd, data, size);
 	} else {
 		data =
-			abd_borrow_buf_copy(zio->io_abd, size);
+		    abd_borrow_buf_copy(zio->io_abd, size);
 		err = zfs_file_pwrite(vf->vf_file, data, size, off, &resid);
 		abd_return_buf(zio->io_abd, data, size);
 	}
@@ -220,25 +219,25 @@ vdev_file_io_strategy(void *arg)
 static void
 vdev_file_io_start(zio_t *zio)
 {
-    vdev_t *vd = zio->io_vd;
-    vdev_file_t *vf = vd->vdev_tsd;
+	vdev_t *vd = zio->io_vd;
+	vdev_file_t *vf = vd->vdev_tsd;
 
-    if (zio->io_type == ZIO_TYPE_IOCTL) {
+	if (zio->io_type == ZIO_TYPE_IOCTL) {
 
-        if (!vdev_readable(vd)) {
-            zio->io_error = SET_ERROR(ENXIO);
+		if (!vdev_readable(vd)) {
+			zio->io_error = SET_ERROR(ENXIO);
 			zio_interrupt(zio);
-            return;
-        }
+			return;
+		}
 
-        switch (zio->io_cmd) {
-        case DKIOCFLUSHWRITECACHE:
-			zio->io_error = zfs_file_fsync(vf->vf_file,
-			    O_SYNC|O_DSYNC);
-            break;
-        default:
-            zio->io_error = SET_ERROR(ENOTSUP);
-        }
+		switch (zio->io_cmd) {
+			case DKIOCFLUSHWRITECACHE:
+				zio->io_error = zfs_file_fsync(vf->vf_file,
+				    O_SYNC|O_DSYNC);
+				break;
+			default:
+				zio->io_error = SET_ERROR(ENOTSUP);
+		}
 
 		zio_execute(zio);
 		return;
@@ -258,7 +257,7 @@ vdev_file_io_start(zio_t *zio)
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 
 	VERIFY3U(taskq_dispatch(system_taskq, vdev_file_io_strategy, zio,
-        TQ_SLEEP), !=, 0);
+	    TQ_SLEEP), !=, 0);
 }
 
 

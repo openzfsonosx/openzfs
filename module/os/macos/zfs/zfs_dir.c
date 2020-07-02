@@ -535,8 +535,8 @@ zfs_unlinked_drain_task(void *arg)
 
 	mutex_enter(&zfsvfs->z_drain_lock);
 	zfsvfs->z_drain_state = ZFS_DRAIN_SHUTDOWN;
-    cv_broadcast(&zfsvfs->z_drain_cv);
-    mutex_exit(&zfsvfs->z_drain_lock);
+	cv_broadcast(&zfsvfs->z_drain_cv);
+	mutex_exit(&zfsvfs->z_drain_lock);
 }
 
 /*
@@ -548,10 +548,10 @@ zfs_unlinked_drain(zfsvfs_t *zfsvfs)
 {
 	ASSERT3B(zfsvfs->z_unmounted, ==, B_FALSE);
 
-    mutex_enter(&zfsvfs->z_drain_lock);
-    ASSERT(zfsvfs->z_drain_state == ZFS_DRAIN_SHUTDOWN);
-    zfsvfs->z_drain_state = ZFS_DRAIN_RUNNING;
-    mutex_exit(&zfsvfs->z_drain_lock);
+	mutex_enter(&zfsvfs->z_drain_lock);
+	ASSERT(zfsvfs->z_drain_state == ZFS_DRAIN_SHUTDOWN);
+	zfsvfs->z_drain_state = ZFS_DRAIN_RUNNING;
+	mutex_exit(&zfsvfs->z_drain_lock);
 
 	if (taskq_dispatch(
 	    dsl_pool_unlinked_drain_taskq(dmu_objset_pool(zfsvfs->z_os)),
@@ -734,7 +734,7 @@ zfs_rmnode(znode_t *zp)
 		ASSERT(error == 0);
 		mutex_enter(&xzp->z_lock);
 		xzp->z_unlinked = B_TRUE;	/* mark xzp for deletion */
-		xzp->z_links = 0;			/* no more links to it */
+		xzp->z_links = 0;	/* no more links to it */
 		VERIFY(0 == sa_update(xzp->z_sa_hdl, SA_ZPL_LINKS(zfsvfs),
 		    &xzp->z_links, sizeof (xzp->z_links), tx));
 		mutex_exit(&xzp->z_lock);
@@ -807,7 +807,7 @@ zfs_link_create(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag)
 		}
 		zp->z_links++;
 		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_LINKS(zfsvfs),
-			NULL, &zp->z_links, sizeof (zp->z_links));
+		    NULL, &zp->z_links, sizeof (zp->z_links));
 	}
 
 	value = zfs_dirent(zp, zp->z_mode);
@@ -1206,7 +1206,7 @@ zfs_sticky_remove_access(znode_t *zdp, znode_t *zp, cred_t *cr)
 
 	if ((uid = crgetuid(cr)) == downer || uid == fowner ||
 	    (vnode_isreg(ZTOV(zp)) &&
-        zfs_zaccess(zp, ACE_WRITE_DATA, 0, B_FALSE, cr) == 0))
+	    zfs_zaccess(zp, ACE_WRITE_DATA, 0, B_FALSE, cr) == 0))
 		return (0);
 	else
 		return (secpolicy_vnode_remove(ZTOV(zp), cr));

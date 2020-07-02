@@ -42,12 +42,8 @@
  * Virtual device vector for disks.
  */
 
-#ifdef illumos
-extern ldi_ident_t zfs_li;
-#else
 /* XXX leave extern if declared elsewhere - originally was in zfs_ioctl.c */
 ldi_ident_t zfs_li;
-#endif
 
 static void vdev_disk_close(vdev_t *);
 
@@ -62,10 +58,6 @@ vdev_disk_alloc(vdev_t *vd)
 	vdev_disk_t *dvd;
 
 	dvd = vd->vdev_tsd = kmem_zalloc(sizeof (vdev_disk_t), KM_SLEEP);
-#ifdef __APPLE__
-/* XXX Only alloc that needs zeroed, all others are properly initialized */
-	bzero(dvd, sizeof (vdev_disk_t));
-#endif
 
 	/*
 	 * Create the LDI event callback list.
@@ -171,9 +163,9 @@ static ldi_ev_callback_t vdev_disk_off_callb = {
  * even a fallback to DKIOCGMEDIAINFO fails.
  */
 #ifdef DEBUG
-#define        VDEV_DEBUG(...) cmn_err(CE_NOTE, __VA_ARGS__)
+#define	VDEV_DEBUG(...) cmn_err(CE_NOTE, __VA_ARGS__)
 #else
-#define        VDEV_DEBUG(...) /* Nothing... */
+#define	VDEV_DEBUG(...) /* Nothing... */
 #endif
 
 static int
@@ -191,17 +183,8 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	struct dk_minfo_ext *dkmext = &dks.ude;
 	struct dk_minfo *dkm = &dks.ud;
 	int error;
-/* XXX Apple - must leave devid unchanged */
-#ifdef illumos
-	dev_t dev;
-	int otyp;
-	boolean_t validate_devid = B_FALSE;
-	ddi_devid_t devid;
-#endif
 	uint64_t capacity = 0, blksz = 0, pbsize;
-#ifdef __APPLE__
 	int isssd;
-#endif
 
 	/*
 	 * We must have a pathname, and it must be absolute.
@@ -251,48 +234,10 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	 * 3. Otherwise, the device may have moved.  Try opening the device
 	 *    by the devid instead.
 	 */
-/*
- * XXX We must not set or modify the devid as this check would prevent
- * import on Solaris/illumos.
- */
-#ifdef illumos
-	if (vd->vdev_devid != NULL) {
-		if (ddi_devid_str_decode(vd->vdev_devid, &dvd->vd_devid,
-		    &dvd->vd_minor) != 0) {
-			vd->vdev_stat.vs_aux = VDEV_AUX_BAD_LABEL;
-			vdev_dbgmsg(vd, "vdev_disk_open: invalid "
-			    "vdev_devid '%s'", vd->vdev_devid);
-			return (SET_ERROR(EINVAL));
-		}
-	}
-#endif
 
 	error = EINVAL;		/* presume failure */
 
 	if (vd->vdev_path != NULL) {
-
-/*
- * XXX This assumes that if vdev_path refers to a device path /dev/dsk/cNtNdN,
- * then the whole disk can be found by slice 0 at path /dev/dsk/cNtNdNs0.
- */
-#ifdef illumos
-		if (vd->vdev_wholedisk == -1ULL) {
-			size_t len = strlen(vd->vdev_path) + 3;
-			char *buf = kmem_alloc(len, KM_SLEEP);
-
-			(void) snprintf(buf, len, "%ss0", vd->vdev_path);
-
-			error = ldi_open_by_name(buf, spa_mode(spa), kcred,
-			    &dvd->vd_lh, zfs_li);
-			if (error == 0) {
-				spa_strfree(vd->vdev_path);
-				vd->vdev_path = buf;
-				vd->vdev_wholedisk = 1ULL;
-			} else {
-				kmem_free(buf, len);
-			}
-		}
-#endif
 
 		/*
 		 * If we have not yet opened the device, try to open it by the
@@ -303,23 +248,6 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 			    kcred, &dvd->vd_lh, zfs_li);
 		}
 
-/* XXX Apple - must leave devid unchanged */
-#ifdef illumos
-		/*
-		 * Compare the devid to the stored value.
-		 */
-		if (error == 0 && vd->vdev_devid != NULL &&
-		    ldi_get_devid(dvd->vd_lh, &devid) == 0) {
-			if (ddi_devid_compare(devid, dvd->vd_devid) != 0) {
-				error = SET_ERROR(EINVAL);
-				(void) ldi_close(dvd->vd_lh, spa_mode(spa),
-				    kcred);
-				dvd->vd_lh = NULL;
-			}
-			ddi_devid_free(devid);
-		}
-#endif
-
 		/*
 		 * If we succeeded in opening the device, but 'vdev_wholedisk'
 		 * is not yet set, then this must be a slice.
@@ -328,18 +256,6 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 			vd->vdev_wholedisk = 0;
 	}
 
-/* XXX Apple - must leave devid unchanged */
-#ifdef illumos
-	/*
-	 * If we were unable to open by path, or the devid check fails, open by
-	 * devid instead.
-	 */
-	if (error != 0 && vd->vdev_devid != NULL) {
-		error = ldi_open_by_devid(dvd->vd_devid, dvd->vd_minor,
-		    spa_mode(spa), kcred, &dvd->vd_lh, zfs_li);
-	}
-#endif
-
 	/*
 	 * If all else fails, then try opening by physical path (if available)
 	 * or the logical path (if we failed due to the devid check).  While not
@@ -347,19 +263,6 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	 * level vdev validation will prevent us from opening the wrong device.
 	 */
 	if (error) {
-/* XXX Apple - must leave devid unchanged */
-#ifdef illumos
-		if (vd->vdev_devid != NULL)
-			validate_devid = B_TRUE;
-#endif
-
-/* XXX Apple to do - make ddi_ interface for this, using IORegistry path */
-#ifdef illumos
-		if (vd->vdev_physpath != NULL &&
-		    (dev = ddi_pathname_to_dev_t(vd->vdev_physpath)) != NODEV)
-			error = ldi_open_by_dev(&dev, OTYP_BLK, spa_mode(spa),
-			    kcred, &dvd->vd_lh, zfs_li);
-#endif
 
 		/*
 		 * Note that we don't support the legacy auto-wholedisk support
@@ -378,59 +281,6 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 		return (error);
 	}
 
-/*
- * XXX Apple - We must not set or modify the devid. Import on Solaris/illumos
- * expects a valid devid and fails if it cannot be decoded.
- */
-#ifdef illumos
-	/*
-	 * Now that the device has been successfully opened, update the devid
-	 * if necessary.
-	 */
-	if (validate_devid && spa_writeable(spa) &&
-	    ldi_get_devid(dvd->vd_lh, &devid) == 0) {
-		if (ddi_devid_compare(devid, dvd->vd_devid) != 0) {
-			char *vd_devid;
-
-			vd_devid = ddi_devid_str_encode(devid, dvd->vd_minor);
-			vdev_dbgmsg(vd, "vdev_disk_open: update devid from "
-			    "'%s' to '%s'", vd->vdev_devid, vd_devid);
-			spa_strfree(vd->vdev_devid);
-			vd->vdev_devid = spa_strdup(vd_devid);
-			ddi_devid_str_free(vd_devid);
-		}
-		ddi_devid_free(devid);
-	}
-#endif
-
-/* XXX Apple to do, needs IORegistry physpath interface */
-#ifdef illumos
-	/*
-	 * Once a device is opened, verify that the physical device path (if
-	 * available) is up to date.
-	 */
-	if (ldi_get_dev(dvd->vd_lh, &dev) == 0 &&
-	    ldi_get_otyp(dvd->vd_lh, &otyp) == 0) {
-		char *physpath, *minorname;
-
-		physpath = kmem_alloc(MAXPATHLEN, KM_SLEEP);
-		minorname = NULL;
-		if (ddi_dev_pathname(dev, otyp, physpath) == 0 &&
-		    ldi_get_minor_name(dvd->vd_lh, &minorname) == 0 &&
-		    (vd->vdev_physpath == NULL ||
-		    strcmp(vd->vdev_physpath, physpath) != 0)) {
-			if (vd->vdev_physpath)
-				spa_strfree(vd->vdev_physpath);
-			(void) strlcat(physpath, ":", MAXPATHLEN);
-			(void) strlcat(physpath, minorname, MAXPATHLEN);
-			vd->vdev_physpath = spa_strdup(physpath);
-		}
-		if (minorname)
-			kmem_free(minorname, strlen(minorname) + 1);
-		kmem_free(physpath, MAXPATHLEN);
-	}
-#endif
-
 	/*
 	 * Register callbacks for the LDI offline event.
 	 */
@@ -441,30 +291,6 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 		(void) ldi_ev_register_callbacks(dvd->vd_lh, ecookie,
 		    &vdev_disk_off_callb, (void *) vd, &lcb->lcb_id);
 	}
-
-/* XXX Apple to do - we could support the degrade event, or just no-op */
-#ifdef illumos
-	/*
-	 * Register callbacks for the LDI degrade event.
-	 */
-	if (ldi_ev_get_cookie(dvd->vd_lh, LDI_EV_DEGRADE, &ecookie) ==
-	    LDI_EV_SUCCESS) {
-		lcb = kmem_zalloc(sizeof (vdev_disk_ldi_cb_t), KM_SLEEP);
-		list_insert_tail(&dvd->vd_ldi_cbs, lcb);
-		(void) ldi_ev_register_callbacks(dvd->vd_lh, ecookie,
-		    &vdev_disk_dgrd_callb, (void *) vd, &lcb->lcb_id);
-	}
-#endif
-
-#if 0
-	int len = MAXPATHLEN;
-	if (vn_getpath(devvp, dvd->vd_readlinkname, &len) == 0) {
-		dprintf("ZFS: '%s' resolved name is '%s'\n",
-			   vd->vdev_path, dvd->vd_readlinkname);
-	} else {
-		dvd->vd_readlinkname[0] = 0;
-	}
-#endif
 
 skip_open:
 	/*
@@ -504,32 +330,8 @@ skip_open:
 
 	*ashift = highbit64(MAX(pbsize, SPA_MINBLOCKSIZE)) - 1;
 
-/* XXX Now that we opened the device, determine if it is a whole disk. */
-#ifdef __APPLE__
-	/*
-	 * XXX Apple to do - provide an ldi_ mechanism
-	 * to report whether this is a whole disk or a
-	 * partition.
-	 * Return 0 (no), 1 (yes), or -1 (error).
-	 */
-//	vd->vdev_wholedisk = ldi_is_wholedisk(vd->vd_lh);
-#endif
-
 	if (vd->vdev_wholedisk == 1) {
 		int wce = 1;
-
-/* Gets information about the disk if it has GPT partitions */
-#ifdef illumos
-		if (error == 0) {
-			/*
-			 * If we have the capability to expand, we'd have
-			 * found out via success from DKIOCGMEDIAINFO{,EXT}.
-			 * Adjust max_psize upward accordingly since we know
-			 * we own the whole disk now.
-			 */
-			*max_psize = capacity * blksz;
-		}
-#endif
 
 		/*
 		 * Since we own the whole disk, try to enable disk write
@@ -545,7 +347,6 @@ skip_open:
 	 */
 	vd->vdev_nowritecache = B_FALSE;
 
-#ifdef __APPLE__
 	/* Inform the ZIO pipeline that we are non-rotational */
 	vd->vdev_nonrot = B_FALSE;
 	if (ldi_ioctl(dvd->vd_lh, DKIOCISSOLIDSTATE, (intptr_t)&isssd,
@@ -565,29 +366,9 @@ skip_open:
 	/* Set when device reports it supports secure TRIM. */
 	// No secure trim in Apple yet.
 	vd->vdev_has_securetrim = B_FALSE;
-#endif //__APPLE__
 
 	return (0);
 }
-
-#if 0
-/*
- * It appears on export/reboot, iokit can hold a lock, then call our
- * termination handler, and we end up locking-against-ourselves inside
- * IOKit. We are then forced to make the vnode_close() call be async.
- */
-static void vdev_disk_close_thread(void *arg)
-{
-	struct vnode *vp = arg;
-
-	(void) vnode_close(vp, 0,
-					   spl_vfs_context_kernel());
-	thread_exit();
-}
-
-/* Not static so zfs_osx.cpp can call it on device removal */
-void
-#endif
 
 static void
 vdev_disk_close(vdev_t *vd)
@@ -596,19 +377,6 @@ vdev_disk_close(vdev_t *vd)
 
 	if (vd->vdev_reopening || dvd == NULL)
 		return;
-
-/* XXX Apple - must leave devid unchanged */
-#ifdef illumos
-	if (dvd->vd_minor != NULL) {
-		ddi_devid_str_free(dvd->vd_minor);
-		dvd->vd_minor = NULL;
-	}
-
-	if (dvd->vd_devid != NULL) {
-		ddi_devid_free(dvd->vd_devid);
-		dvd->vd_devid = NULL;
-	}
-#endif
 
 	if (dvd->vd_lh != NULL) {
 		(void) ldi_close(dvd->vd_lh, spa_mode(vd->vdev_spa), kcred);
@@ -642,19 +410,6 @@ vdev_disk_physio(vdev_t *vd, caddr_t data,
 
 	ASSERT(vd->vdev_ops == &vdev_disk_ops);
 
-/* XXX Apple - no equivalent crash dump mechanism on OS X */
-#ifdef illumos
-	/*
-	 * If in the context of an active crash dump, use the ldi_dump(9F)
-	 * call instead of ldi_strategy(9F) as usual.
-	 */
-	if (isdump) {
-		ASSERT3P(dvd, !=, NULL);
-		return (ldi_dump(dvd->vd_lh, data, lbtodb(offset),
-		    lbtodb(size)));
-	}
-#endif
-
 	return (vdev_disk_ldi_physio(dvd->vd_lh, data, size, offset, flags));
 }
 
@@ -662,11 +417,7 @@ int
 vdev_disk_ldi_physio(ldi_handle_t vd_lh, caddr_t data,
     size_t size, uint64_t offset, int flags)
 {
-#ifdef illumos
-	buf_t *bp;
-#else
 	ldi_buf_t *bp;
-#endif
 	int error = 0;
 
 	if (vd_lh == NULL)
@@ -691,13 +442,8 @@ vdev_disk_ldi_physio(ldi_handle_t vd_lh, caddr_t data,
 	return (error);
 }
 
-#ifdef illumos
-static void
-vdev_disk_io_intr(buf_t *bp)
-#else
 static void
 vdev_disk_io_intr(ldi_buf_t *bp)
-#endif
 {
 	vdev_buf_t *vb = (vdev_buf_t *)bp;
 	zio_t *zio = vb->vb_io;
@@ -753,11 +499,7 @@ vdev_disk_io_start(zio_t *zio)
 	vdev_disk_t *dvd = vd->vdev_tsd;
 	vdev_buf_t *vb;
 	struct dk_callback *dkc;
-#ifdef illumos
-	buf_t *bp;
-#else
 	ldi_buf_t *bp = 0;
-#endif
 	int flags, error = 0;
 
 	/*
@@ -840,7 +582,7 @@ vdev_disk_io_start(zio_t *zio)
 		dfle.dfle_start = zio->io_offset;
 		dfle.dfle_length = zio->io_size;
 		zio->io_error = ldi_ioctl(dvd->vd_lh, DKIOCFREE,
-			(uintptr_t)&dfle, FKIOCTL, kcred, NULL);
+		    (uintptr_t)&dfle, FKIOCTL, kcred, NULL);
 		zio_interrupt(zio);
 		return;
 	}
@@ -854,7 +596,7 @@ vdev_disk_io_start(zio_t *zio)
 	ASSERT(zio->io_type == ZIO_TYPE_READ || zio->io_type == ZIO_TYPE_WRITE);
 
 	/* Stop OSX from also caching our data */
-	flags |= B_NOCACHE | B_PASSIVE; // smd: also do B_PASSIVE for anti throttling test
+	flags |= B_NOCACHE | B_PASSIVE;
 
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 
@@ -872,11 +614,11 @@ vdev_disk_io_start(zio_t *zio)
 	bp->b_bcount = zio->io_size;
 
 	if (zio->io_type == ZIO_TYPE_READ) {
-		ASSERT3S(zio->io_abd->abd_size,>=,zio->io_size);
+		ASSERT3S(zio->io_abd->abd_size, >=, zio->io_size);
 		bp->b_un.b_addr =
 		    abd_borrow_buf(zio->io_abd, zio->io_size);
 	} else {
-		ASSERT3S(zio->io_abd->abd_size,>=,zio->io_size);
+		ASSERT3S(zio->io_abd->abd_size, >=, zio->io_size);
 		bp->b_un.b_addr =
 		    abd_borrow_buf_copy(zio->io_abd, zio->io_size);
 	}
@@ -884,27 +626,6 @@ vdev_disk_io_start(zio_t *zio)
 	bp->b_lblkno = lbtodb(zio->io_offset);
 	bp->b_bufsize = zio->io_size;
 	bp->b_iodone = (int (*)(struct ldi_buf *))vdev_disk_io_intr;
-
-#if 0
-	bp = buf_alloc(dvd->vd_devvp);
-
-	buf_setflags(bp, flags);
-	buf_setcount(bp, zio->io_size);
-	buf_setdataptr(bp, (uintptr_t)zio->io_data);
-
-	/*
-	 * Map offset to blcknumber, based on physical block number.
-	 * (512, 4096, ..). If we fail to map, default back to
-	 * standard 512. lbtodb() is fixed at 512.
-	 */
-	buf_setblkno(bp, zio->io_offset >> dvd->vd_ashift);
-	buf_setlblkno(bp, zio->io_offset >> dvd->vd_ashift);
-#endif
-
-#ifdef illumos
-	/* ldi_strategy() will return non-zero only on programming errors */
-	VERIFY(ldi_strategy(dvd->vd_lh, bp) == 0);
-#else /* !illumos */
 
 	error = ldi_strategy(dvd->vd_lh, bp);
 	if (error != 0) {
@@ -914,8 +635,6 @@ vdev_disk_io_start(zio_t *zio)
 		zio_execute(zio);
 		// zio_interrupt(zio);
 	}
-#endif /* !illumos */
-
 }
 
 static void
@@ -1003,33 +722,16 @@ vdev_disk_read_rootlabel(char *devpath, char *devid, nvlist_t **config)
 	vdev_label_t *label;
 	uint64_t s, size;
 	int l;
-#ifdef illumos
-	ddi_devid_t tmpdevid;
-#endif
 	int error = -1;
-#ifdef illumos
-	char *minor_name;
-#endif
 
 	/*
 	 * Read the device label and build the nvlist.
 	 */
-/* XXX Apple - no devid */
-#ifdef illumos
-	if (devid != NULL && ddi_devid_str_decode(devid, &tmpdevid,
-	    &minor_name) == 0) {
-		error = ldi_open_by_devid(tmpdevid, minor_name,
-		    FREAD, kcred, &vd_lh, zfs_li);
-		ddi_devid_free(tmpdevid);
-		ddi_devid_str_free(minor_name);
-	}
-#endif
 
-#ifdef __APPLE__
 	/* Apple: Error will be -1 at this point, allowing open_by_name */
 	error = -1;
 	vd_lh = 0;	/* Dismiss compiler warning */
-#endif
+
 	if (error && (error = ldi_open_by_name(devpath, FREAD, kcred, &vd_lh,
 	    zfs_li)))
 		return (error);

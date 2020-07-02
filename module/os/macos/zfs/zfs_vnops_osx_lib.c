@@ -55,7 +55,7 @@ extern int zfs_vnop_force_formd_normalized_output; /* disabled by default */
 
 #if KAUTH_VNODE_ACCESS == 0x80000000
 #undef KAUTH_VNODE_ACCESS
-#define KAUTH_VNODE_ACCESS (1ULL<<31)
+#define	KAUTH_VNODE_ACCESS (1ULL<<31)
 #endif
 
 
@@ -75,31 +75,32 @@ typedef uint64_t vfs_feature_t;
 #define	VFSFT_REPARSE		0x100000100	/* Supports reparse point */
 #define	VFSFT_ZEROCOPY_SUPPORTED 0x100000200	/* Supports loaning buffers */
 
-#define	ZFS_SUPPORTED_VATTRS                    \
-	( VNODE_ATTR_va_mode |                      \
-	  VNODE_ATTR_va_uid |                       \
-	  VNODE_ATTR_va_gid |                       \
-      VNODE_ATTR_va_fsid |                      \
-	  VNODE_ATTR_va_fileid |                    \
-	  VNODE_ATTR_va_nlink |                     \
-	  VNODE_ATTR_va_data_size |                 \
-	  VNODE_ATTR_va_total_size |                \
-	  VNODE_ATTR_va_rdev |                      \
-	  VNODE_ATTR_va_gen |                       \
-	  VNODE_ATTR_va_create_time |               \
-	  VNODE_ATTR_va_access_time |               \
-	  VNODE_ATTR_va_modify_time |               \
-	  VNODE_ATTR_va_change_time |               \
-	  VNODE_ATTR_va_backup_time |               \
-	  VNODE_ATTR_va_flags |                     \
-	  VNODE_ATTR_va_parentid |                  \
-	  VNODE_ATTR_va_iosize |                    \
-      VNODE_ATTR_va_filerev |                   \
-      VNODE_ATTR_va_type    |                   \
-      VNODE_ATTR_va_encoding |                  \
-      0)
-	  //VNODE_ATTR_va_uuuid |
-	  //VNODE_ATTR_va_guuid |
+#define	ZFS_SUPPORTED_VATTRS \
+	(VNODE_ATTR_va_mode | \
+		VNODE_ATTR_va_uid | \
+		VNODE_ATTR_va_gid |	\
+		VNODE_ATTR_va_fsid | \
+		VNODE_ATTR_va_fileid | \
+		VNODE_ATTR_va_nlink | \
+		VNODE_ATTR_va_data_size | \
+		VNODE_ATTR_va_total_size | \
+		VNODE_ATTR_va_rdev | \
+		VNODE_ATTR_va_gen | \
+		VNODE_ATTR_va_create_time | \
+		VNODE_ATTR_va_access_time | \
+		VNODE_ATTR_va_modify_time | \
+		VNODE_ATTR_va_change_time |	\
+		VNODE_ATTR_va_backup_time |	\
+		VNODE_ATTR_va_flags | \
+		VNODE_ATTR_va_parentid | \
+		VNODE_ATTR_va_iosize | \
+		VNODE_ATTR_va_filerev | \
+		VNODE_ATTR_va_type    |	\
+		VNODE_ATTR_va_encoding | \
+		0)
+
+// VNODE_ATTR_va_uuuid |
+// VNODE_ATTR_va_guuid |
 
 
 
@@ -119,31 +120,32 @@ typedef uint64_t vfs_feature_t;
  *	32 bit hash as a static hash type
  *
  * NOTE: To use the recommended 32 bit FNV-1a hash, use FNV1_32A_INIT as the
- *  	 hval arg on the first call to either fnv_32a_buf() or fnv_32a_str().
+ *   hval arg on the first call to either fnv_32a_buf() or fnv_32a_str().
  */
 uint32_t
 fnv_32a_str(const char *str, uint32_t hval)
 {
-    unsigned char *s = (unsigned char *)str;	/* unsigned string */
+	unsigned char *s = (unsigned char *)str;	/* unsigned string */
 
-    /*
-     * FNV-1a hash each octet in the buffer
-     */
-    while (*s) {
+	/*
+	 * FNV-1a hash each octet in the buffer
+	 */
+	while (*s) {
 
-	/* xor the bottom with the current octet */
-	hval ^= (uint32_t)*s++;
+		/* xor the bottom with the current octet */
+		hval ^= (uint32_t)*s++;
 
-	/* multiply by the 32 bit FNV magic prime mod 2^32 */
+		/* multiply by the 32 bit FNV magic prime mod 2^32 */
 #if defined(NO_FNV_GCC_OPTIMIZATION)
-	hval *= FNV_32_PRIME;
+		hval *= FNV_32_PRIME;
 #else
-	hval += (hval<<1) + (hval<<4) + (hval<<7) + (hval<<8) + (hval<<24);
+		hval += (hval<<1) + (hval<<4) + (hval<<7) + (hval<<8) +
+		    (hval<<24);
 #endif
-    }
+	}
 
-    /* return our new hash value */
-    return hval;
+	/* return our new hash value */
+	return (hval);
 }
 
 /*
@@ -163,13 +165,13 @@ fnv_32a_str(const char *str, uint32_t hval)
 uint32_t
 fnv_32a_buf(void *buf, size_t len, uint32_t hval)
 {
-    unsigned char *bp = (unsigned char *)buf;/* start of buffer */
-    unsigned char *be = bp + len;/* beyond end of buffer */
+	unsigned char *bp = (unsigned char *)buf; /* start of buffer */
+	unsigned char *be = bp + len; /* beyond end of buffer */
 
-    /*
-     * FNV-1a hash each octet in the buffer
-     */
-    while (bp < be) {
+	/*
+	 * FNV-1a hash each octet in the buffer
+	 */
+	while (bp < be) {
 
 		/* xor the bottom with the current octet */
 		hval ^= (uint32_t)*bp++;
@@ -178,28 +180,14 @@ fnv_32a_buf(void *buf, size_t len, uint32_t hval)
 #if defined(NO_FNV_GCC_OPTIMIZATION)
 		hval *= FNV_32_PRIME;
 #else
-		hval += (hval<<1) + (hval<<4) + (hval<<7) + (hval<<8) + (hval<<24);
+		hval += (hval<<1) + (hval<<4) + (hval<<7) + (hval<<8) +
+		    (hval<<24);
 #endif
-    }
+	}
 
-    /* return our new hash value */
-    return hval;
+	/* return our new hash value */
+	return (hval);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 int
 zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
@@ -215,34 +203,34 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 #endif
 	int ishardlink = 0;
 
-    //printf("getattr_osx\n");
+	// printf("getattr_osx\n");
 
 	ZFS_ENTER(zfsvfs);
 	ZFS_VERIFY_ZP(zp);
 
 	if (VATTR_IS_ACTIVE(vap, va_acl)) {
-        //printf("want acl\n");
-        VATTR_RETURN(vap, va_uuuid, kauth_null_guid);
-        VATTR_RETURN(vap, va_guuid, kauth_null_guid);
+		// printf("want acl\n");
+		VATTR_RETURN(vap, va_uuuid, kauth_null_guid);
+		VATTR_RETURN(vap, va_guuid, kauth_null_guid);
 
-        //dprintf("Calling getacl\n");
-        if ((error = zfs_getacl(zp, &vap->va_acl, B_FALSE, NULL))) {
-            //  dprintf("zfs_getacl returned error %d\n", error);
-            error = 0;
-        } else {
+		// dprintf("Calling getacl\n");
+		if ((error = zfs_getacl(zp, &vap->va_acl, B_FALSE, NULL))) {
+			// dprintf("zfs_getacl returned error %d\n", error);
+			error = 0;
+		} else {
 
-            VATTR_SET_SUPPORTED(vap, va_acl);
-            /* va_acl implies that va_uuuid and va_guuid are also supported. */
-            VATTR_RETURN(vap, va_uuuid, kauth_null_guid);
-            VATTR_RETURN(vap, va_guuid, kauth_null_guid);
-        }
+			VATTR_SET_SUPPORTED(vap, va_acl);
+			/* va_acl implies va_uuuid & va_guuid are supported. */
+			VATTR_RETURN(vap, va_uuuid, kauth_null_guid);
+			VATTR_RETURN(vap, va_guuid, kauth_null_guid);
+		}
 
-    }
+	}
 
-    mutex_enter(&zp->z_lock);
+	mutex_enter(&zp->z_lock);
 
-	ishardlink = ((zp->z_links > 1) && (IFTOVT((mode_t)zp->z_mode) == VREG)) ?
-		1 : 0;
+	ishardlink = ((zp->z_links > 1) &&
+	    (IFTOVT((mode_t)zp->z_mode) == VREG)) ? 1 : 0;
 	if (zp->z_finder_hardlink == TRUE)
 		ishardlink = 1;
 	else if (ishardlink)
@@ -252,38 +240,40 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_PARENT(zfsvfs), NULL, &parent, 8);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs), NULL,
-					 &zp->z_pflags, 8);
+	    &zp->z_pflags, 8);
 
-	/* Unfortunately, sa_bulk_lookup does not let you handle optional
+	/*
+	 * Unfortunately, sa_bulk_lookup does not let you handle optional
 	 * SA entries - so have to look up the optionals individually.
 	 */
 	error = sa_bulk_lookup(zp->z_sa_hdl, bulk, count);
 	if (error) {
-		dprintf("ZFS: Warning: getattr failed sa_bulk_lookup: %d, parent %llu, flags %llu\n",
-			   error, parent, zp->z_pflags );
+		dprintf("ZFS: Warning: getattr failed sa_bulk_lookup: %d, "
+		    "parent %llu, flags %llu\n", error, parent, zp->z_pflags);
 		mutex_exit(&zp->z_lock);
 		ZFS_EXIT(zfsvfs);
-		return 0;
+		return (0);
 	}
 
 #ifdef VNODE_ATTR_va_addedtime
 	if (VATTR_IS_ACTIVE(vap, va_addedtime)) {
 		sa_lookup(zp->z_sa_hdl, SA_ZPL_ADDTIME(zfsvfs),
-				  &addtime, sizeof(addtime));
+		    &addtime, sizeof (addtime));
 	}
 #endif
 
-    /*
+	/*
 	 * On Mac OS X we always export the root directory id as 2
 	 */
 	vap->va_fileid = INO_ZFSTOXNU(zp->z_id, zfsvfs->z_root);
 
 	vap->va_data_size = zp->z_size;
 	vap->va_total_size = zp->z_size;
-	//vap->va_gen = zp->z_gen;
+	// vap->va_gen = zp->z_gen;
 	vap->va_gen = 0;
 #if defined(DEBUG) || defined(ZFS_DEBUG)
-if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
+	if (zp->z_gen != 0)
+		dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 #endif
 
 	if (vnode_isdir(vp)) {
@@ -294,17 +284,17 @@ if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 
 
 	/*
-	 * For Carbon compatibility,pretend to support this legacy/unused attribute
+	 * Carbon compatibility, pretend to support this legacy attribute
 	 */
 	if (VATTR_IS_ACTIVE(vap, va_backup_time)) {
 		vap->va_backup_time.tv_sec = 0;
 		vap->va_backup_time.tv_nsec = 0;
 		VATTR_SET_SUPPORTED(vap, va_backup_time);
-    }
+	}
 	vap->va_flags = zfs_getbsdflags(zp);
 	/*
 	 * On Mac OS X we always export the root directory id as 2
-     * and its parent as 1
+	 * and its parent as 1
 	 */
 	if (zp->z_id == zfsvfs->z_root)
 		vap->va_parentid = 1;
@@ -316,16 +306,16 @@ if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 	// Hardlinks: Return cached parentid, make it 2 if root.
 	if (ishardlink && zp->z_finder_parentid)
 		vap->va_parentid = (zp->z_finder_parentid == zfsvfs->z_root) ?
-			2 : zp->z_finder_parentid;
+		    2 : zp->z_finder_parentid;
 
 	vap->va_iosize = zp->z_blksz ? zp->z_blksz : zfsvfs->z_max_blksz;
-	//vap->va_iosize = 512;
-    VATTR_SET_SUPPORTED(vap, va_iosize);
+	// vap->va_iosize = 512;
+	VATTR_SET_SUPPORTED(vap, va_iosize);
 
 	/* Don't include '.' and '..' in the number of entries */
 	if (VATTR_IS_ACTIVE(vap, va_nchildren) && vnode_isdir(vp)) {
 		VATTR_RETURN(vap, va_nchildren, vap->va_nlink - 2);
-    }
+	}
 
 	/*
 	 * va_dirlinkcount is the count of directory hard links. When a file
@@ -337,116 +327,123 @@ if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 	 */
 	if (VATTR_IS_ACTIVE(vap, va_dirlinkcount) && vnode_isdir(vp)) {
 		VATTR_RETURN(vap, va_dirlinkcount, 1);
-    }
+	}
 
 
-	if (VATTR_IS_ACTIVE(vap, va_data_alloc) || VATTR_IS_ACTIVE(vap, va_total_alloc)) {
+	if (VATTR_IS_ACTIVE(vap, va_data_alloc) ||
+	    VATTR_IS_ACTIVE(vap, va_total_alloc)) {
 		uint32_t  blksize;
 		u_longlong_t  nblks;
-        sa_object_size(zp->z_sa_hdl, &blksize, &nblks);
+		sa_object_size(zp->z_sa_hdl, &blksize, &nblks);
 		vap->va_data_alloc = (uint64_t)512LL * (uint64_t)nblks;
 		vap->va_total_alloc = vap->va_data_alloc;
 		vap->va_supported |= VNODE_ATTR_va_data_alloc |
-            VNODE_ATTR_va_total_alloc;
+		    VNODE_ATTR_va_total_alloc;
 	}
 
 	if (VATTR_IS_ACTIVE(vap, va_name)) {
-        vap->va_name[0] = 0;
+		vap->va_name[0] = 0;
 
-        if (!vnode_isvroot(vp)) {
+		if (!vnode_isvroot(vp)) {
 
-            /*
-             * Finder (Carbon) relies on getattr returning the correct name
-             * for hardlinks to work, so we store the lookup name in
-             * vnop_lookup if file references are high, then set the
-             * return name here.
-             * If we also want ATTR_CMN_* lookups to work, we need to
-             * set a unique va_linkid for each entry, and based on the
-             * linkid in the lookup, return the correct name.
-             * It is set in zfs_vnop_lookup().
-			 * Since zap_value_search is a slow call, we only use it if
-			 * we have not cached the name in vnop_lookup.
-             */
+			/*
+			 * Finder (Carbon) relies on getattr returning the
+			 * correct name for hardlinks to work, so we store the
+			 * lookup name in vnop_lookup if file references are
+			 * high, then set the return name here.
+			 * If we also want ATTR_CMN_* lookups to work, we need
+			 * to set a unique va_linkid for each entry, and based
+			 * on the linkid in the lookup, return the correct name.
+			 * It is set in zfs_vnop_lookup().
+			 * Since zap_value_search is a slow call, we only use
+			 * it if we have not cached the name in vnop_lookup.
+			 */
 
 			// Cached name, from vnop_lookup
 			if (ishardlink &&
-                zp->z_name_cache[0]) {
+			    zp->z_name_cache[0]) {
 
-                strlcpy(vap->va_name, zp->z_name_cache,
-                        MAXPATHLEN);
-                VATTR_SET_SUPPORTED(vap, va_name);
+				strlcpy(vap->va_name, zp->z_name_cache,
+				    MAXPATHLEN);
+				VATTR_SET_SUPPORTED(vap, va_name);
 
 			} else if (zp->z_name_cache[0]) {
 
-                strlcpy(vap->va_name, zp->z_name_cache,
-                        MAXPATHLEN);
-                VATTR_SET_SUPPORTED(vap, va_name);
+				strlcpy(vap->va_name, zp->z_name_cache,
+				    MAXPATHLEN);
+				VATTR_SET_SUPPORTED(vap, va_name);
 
-            } else {
+			} else {
 
 				// Go find the name.
-				if (zap_value_search(zfsvfs->z_os, parent, zp->z_id,
-									 ZFS_DIRENT_OBJ(-1ULL), vap->va_name) == 0) {
+				if (zap_value_search(zfsvfs->z_os, parent,
+				    zp->z_id, ZFS_DIRENT_OBJ(-1ULL),
+				    vap->va_name) == 0) {
 					VATTR_SET_SUPPORTED(vap, va_name);
 					// Might as well keep this name too.
 					strlcpy(zp->z_name_cache, vap->va_name,
-							MAXPATHLEN);
+					    MAXPATHLEN);
 				} // zap_value_search
 
 			}
 
 			dprintf("getattr: %p return name '%s':%04llx\n", vp,
-					vap->va_name,
-					vap->va_linkid);
+			    vap->va_name, vap->va_linkid);
 
 
-        } else {
-            /*
-             * The vroot objects must return a unique name for Finder to
-             * be able to distringuish between mounts. For this reason
-             * we simply return the fullname, from the statfs mountedfrom
+		} else {
+			/*
+			 * The vroot objects must return a unique name for
+			 * Finder to be able to distringuish between mounts.
+			 * For this reason we simply return the fullname,
+			 * from the statfs mountedfrom
 			 *
 			 * dataset     mountpoint
 			 * foo         /bar
-			 * As we used to return "foo" to ATTR_CMN_NAME of "/bar" we
-			 * change this to return "bar" as expected.
-             */
+			 * As we used to return "foo" to ATTR_CMN_NAME of
+			 * "/bar" we change this to return "bar" as expected.
+			 */
 			char *r, *osname;
 			osname = vfs_statfs(zfsvfs->z_vfs)->f_mntonname;
 			r = strrchr(osname, '/');
-            strlcpy(vap->va_name,
-                    r ? &r[1] : osname,
-                    MAXPATHLEN);
-            VATTR_SET_SUPPORTED(vap, va_name);
+			strlcpy(vap->va_name,
+			    r ? &r[1] : osname,
+			    MAXPATHLEN);
+			VATTR_SET_SUPPORTED(vap, va_name);
 			dprintf("getattr root returning '%s'\n", vap->va_name);
-        }
+		}
 	}
 
-    if (VATTR_IS_ACTIVE(vap, va_linkid)) {
+	if (VATTR_IS_ACTIVE(vap, va_linkid)) {
 
-		/* Apple needs a little extra care with HARDLINKs. All hardlink targets
-		 * return the same va_fileid (POSIX) but also return an unique va_linkid
-		 * This we generate by hashing the (unique) name and store as va_linkid.
-		 * However, Finder will call vfs_vget() with linkid and expect to receive
-		 * the link target, so we need to add it to the AVL z_hardlinks.
+		/*
+		 * Apple needs a little extra care with HARDLINKs. All hardlink
+		 * targets return the same va_fileid (POSIX) but also return
+		 * a unique va_linkid. This we generate by hashing the (unique)
+		 * name and store as va_linkid. However, Finder will call
+		 * vfs_vget() with linkid and expect to receive the correct link
+		 * target, so we need to add it to the AVL z_hardlinks.
 		 */
 		if (ishardlink) {
 			hardlinks_t *searchnode, *findnode;
 			avl_index_t loc;
 
 			// If we don't have a linkid, make one.
-			searchnode = kmem_alloc(sizeof(hardlinks_t), KM_SLEEP);
+			searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
 			searchnode->hl_parent = vap->va_parentid;
 			searchnode->hl_fileid = zp->z_id;
-			strlcpy(searchnode->hl_name, zp->z_name_cache, PATH_MAX);
+			strlcpy(searchnode->hl_name, zp->z_name_cache,
+			    PATH_MAX);
 
 			rw_enter(&zfsvfs->z_hardlinks_lock, RW_READER);
-			findnode = avl_find(&zfsvfs->z_hardlinks, searchnode, &loc);
+			findnode = avl_find(&zfsvfs->z_hardlinks, searchnode,
+			    &loc);
 			rw_exit(&zfsvfs->z_hardlinks_lock);
-			kmem_free(searchnode, sizeof(hardlinks_t));
+			kmem_free(searchnode, sizeof (hardlinks_t));
 
 			if (!findnode) {
-				static uint32_t zfs_hardlink_sequence = 1ULL<<31;
+				static uint32_t zfs_hardlink_sequence =
+				    1ULL<<31;
 				uint32_t id;
 
 				id = atomic_inc_32_nv(&zfs_hardlink_sequence);
@@ -455,7 +452,8 @@ if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 				VATTR_RETURN(vap, va_linkid, id);
 
 			} else {
-				VATTR_RETURN(vap, va_linkid, findnode->hl_linkid);
+				VATTR_RETURN(vap, va_linkid,
+				    findnode->hl_linkid);
 			}
 
 		} else { // !ishardlink - use same as fileid
@@ -467,51 +465,53 @@ if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 	} // active linkid
 
 	if (VATTR_IS_ACTIVE(vap, va_filerev)) {
-        VATTR_RETURN(vap, va_filerev, 0);
-    }
+		VATTR_RETURN(vap, va_filerev, 0);
+	}
 	if (VATTR_IS_ACTIVE(vap, va_fsid)) {
-        //VATTR_RETURN(vap, va_fsid, vfs_statfs(zfsvfs->z_vfs)->f_fsid.val[0]);
-        VATTR_RETURN(vap, va_fsid, zfsvfs->z_rdev);
-    }
+		VATTR_RETURN(vap, va_fsid, zfsvfs->z_rdev);
+	}
 	if (VATTR_IS_ACTIVE(vap, va_type)) {
-        VATTR_RETURN(vap, va_type, vnode_vtype(ZTOV(zp)));
-    }
+		VATTR_RETURN(vap, va_type, vnode_vtype(ZTOV(zp)));
+	}
 	if (VATTR_IS_ACTIVE(vap, va_encoding)) {
-        VATTR_RETURN(vap, va_encoding, kTextEncodingMacUnicode);
-    }
+		VATTR_RETURN(vap, va_encoding, kTextEncodingMacUnicode);
+	}
 #ifdef VNODE_ATTR_va_addedtime
-   /* ADDEDTIME should come from finderinfo according to hfs_attrlist.c
-	* in ZFS we can use crtime, and add logic to getxattr finderinfo to
-	* copy the ADDEDTIME into the structure. See vnop_getxattr
-	*/
+	/*
+	 * ADDEDTIME should come from finderinfo according to hfs_attrlist.c
+	 * in ZFS we can use crtime, and add logic to getxattr finderinfo to
+	 * copy the ADDEDTIME into the structure. See vnop_getxattr
+	 */
 	if (VATTR_IS_ACTIVE(vap, va_addedtime)) {
 		/* Lookup the ADDTIME if it exists, if not, use CRTIME */
 		if ((addtime[0] == 0) && (addtime[1])) {
 			dprintf("ZFS: ADDEDTIME using crtime %llu (error %d)\n",
-					vap->va_crtime.tv_sec, error);
+			    vap->va_crtime.tv_sec, error);
 			vap->va_addedtime.tv_sec  = vap->va_crtime.tv_sec;
 			vap->va_addedtime.tv_nsec = vap->va_crtime.tv_nsec;
 		} else {
 			dprintf("ZFS: ADDEDTIME using addtime %llu\n",
-					addtime[0]);
+			    addtime[0]);
 			ZFS_TIME_DECODE(&vap->va_addedtime, addtime);
 		}
-        VATTR_SET_SUPPORTED(vap, va_addedtime);
-    }
+		VATTR_SET_SUPPORTED(vap, va_addedtime);
+	}
 #endif
 #ifdef VNODE_ATTR_va_fsid64
 	if (VATTR_IS_ACTIVE(vap, va_fsid64)) {
-		vap->va_fsid64.val[0] = vfs_statfs(zfsvfs->z_vfs)->f_fsid.val[0];
+		vap->va_fsid64.val[0] =
+		    vfs_statfs(zfsvfs->z_vfs)->f_fsid.val[0];
 		vap->va_fsid64.val[1] = vfs_typenum(zfsvfs->z_vfs);
-        VATTR_SET_SUPPORTED(vap, va_fsid64);
-    }
+		VATTR_SET_SUPPORTED(vap, va_fsid64);
+	}
 #endif
 #ifdef VNODE_ATTR_va_write_gencount
 	if (VATTR_IS_ACTIVE(vap, va_write_gencount)) {
 		if (!zp->z_write_gencount)
 			atomic_inc_64(&zp->z_write_gencount);
-        VATTR_RETURN(vap, va_write_gencount, (uint32_t)zp->z_write_gencount);
-    }
+		VATTR_RETURN(vap, va_write_gencount,
+		    (uint32_t)zp->z_write_gencount);
+	}
 #endif
 
 #ifdef VNODE_ATTR_va_document_id
@@ -522,36 +522,38 @@ if (zp->z_gen != 0) dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 		}
 
 		VATTR_RETURN(vap, va_document_id, zp->z_document_id);
-    }
+	}
 #endif /* VNODE_ATTR_va_document_id */
 
 
 #if 0 // Issue #192
 	if (VATTR_IS_ACTIVE(vap, va_uuuid)) {
-        kauth_cred_uid2guid(zp->z_uid, &vap->va_uuuid);
-    }
+		kauth_cred_uid2guid(zp->z_uid, &vap->va_uuuid);
+	}
 	if (VATTR_IS_ACTIVE(vap, va_guuid)) {
-        kauth_cred_gid2guid(zp->z_gid, &vap->va_guuid);
-    }
+		kauth_cred_gid2guid(zp->z_gid, &vap->va_guuid);
+	}
 #endif
 
 	if (ishardlink) {
-		dprintf("ZFS:getattr(%s,%llu,%llu) parent %llu: cache_parent %llu: va_nlink %u\n",
-			   VATTR_IS_ACTIVE(vap, va_name) ? vap->va_name : zp->z_name_cache,
-			   vap->va_fileid,
-			   VATTR_IS_ACTIVE(vap, va_linkid) ? vap->va_linkid : 0,
-			   vap->va_parentid,
-			   zp->z_finder_parentid,
-			vap->va_nlink);
+		dprintf("ZFS:getattr(%s,%llu,%llu) parent %llu: cache_parent "
+		    "%llu: va_nlink %u\n", VATTR_IS_ACTIVE(vap, va_name) ?
+		    vap->va_name : zp->z_name_cache,
+		    vap->va_fileid,
+		    VATTR_IS_ACTIVE(vap, va_linkid) ? vap->va_linkid : 0,
+		    vap->va_parentid,
+		    zp->z_finder_parentid,
+		    vap->va_nlink);
 	}
 
 	vap->va_supported |= ZFS_SUPPORTED_VATTRS;
 	uint64_t missing = 0;
 	missing = (vap->va_active ^ (vap->va_active & vap->va_supported));
-	if ( missing != 0) {
-		dprintf("vnop_getattr:: asked %08llx replied %08llx       missing %08llx\n",
-			   vap->va_active, vap->va_supported,
-			   missing);
+	if (missing != 0) {
+		dprintf("vnop_getattr:: asked %08llx replied %08llx "
+		    " missing %08llx\n",
+		    vap->va_active, vap->va_supported,
+		    missing);
 	}
 
 	mutex_exit(&zp->z_lock);
@@ -564,7 +566,7 @@ boolean_t
 vfs_has_feature(vfs_t *vfsp, vfs_feature_t vfsft)
 {
 
-	switch(vfsft) {
+	switch (vfsft) {
 	case VFSFT_CASEINSENSITIVE:
 	case VFSFT_NOCASESENSITIVE:
 		return (B_TRUE);
@@ -575,11 +577,11 @@ vfs_has_feature(vfs_t *vfsp, vfs_feature_t vfsft)
 
 int
 zfs_access_native_mode(struct vnode *vp, int *mode, cred_t *cr,
-                       caller_context_t *ct)
+    caller_context_t *ct)
 {
-	int accmode = *mode & (VREAD|VWRITE|VEXEC/*|VAPPEND*/);
+	int accmode = *mode & (VREAD|VWRITE|VEXEC /* |VAPPEND */);
 	int error = 0;
-    int flag = 0; // FIXME
+	int flag = 0; // FIXME
 
 	if (accmode != 0)
 		error = zfs_access(vp, accmode, flag, cr);
@@ -609,7 +611,7 @@ zfs_vnop_ioctl_fullfsync(struct vnode *vp, vfs_context_t ct, zfsvfs_t *zfsvfs)
 {
 	int error;
 
-    error = zfs_fsync(VTOZ(vp), /*syncflag*/0, NULL);
+	error = zfs_fsync(VTOZ(vp), /* syncflag */ 0, NULL);
 	if (error)
 		return (error);
 
@@ -624,7 +626,7 @@ uint32_t
 zfs_getbsdflags(znode_t *zp)
 {
 	uint32_t  bsdflags = 0;
-    uint64_t zflags=zp->z_pflags;
+	uint64_t zflags = zp->z_pflags;
 
 	if (zflags & ZFS_NODUMP)
 		bsdflags |= UF_NODUMP;
@@ -645,24 +647,24 @@ zfs_getbsdflags(znode_t *zp)
 		bsdflags |= SF_IMMUTABLE;
 	if (zflags & ZFS_SAPPENDONLY)
 		bsdflags |= SF_APPEND;
-    /*
-     * Due to every file getting archive set automatically, and OSX
-     * don't let you move/copy it as a user, we disable archive connection
-     * for now
-	if (zflags & ZFS_ARCHIVE)
-		bsdflags |= SF_ARCHIVED;
-    */
-    dprintf("getbsd changing zfs %08lx to osx %08lx\n",
-           zflags, bsdflags);
+	/*
+	 * Due to every file getting archive set automatically, and OSX
+	 * don't let you move/copy it as a user, we disable archive connection
+	 * for now
+	 * if (zflags & ZFS_ARCHIVE)
+	 * bsdflags |= SF_ARCHIVED;
+	 */
+	dprintf("getbsd changing zfs %08lx to osx %08lx\n",
+	    zflags, bsdflags);
 	return (bsdflags);
 }
 
 void
 zfs_setbsdflags(znode_t *zp, uint32_t bsdflags)
 {
-    uint64_t zflags;
-    VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_FLAGS(zp->z_zfsvfs),
-                     &zflags, sizeof (zflags)) == 0);
+	uint64_t zflags;
+	VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_FLAGS(zp->z_zfsvfs),
+	    &zflags, sizeof (zflags)) == 0);
 
 	if (bsdflags & UF_NODUMP)
 		zflags |= ZFS_NODUMP;
@@ -699,12 +701,12 @@ zfs_setbsdflags(znode_t *zp, uint32_t bsdflags)
 	else
 		zflags &= ~ZFS_COMPRESSED;
 
-    /*
-	if (bsdflags & SF_ARCHIVED)
-		zflags |= ZFS_ARCHIVE;
-	else
-		zflags &= ~ZFS_ARCHIVE;
-    */
+	/*
+	 * if (bsdflags & SF_ARCHIVED)
+	 *   zflags |= ZFS_ARCHIVE;
+	 * else
+	 *   zflags &= ~ZFS_ARCHIVE;
+	 */
 	if (bsdflags & SF_IMMUTABLE)
 		zflags |= ZFS_SIMMUTABLE;
 	else
@@ -715,14 +717,14 @@ zfs_setbsdflags(znode_t *zp, uint32_t bsdflags)
 	else
 		zflags &= ~ZFS_SAPPENDONLY;
 
-    zp->z_pflags = zflags;
-    dprintf("setbsd changing osx %08lx to zfs %08lx\n",
-           bsdflags, zflags);
+	zp->z_pflags = zflags;
+	dprintf("setbsd changing osx %08lx to zfs %08lx\n",
+	    bsdflags, zflags);
 
-    /*
-      (void )sa_update(zp->z_sa_hdl, SA_ZPL_FLAGS(zp->z_zfsvfs),
-      (void *)&zp->z_pflags, sizeof (uint64_t), tx);
-    */
+	/*
+	 *  (void )sa_update(zp->z_sa_hdl, SA_ZPL_FLAGS(zp->z_zfsvfs),
+	 * (void *)&zp->z_pflags, sizeof (uint64_t), tx);
+	 */
 }
 
 /*
@@ -741,7 +743,7 @@ zfs_setbsdflags(znode_t *zp, uint32_t bsdflags)
  */
 int
 zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
-                 vnode_t **vpp, int flag)
+    vnode_t **vpp, int flag)
 {
 	znode_t  *xzp = NULL;
 	zfsvfs_t  *zfsvfs = dzp->z_zfsvfs;
@@ -755,16 +757,16 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
 
 	/* zfs_dirent_lock() expects a component name */
 
-    ZFS_ENTER(zfsvfs);
-    ZFS_VERIFY_ZP(dzp);
-    zilog = zfsvfs->z_log;
+	ZFS_ENTER(zfsvfs);
+	ZFS_VERIFY_ZP(dzp);
+	zilog = zfsvfs->z_log;
 
 	VATTR_INIT(&vattr);
 	VATTR_SET(&vattr, va_type, VREG);
 	VATTR_SET(&vattr, va_mode, mode & ~S_IFMT);
 
 	if ((error = zfs_acl_ids_create(dzp, 0,
-                                    &vattr, cr, NULL, &acl_ids)) != 0) {
+	    &vattr, cr, NULL, &acl_ids)) != 0) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -772,11 +774,10 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
 	cn.cn_namelen = strlen(name)+1;
 	cn.cn_nameptr = (char *)kmem_zalloc(cn.cn_namelen, KM_SLEEP);
 
-
- top:
+top:
 	/* Lock the attribute entry name. */
-	if ( (error = zfs_dirent_lock(&dl, dzp, (char *)name, &xzp, flag,
-                                  NULL, &cn)) ) {
+	if ((error = zfs_dirent_lock(&dl, dzp, (char *)name, &xzp, flag,
+	    NULL, &cn))) {
 		goto out;
 	}
 	/* If the name already exists, we're done. */
@@ -794,7 +795,7 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
 		dmu_tx_hold_write(tx, DMU_NEW_OBJECT, 0, SPA_MAXBLOCKSIZE);
 	}
 #endif
-    zfs_sa_upgrade_txholds(tx, dzp);
+	zfs_sa_upgrade_txholds(tx, dzp);
 	error = dmu_tx_assign(tx, TXG_WAIT);
 	if (error) {
 		zfs_dirent_unlock(dl);
@@ -809,12 +810,12 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
 
 	zfs_mknode(dzp, &vattr, tx, cr, 0, &xzp, &acl_ids);
 
-    /*
-      ASSERT(xzp->z_id == zoid);
-    */
+	/*
+	 * ASSERT(xzp->z_id == zoid);
+	 */
 	(void) zfs_link_create(dl, xzp, tx, ZNEW);
 	zfs_log_create(zilog, tx, TX_CREATE, dzp, xzp, (char *)name,
-                   NULL /* vsecp */, 0 /*acl_ids.z_fuidp*/, &vattr);
+	    NULL /* vsecp */, 0 /* acl_ids.z_fuidp */, &vattr);
 	dmu_tx_commit(tx);
 
 	/*
@@ -823,9 +824,9 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
 	zfs_znode_getvnode(xzp, zfsvfs);
 
 	zfs_dirent_unlock(dl);
- out:
-    zfs_acl_ids_free(&acl_ids);
-    if (cn.cn_nameptr)
+out:
+	zfs_acl_ids_free(&acl_ids);
+	if (cn.cn_nameptr)
 		kmem_free(cn.cn_nameptr, cn.cn_namelen);
 
 	/* The REPLACE error if doesn't exist is ENOATTR */
@@ -835,7 +836,7 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
 	if (xzp)
 		*vpp = ZTOV(xzp);
 
-    ZFS_EXIT(zfsvfs);
+	ZFS_EXIT(zfsvfs);
 	return (error);
 }
 
@@ -850,8 +851,8 @@ zpl_obtain_xattr(znode_t *dzp, const char *name, mode_t mode, cred_t *cr,
  */
 int
 ace_trivial_common(void *acep, int aclcnt,
-                   uint64_t (*walk)(void *, uint64_t, int aclcnt,
-                                    uint16_t *, uint16_t *, uint32_t *))
+    uint64_t (*walk)(void *, uint64_t, int aclcnt,
+    uint16_t *, uint16_t *, uint32_t *))
 {
 	uint16_t flags;
 	uint32_t mask;
@@ -870,8 +871,8 @@ ace_trivial_common(void *acep, int aclcnt,
 		}
 
 		if (flags & (ACE_FILE_INHERIT_ACE|
-					 ACE_DIRECTORY_INHERIT_ACE|ACE_NO_PROPAGATE_INHERIT_ACE|
-					 ACE_INHERIT_ONLY_ACE))
+		    ACE_DIRECTORY_INHERIT_ACE|ACE_NO_PROPAGATE_INHERIT_ACE|
+		    ACE_INHERIT_ONLY_ACE))
 			return (1);
 
 		/*
@@ -881,7 +882,7 @@ ace_trivial_common(void *acep, int aclcnt,
 		 * attributes or a files ACL.
 		 */
 		if ((mask & (ACE_READ_ACL|ACE_READ_ATTRIBUTES)) &&
-			(type == ACE_ACCESS_DENIED_ACE_TYPE))
+		    (type == ACE_ACCESS_DENIED_ACE_TYPE))
 			return (1);
 
 		/*
@@ -892,7 +893,7 @@ ace_trivial_common(void *acep, int aclcnt,
 
 		/*
 		 * Child delete permission should be accompanied by write
-                 */
+		 */
 		if ((mask & ACE_DELETE_CHILD) && !(mask & ACE_WRITE_DATA))
 			return (1);
 		/*
@@ -901,9 +902,9 @@ ace_trivial_common(void *acep, int aclcnt,
 		 */
 
 		if (type == ACE_ACCESS_ALLOWED_ACE_TYPE &&
-			(!(flags & ACE_OWNER) && (mask &
-			(ACE_WRITE_OWNER|ACE_WRITE_ACL| ACE_WRITE_ATTRIBUTES|
-			ACE_WRITE_NAMED_ATTRS))))
+		    (!(flags & ACE_OWNER) && (mask &
+		    (ACE_WRITE_OWNER|ACE_WRITE_ACL| ACE_WRITE_ATTRIBUTES|
+		    ACE_WRITE_NAMED_ATTRS))))
 			return (1);
 
 	}
@@ -915,69 +916,69 @@ ace_trivial_common(void *acep, int aclcnt,
 void
 acl_trivial_access_masks(mode_t mode, boolean_t isdir, trivial_acl_t *masks)
 {
-    uint32_t read_mask = ACE_READ_DATA;
-    uint32_t write_mask = ACE_WRITE_DATA|ACE_APPEND_DATA;
-    uint32_t execute_mask = ACE_EXECUTE;
+	uint32_t read_mask = ACE_READ_DATA;
+	uint32_t write_mask = ACE_WRITE_DATA|ACE_APPEND_DATA;
+	uint32_t execute_mask = ACE_EXECUTE;
 
 	if (isdir)
 		write_mask |= ACE_DELETE_CHILD;
 
-    masks->deny1 = 0;
-    if (!(mode & S_IRUSR) && (mode & (S_IRGRP|S_IROTH)))
-        masks->deny1 |= read_mask;
-    if (!(mode & S_IWUSR) && (mode & (S_IWGRP|S_IWOTH)))
-        masks->deny1 |= write_mask;
-    if (!(mode & S_IXUSR) && (mode & (S_IXGRP|S_IXOTH)))
-        masks->deny1 |= execute_mask;
+	masks->deny1 = 0;
+	if (!(mode & S_IRUSR) && (mode & (S_IRGRP|S_IROTH)))
+		masks->deny1 |= read_mask;
+	if (!(mode & S_IWUSR) && (mode & (S_IWGRP|S_IWOTH)))
+		masks->deny1 |= write_mask;
+	if (!(mode & S_IXUSR) && (mode & (S_IXGRP|S_IXOTH)))
+		masks->deny1 |= execute_mask;
 
-    masks->deny2 = 0;
-    if (!(mode & S_IRGRP) && (mode & S_IROTH))
-        masks->deny2 |= read_mask;
-    if (!(mode & S_IWGRP) && (mode & S_IWOTH))
-        masks->deny2 |= write_mask;
-    if (!(mode & S_IXGRP) && (mode & S_IXOTH))
-        masks->deny2 |= execute_mask;
+	masks->deny2 = 0;
+	if (!(mode & S_IRGRP) && (mode & S_IROTH))
+		masks->deny2 |= read_mask;
+	if (!(mode & S_IWGRP) && (mode & S_IWOTH))
+		masks->deny2 |= write_mask;
+	if (!(mode & S_IXGRP) && (mode & S_IXOTH))
+		masks->deny2 |= execute_mask;
 
-    masks->allow0 = 0;
-    if ((mode & S_IRUSR) && (!(mode & S_IRGRP) && (mode & S_IROTH)))
-        masks->allow0 |= read_mask;
-    if ((mode & S_IWUSR) && (!(mode & S_IWGRP) && (mode & S_IWOTH)))
-        masks->allow0 |= write_mask;
-    if ((mode & S_IXUSR) && (!(mode & S_IXGRP) && (mode & S_IXOTH)))
-        masks->allow0 |= execute_mask;
+	masks->allow0 = 0;
+	if ((mode & S_IRUSR) && (!(mode & S_IRGRP) && (mode & S_IROTH)))
+		masks->allow0 |= read_mask;
+	if ((mode & S_IWUSR) && (!(mode & S_IWGRP) && (mode & S_IWOTH)))
+		masks->allow0 |= write_mask;
+	if ((mode & S_IXUSR) && (!(mode & S_IXGRP) && (mode & S_IXOTH)))
+		masks->allow0 |= execute_mask;
 
-    masks->owner = ACE_WRITE_ATTRIBUTES|ACE_WRITE_OWNER|ACE_WRITE_ACL|
-        ACE_WRITE_NAMED_ATTRS|ACE_READ_ACL|ACE_READ_ATTRIBUTES|
-        ACE_READ_NAMED_ATTRS|ACE_SYNCHRONIZE;
-    if (mode & S_IRUSR)
-        masks->owner |= read_mask;
-    if (mode & S_IWUSR)
-        masks->owner |= write_mask;
-    if (mode & S_IXUSR)
-        masks->owner |= execute_mask;
+	masks->owner = ACE_WRITE_ATTRIBUTES|ACE_WRITE_OWNER|ACE_WRITE_ACL|
+	    ACE_WRITE_NAMED_ATTRS|ACE_READ_ACL|ACE_READ_ATTRIBUTES|
+	    ACE_READ_NAMED_ATTRS|ACE_SYNCHRONIZE;
+	if (mode & S_IRUSR)
+		masks->owner |= read_mask;
+	if (mode & S_IWUSR)
+		masks->owner |= write_mask;
+	if (mode & S_IXUSR)
+		masks->owner |= execute_mask;
 
-    masks->group = ACE_READ_ACL|ACE_READ_ATTRIBUTES|ACE_READ_NAMED_ATTRS|
-        ACE_SYNCHRONIZE;
-    if (mode & S_IRGRP)
-        masks->group |= read_mask;
-    if (mode & S_IWGRP)
-        masks->group |= write_mask;
-    if (mode & S_IXGRP)
-        masks->group |= execute_mask;
+	masks->group = ACE_READ_ACL|ACE_READ_ATTRIBUTES|ACE_READ_NAMED_ATTRS|
+	    ACE_SYNCHRONIZE;
+	if (mode & S_IRGRP)
+		masks->group |= read_mask;
+	if (mode & S_IWGRP)
+		masks->group |= write_mask;
+	if (mode & S_IXGRP)
+		masks->group |= execute_mask;
 
-    masks->everyone = ACE_READ_ACL|ACE_READ_ATTRIBUTES|ACE_READ_NAMED_ATTRS|
-        ACE_SYNCHRONIZE;
-    if (mode & S_IROTH)
-        masks->everyone |= read_mask;
-    if (mode & S_IWOTH)
-        masks->everyone |= write_mask;
-    if (mode & S_IXOTH)
-        masks->everyone |= execute_mask;
+	masks->everyone = ACE_READ_ACL|ACE_READ_ATTRIBUTES|ACE_READ_NAMED_ATTRS|
+	    ACE_SYNCHRONIZE;
+	if (mode & S_IROTH)
+		masks->everyone |= read_mask;
+	if (mode & S_IWOTH)
+		masks->everyone |= write_mask;
+	if (mode & S_IXOTH)
+		masks->everyone |= execute_mask;
 }
 
 void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
-                    const char *name, ino64_t objnum, enum vtype vtype,
-                    boolean_t user64)
+    const char *name, ino64_t objnum, enum vtype vtype,
+    boolean_t user64)
 {
 	attrgroup_t commonattr = aip->ai_attrlist->commonattr;
 	void *attrbufptr = *aip->ai_attrbufpp;
@@ -986,10 +987,10 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 	cred_t  *cr = (cred_t *)vfs_context_ucred(aip->ai_context);
 	finderinfo_t finderinfo;
 
-    /*
-     * We should probably combine all the sa_lookup into a bulk
-     * lookup operand.
-     */
+	/*
+	 * We should probably combine all the sa_lookup into a bulk
+	 * lookup operand.
+	 */
 
 	finderinfo.fi_flags = 0;
 
@@ -1041,8 +1042,8 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 	if (ATTR_CMN_PAROBJID & commonattr) {
 		uint64_t parentid;
 
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_PARENT(zfsvfs),
-                         &parentid, sizeof (parentid)) == 0);
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_PARENT(zfsvfs),
+		    &parentid, sizeof (parentid)) == 0);
 
 		/*
 		 * On Mac OS X we always export the root
@@ -1064,58 +1065,58 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 		attrbufptr = ((text_encoding_t *)attrbufptr) + 1;
 	}
 	if (ATTR_CMN_CRTIME & commonattr) {
-        uint64_t times[2];
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_CRTIME(zfsvfs),
-                         times, sizeof(times)) == 0);
+		uint64_t times[2];
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_CRTIME(zfsvfs),
+		    times, sizeof (times)) == 0);
 		if (user64) {
 			ZFS_TIME_DECODE((timespec_user64_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user64_t *)attrbufptr) + 1;
 		} else {
 			ZFS_TIME_DECODE((timespec_user32_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user32_t *)attrbufptr) + 1;
 		}
 	}
 	if (ATTR_CMN_MODTIME & commonattr) {
-        uint64_t times[2];
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_MTIME(zfsvfs),
-                         times, sizeof(times)) == 0);
+		uint64_t times[2];
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_MTIME(zfsvfs),
+		    times, sizeof (times)) == 0);
 		if (user64) {
 			ZFS_TIME_DECODE((timespec_user64_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user64_t *)attrbufptr) + 1;
 		} else {
 			ZFS_TIME_DECODE((timespec_user32_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user32_t *)attrbufptr) + 1;
 		}
 	}
 	if (ATTR_CMN_CHGTIME & commonattr) {
-        uint64_t times[2];
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_CTIME(zfsvfs),
-                         times, sizeof(times)) == 0);
+		uint64_t times[2];
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_CTIME(zfsvfs),
+		    times, sizeof (times)) == 0);
 		if (user64) {
 			ZFS_TIME_DECODE((timespec_user64_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user64_t *)attrbufptr) + 1;
 		} else {
 			ZFS_TIME_DECODE((timespec_user32_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user32_t *)attrbufptr) + 1;
 		}
 	}
 	if (ATTR_CMN_ACCTIME & commonattr) {
-        uint64_t times[2];
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_ATIME(zfsvfs),
-                         times, sizeof(times)) == 0);
+		uint64_t times[2];
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_ATIME(zfsvfs),
+		    times, sizeof (times)) == 0);
 		if (user64) {
 			ZFS_TIME_DECODE((timespec_user64_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user64_t *)attrbufptr) + 1;
 		} else {
 			ZFS_TIME_DECODE((timespec_user32_t *)attrbufptr,
-			                times);
+			    times);
 			attrbufptr = ((timespec_user32_t *)attrbufptr) + 1;
 		}
 	}
@@ -1125,43 +1126,43 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 			((timespec_user64_t *)attrbufptr)->tv_sec = 0;
 			((timespec_user64_t *)attrbufptr)->tv_nsec = 0;
 			attrbufptr = ((timespec_user64_t *)attrbufptr) + 1;
-		}  else {
+		} else {
 			((timespec_user32_t *)attrbufptr)->tv_sec = 0;
 			((timespec_user32_t *)attrbufptr)->tv_nsec = 0;
 			attrbufptr = ((timespec_user32_t *)attrbufptr) + 1;
 		}
 	}
 	if (ATTR_CMN_FNDRINFO & commonattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_FLAGS(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_FLAGS(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		getfinderinfo(zp, cr, &finderinfo);
 		/* Shadow ZFS_HIDDEN to Finder Info's invisible bit */
 		if (val & ZFS_HIDDEN) {
 			finderinfo.fi_flags |=
-				OSSwapHostToBigConstInt16(kIsInvisible);
+			    OSSwapHostToBigConstInt16(kIsInvisible);
 		}
 		bcopy(&finderinfo, attrbufptr, sizeof (finderinfo));
 		attrbufptr = (char *)attrbufptr + 32;
 	}
 	if (ATTR_CMN_OWNERID & commonattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_UID(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_UID(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((uid_t *)attrbufptr) = val;
 		attrbufptr = ((uid_t *)attrbufptr) + 1;
 	}
 	if (ATTR_CMN_GRPID & commonattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_GID(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_GID(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((gid_t *)attrbufptr) = val;
 		attrbufptr = ((gid_t *)attrbufptr) + 1;
 	}
 	if (ATTR_CMN_ACCESSMASK & commonattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((u_int32_t *)attrbufptr) = val;
 		attrbufptr = ((u_int32_t *)attrbufptr) + 1;
 	}
@@ -1179,9 +1180,9 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 	}
 	if (ATTR_CMN_USERACCESS & commonattr) {
 		u_int32_t user_access = 0;
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_FLAGS(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_FLAGS(zfsvfs),
+		    &val, sizeof (val)) == 0);
 
 		user_access = getuseraccess(zp, aip->ai_context);
 
@@ -1212,8 +1213,8 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 	if (ATTR_CMN_PARENTID & commonattr) {
 		uint64_t parentid;
 
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_PARENT(zfsvfs),
-                         &parentid, sizeof (parentid)) == 0);
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_PARENT(zfsvfs),
+		    &parentid, sizeof (parentid)) == 0);
 
 		/*
 		 * On Mac OS X we always export the root
@@ -1234,7 +1235,8 @@ void commonattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp,
 	*aip->ai_varbufpp = varbufptr;
 }
 
-void dirattrpack(attrinfo_t *aip, znode_t *zp)
+void
+dirattrpack(attrinfo_t *aip, znode_t *zp)
 {
 	attrgroup_t dirattr = aip->ai_attrlist->dirattr;
 	void *attrbufptr = *aip->ai_attrbufpp;
@@ -1244,9 +1246,9 @@ void dirattrpack(attrinfo_t *aip, znode_t *zp)
 		attrbufptr = ((u_int32_t *)attrbufptr) + 1;
 	}
 	if (ATTR_DIR_ENTRYCOUNT & dirattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_SIZE(zp->z_zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_SIZE(zp->z_zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((u_int32_t *)attrbufptr) = (uint32_t)val;
 		attrbufptr = ((u_int32_t *)attrbufptr) + 1;
 	}
@@ -1262,7 +1264,8 @@ void dirattrpack(attrinfo_t *aip, znode_t *zp)
 	*aip->ai_attrbufpp = attrbufptr;
 }
 
-void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
+void
+fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 {
 	attrgroup_t fileattr = aip->ai_attrlist->fileattr;
 	void *attrbufptr = *aip->ai_attrbufpp;
@@ -1278,16 +1281,16 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 		allocsize = (uint64_t)512LL * (uint64_t)nblks;
 	}
 	if (ATTR_FILE_LINKCOUNT & fileattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_LINKS(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_LINKS(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((u_int32_t *)attrbufptr) = val;
 		attrbufptr = ((u_int32_t *)attrbufptr) + 1;
 	}
 	if (ATTR_FILE_TOTALSIZE & fileattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_SIZE(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_SIZE(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((off_t *)attrbufptr) = val;
 		attrbufptr = ((off_t *)attrbufptr) + 1;
 	}
@@ -1297,15 +1300,15 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 	}
 	if (ATTR_FILE_IOBLOCKSIZE & fileattr && zp) {
 		*((u_int32_t *)attrbufptr) =
-            zp->z_blksz ? zp->z_blksz : zfsvfs->z_max_blksz;
+		    zp->z_blksz ? zp->z_blksz : zfsvfs->z_max_blksz;
 		attrbufptr = ((u_int32_t *)attrbufptr) + 1;
 	}
 	if (ATTR_FILE_DEVTYPE & fileattr) {
-        uint64_t mode, val=0;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zfsvfs),
-                         &mode, sizeof(mode)) == 0);
-        sa_lookup(zp->z_sa_hdl, SA_ZPL_RDEV(zfsvfs),
-                  &val, sizeof(val));
+		uint64_t mode, val = 0;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zfsvfs),
+		    &mode, sizeof (mode)) == 0);
+		sa_lookup(zp->z_sa_hdl, SA_ZPL_RDEV(zfsvfs),
+		    &val, sizeof (val));
 		if (S_ISBLK(mode) || S_ISCHR(mode))
 			*((u_int32_t *)attrbufptr) = (u_int32_t)val;
 		else
@@ -1313,9 +1316,9 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 		attrbufptr = ((u_int32_t *)attrbufptr) + 1;
 	}
 	if (ATTR_FILE_DATALENGTH & fileattr) {
-        uint64_t val;
-        VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_SIZE(zfsvfs),
-                         &val, sizeof(val)) == 0);
+		uint64_t val;
+		VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_SIZE(zfsvfs),
+		    &val, sizeof (val)) == 0);
 		*((off_t *)attrbufptr) = val;
 		attrbufptr = ((off_t *)attrbufptr) + 1;
 	}
@@ -1325,11 +1328,11 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 	}
 	if ((ATTR_FILE_RSRCLENGTH | ATTR_FILE_RSRCALLOCSIZE) & fileattr) {
 		uint64_t rsrcsize = 0;
-        uint64_t xattr;
+		uint64_t xattr;
 
-        if (!sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zfsvfs),
-                       &xattr, sizeof(xattr)) &&
-            xattr) {
+		if (!sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zfsvfs),
+		    &xattr, sizeof (xattr)) &&
+		    xattr) {
 			znode_t *xdzp = NULL, *xzp = NULL;
 			struct componentname cn = { 0 };
 			char *name = NULL;
@@ -1341,10 +1344,10 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 			/* Grab the hidden attribute directory vnode. */
 			if (zfs_get_xattrdir(zp, &xdzp, cr, 0) == 0 &&
 			    zfs_dirlook(xdzp, name, &xzp, 0, NULL,
-                            &cn) == 0) {
+			    &cn) == 0) {
 				rsrcsize = xzp->z_size;
 			}
-            spa_strfree(name);
+			spa_strfree(name);
 			kmem_free(cn.cn_nameptr, cn.cn_namelen);
 
 			if (xzp)
@@ -1365,7 +1368,8 @@ void fileattrpack(attrinfo_t *aip, zfsvfs_t *zfsvfs, znode_t *zp)
 	*aip->ai_varbufpp = varbufptr;
 }
 
-void nameattrpack(attrinfo_t *aip, const char *name, int namelen)
+void
+nameattrpack(attrinfo_t *aip, const char *name, int namelen)
 {
 	void *varbufptr;
 	struct attrreference * attr_refptr;
@@ -1376,7 +1380,7 @@ void nameattrpack(attrinfo_t *aip, const char *name, int namelen)
 	varbufptr = *aip->ai_varbufpp;
 	attr_refptr = (struct attrreference *)(*aip->ai_attrbufpp);
 
-	freespace = (char*)aip->ai_varbufend - (char*)varbufptr;
+	freespace = (char *)aip->ai_varbufend - (char *)varbufptr;
 	/*
 	 * Mac OS X: non-ascii names are UTF-8 NFC on disk
 	 * so convert to NFD before exporting them.
@@ -1391,8 +1395,8 @@ void nameattrpack(attrinfo_t *aip, const char *name, int namelen)
 	namelen = strlen(name);
 	if (!force_formd_normalized_output ||
 	    utf8_normalizestr((const u_int8_t *)name, namelen,
-                          (u_int8_t *)varbufptr, &nfdlen,
-                          freespace, UTF_DECOMPOSED) != 0) {
+	    (u_int8_t *)varbufptr, &nfdlen,
+	    freespace, UTF_DECOMPOSED) != 0) {
 		/* ASCII or normalization failed, just copy zap name. */
 		strncpy((char *)varbufptr, name, MIN(freespace, namelen+1));
 	} else {
@@ -1413,34 +1417,35 @@ void nameattrpack(attrinfo_t *aip, const char *name, int namelen)
 	*aip->ai_varbufpp = varbufptr;
 }
 
-int getpackedsize(struct attrlist *alp, boolean_t user64)
+int
+getpackedsize(struct attrlist *alp, boolean_t user64)
 {
 	attrgroup_t attrs;
 	int timespecsize;
 	int size = 0;
 
-	timespecsize = user64 ? sizeof(timespec_user64_t) :
-        sizeof(timespec_user32_t);
+	timespecsize = user64 ? sizeof (timespec_user64_t) :
+	    sizeof (timespec_user32_t);
 
 	if ((attrs = alp->commonattr) != 0) {
 		if (attrs & ATTR_CMN_NAME)
-			size += sizeof(struct attrreference);
+			size += sizeof (struct attrreference);
 		if (attrs & ATTR_CMN_DEVID)
-			size += sizeof(dev_t);
+			size += sizeof (dev_t);
 		if (attrs & ATTR_CMN_FSID)
-			size += sizeof(fsid_t);
+			size += sizeof (fsid_t);
 		if (attrs & ATTR_CMN_OBJTYPE)
-			size += sizeof(fsobj_type_t);
+			size += sizeof (fsobj_type_t);
 		if (attrs & ATTR_CMN_OBJTAG)
-			size += sizeof(fsobj_tag_t);
+			size += sizeof (fsobj_tag_t);
 		if (attrs & ATTR_CMN_OBJID)
-			size += sizeof(fsobj_id_t);
+			size += sizeof (fsobj_id_t);
 		if (attrs & ATTR_CMN_OBJPERMANENTID)
-			size += sizeof(fsobj_id_t);
+			size += sizeof (fsobj_id_t);
 		if (attrs & ATTR_CMN_PAROBJID)
-			size += sizeof(fsobj_id_t);
+			size += sizeof (fsobj_id_t);
 		if (attrs & ATTR_CMN_SCRIPT)
-			size += sizeof(text_encoding_t);
+			size += sizeof (text_encoding_t);
 		if (attrs & ATTR_CMN_CRTIME)
 			size += timespecsize;
 		if (attrs & ATTR_CMN_MODTIME)
@@ -1452,21 +1457,21 @@ int getpackedsize(struct attrlist *alp, boolean_t user64)
 		if (attrs & ATTR_CMN_BKUPTIME)
 			size += timespecsize;
 		if (attrs & ATTR_CMN_FNDRINFO)
-			size += 32 * sizeof(u_int8_t);
+			size += 32 * sizeof (u_int8_t);
 		if (attrs & ATTR_CMN_OWNERID)
-			size += sizeof(uid_t);
+			size += sizeof (uid_t);
 		if (attrs & ATTR_CMN_GRPID)
-			size += sizeof(gid_t);
+			size += sizeof (gid_t);
 		if (attrs & ATTR_CMN_ACCESSMASK)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_CMN_FLAGS)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_CMN_USERACCESS)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_CMN_FILEID)
-			size += sizeof(u_int64_t);
+			size += sizeof (u_int64_t);
 		if (attrs & ATTR_CMN_PARENTID)
-			size += sizeof(u_int64_t);
+			size += sizeof (u_int64_t);
 		/*
 		 * Also add:
 		 * ATTR_CMN_GEN_COUNT         (|FSOPT_ATTR_CMN_EXTENDED)
@@ -1482,51 +1487,52 @@ int getpackedsize(struct attrlist *alp, boolean_t user64)
 	}
 	if ((attrs = alp->dirattr) != 0) {
 		if (attrs & ATTR_DIR_LINKCOUNT)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_DIR_ENTRYCOUNT)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_DIR_MOUNTSTATUS)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 	}
 	if ((attrs = alp->fileattr) != 0) {
 		if (attrs & ATTR_FILE_LINKCOUNT)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_FILE_TOTALSIZE)
-			size += sizeof(off_t);
+			size += sizeof (off_t);
 		if (attrs & ATTR_FILE_ALLOCSIZE)
-			size += sizeof(off_t);
+			size += sizeof (off_t);
 		if (attrs & ATTR_FILE_IOBLOCKSIZE)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_FILE_DEVTYPE)
-			size += sizeof(u_int32_t);
+			size += sizeof (u_int32_t);
 		if (attrs & ATTR_FILE_DATALENGTH)
-			size += sizeof(off_t);
+			size += sizeof (off_t);
 		if (attrs & ATTR_FILE_DATAALLOCSIZE)
-			size += sizeof(off_t);
+			size += sizeof (off_t);
 		if (attrs & ATTR_FILE_RSRCLENGTH)
-			size += sizeof(off_t);
+			size += sizeof (off_t);
 		if (attrs & ATTR_FILE_RSRCALLOCSIZE)
-			size += sizeof(off_t);
+			size += sizeof (off_t);
 	}
 	return (size);
 }
 
 
-void getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip)
+void
+getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip)
 {
 	znode_t	*xdzp = NULL;
 	znode_t	*xzp = NULL;
 	struct uio		*auio = NULL;
 	struct componentname  cn = { 0 };
 	int		error;
-    uint64_t xattr = 0;
+	uint64_t xattr = 0;
 	char *name = NULL;
 
-    if (sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zp->z_zfsvfs),
-                   &xattr, sizeof(xattr)) ||
-        (xattr == 0)) {
-        goto nodata;
-    }
+	if (sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zp->z_zfsvfs),
+	    &xattr, sizeof (xattr)) ||
+	    (xattr == 0)) {
+		goto nodata;
+	}
 
 	auio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
 	if (auio == NULL) {
@@ -1551,10 +1557,10 @@ void getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip)
 		goto out;
 	}
 	error = dmu_read_uio(zp->z_zfsvfs->z_os, xzp->z_id, auio,
-	                     sizeof (finderinfo_t));
+	    sizeof (finderinfo_t));
 out:
-    if (name)
-        spa_strfree(name);
+	if (name)
+		spa_strfree(name);
 	if (cn.cn_nameptr)
 		kmem_free(cn.cn_nameptr, cn.cn_namelen);
 	if (auio)
@@ -1569,33 +1575,34 @@ nodata:
 	bzero(fip, sizeof (finderinfo_t));
 }
 
-#define KAUTH_DIR_WRITE     (KAUTH_VNODE_ACCESS | KAUTH_VNODE_ADD_FILE | \
-                             KAUTH_VNODE_ADD_SUBDIRECTORY | \
-                             KAUTH_VNODE_DELETE_CHILD)
+#define	KAUTH_DIR_WRITE (KAUTH_VNODE_ACCESS | KAUTH_VNODE_ADD_FILE |	\
+    KAUTH_VNODE_ADD_SUBDIRECTORY |	\
+    KAUTH_VNODE_DELETE_CHILD)
 
-#define KAUTH_DIR_READ      (KAUTH_VNODE_ACCESS | KAUTH_VNODE_LIST_DIRECTORY)
+#define	KAUTH_DIR_READ	(KAUTH_VNODE_ACCESS | KAUTH_VNODE_LIST_DIRECTORY)
 
-#define KAUTH_DIR_EXECUTE   (KAUTH_VNODE_ACCESS | KAUTH_VNODE_SEARCH)
+#define	KAUTH_DIR_EXECUTE	(KAUTH_VNODE_ACCESS | KAUTH_VNODE_SEARCH)
 
-#define KAUTH_FILE_WRITE    (KAUTH_VNODE_ACCESS | KAUTH_VNODE_WRITE_DATA)
+#define	KAUTH_FILE_WRITE	(KAUTH_VNODE_ACCESS | KAUTH_VNODE_WRITE_DATA)
 
-#define KAUTH_FILE_READ     (KAUTH_VNODE_ACCESS | KAUTH_VNODE_READ_DATA)
+#define	KAUTH_FILE_READ		(KAUTH_VNODE_ACCESS | KAUTH_VNODE_READ_DATA)
 
-#define KAUTH_FILE_EXECUTE  (KAUTH_VNODE_ACCESS | KAUTH_VNODE_EXECUTE)
+#define	KAUTH_FILE_EXECUTE	(KAUTH_VNODE_ACCESS | KAUTH_VNODE_EXECUTE)
 
 /*
  * Compute the same user access value as getattrlist(2)
  */
-u_int32_t getuseraccess(znode_t *zp, vfs_context_t ctx)
+u_int32_t
+getuseraccess(znode_t *zp, vfs_context_t ctx)
 {
 	vnode_t	*vp;
 	u_int32_t	user_access = 0;
-    zfs_acl_phys_t acl_phys;
-    int error;
+	zfs_acl_phys_t acl_phys;
+	int error;
 	/* Only take the expensive vnode_authorize path when we have an ACL */
 
-    error = sa_lookup(zp->z_sa_hdl, SA_ZPL_ZNODE_ACL(zp->z_zfsvfs),
-                      &acl_phys, sizeof (acl_phys));
+	error = sa_lookup(zp->z_sa_hdl, SA_ZPL_ZNODE_ACL(zp->z_zfsvfs),
+	    &acl_phys, sizeof (acl_phys));
 
 	if (error || acl_phys.z_acl_count == 0) {
 		kauth_cred_t	cred = vfs_context_ucred(ctx);
@@ -1607,12 +1614,12 @@ u_int32_t getuseraccess(znode_t *zp, vfs_context_t ctx)
 			return (R_OK | W_OK | X_OK);
 		}
 
-        sa_lookup(zp->z_sa_hdl, SA_ZPL_UID(zp->z_zfsvfs),
-                  &obj_uid, sizeof (obj_uid));
-        sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zp->z_zfsvfs),
-                  &obj_mode, sizeof (obj_mode));
+		sa_lookup(zp->z_sa_hdl, SA_ZPL_UID(zp->z_zfsvfs),
+		    &obj_uid, sizeof (obj_uid));
+		sa_lookup(zp->z_sa_hdl, SA_ZPL_MODE(zp->z_zfsvfs),
+		    &obj_mode, sizeof (obj_mode));
 
-		//obj_uid = pzp->zp_uid;
+		// obj_uid = pzp->zp_uid;
 		obj_mode = obj_mode & MODEMASK;
 		if (obj_uid == UNKNOWNUID) {
 			obj_uid = kauth_cred_getuid(cred);
@@ -1646,200 +1653,202 @@ u_int32_t getuseraccess(znode_t *zp, vfs_context_t ctx)
 
 
 static unsigned char fingerprint[] = {0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef,
-                                      0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef};
+    0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef};
 
 /*
  * Convert "Well Known" GUID to enum type.
  */
-int kauth_wellknown_guid(guid_t *guid)
+int
+kauth_wellknown_guid(guid_t *guid)
 {
-    uint32_t last = 0;
+	uint32_t last = 0;
 
-    if (memcmp(fingerprint, guid->g_guid, sizeof(fingerprint)))
-        return KAUTH_WKG_NOT;
+	if (memcmp(fingerprint, guid->g_guid, sizeof (fingerprint)))
+		return (KAUTH_WKG_NOT);
 
-    last = BE_32(*((u_int32_t *)&guid->g_guid[12]));
+	last = BE_32(*((u_int32_t *)&guid->g_guid[12]));
 
-    switch(last) {
-    case 0x0c:
-        return KAUTH_WKG_EVERYBODY;
-    case 0x0a:
-        return KAUTH_WKG_OWNER;
-    case 0x10:
-        return KAUTH_WKG_GROUP;
-    case 0xFFFFFFFE:
-        return KAUTH_WKG_NOBODY;
-    }
+	switch (last) {
+		case 0x0c:
+			return (KAUTH_WKG_EVERYBODY);
+		case 0x0a:
+			return (KAUTH_WKG_OWNER);
+		case 0x10:
+			return (KAUTH_WKG_GROUP);
+		case 0xFFFFFFFE:
+			return (KAUTH_WKG_NOBODY);
+	}
 
-    return KAUTH_WKG_NOT;
+	return (KAUTH_WKG_NOT);
 }
 
 
 /*
  * Set GUID to "well known" guid, based on enum type
  */
-void nfsacl_set_wellknown(int wkg, guid_t *guid)
+void
+nfsacl_set_wellknown(int wkg, guid_t *guid)
 {
-    /*
-     * All WKGs begin with the same 12 bytes.
-     */
-    bcopy(fingerprint, (void *)guid, 12);
-    /*
-     * The final 4 bytes are our code (in network byte order).
-     */
-    switch (wkg) {
-    case 4:
-        *((u_int32_t *)&guid->g_guid[12]) = BE_32(0x0000000c);
-        break;
-    case 3:
-        *((u_int32_t *)&guid->g_guid[12]) = BE_32(0xfffffffe);
-        break;
-    case 1:
-        *((u_int32_t *)&guid->g_guid[12]) = BE_32(0x0000000a);
-        break;
-    case 2:
-        *((u_int32_t *)&guid->g_guid[12]) = BE_32(0x00000010);
-    };
+	/*
+	 * All WKGs begin with the same 12 bytes.
+	 */
+	bcopy(fingerprint, (void *)guid, 12);
+	/*
+	 * The final 4 bytes are our code (in network byte order).
+	 */
+	switch (wkg) {
+		case 4:
+			*((u_int32_t *)&guid->g_guid[12]) = BE_32(0x0000000c);
+			break;
+		case 3:
+			*((u_int32_t *)&guid->g_guid[12]) = BE_32(0xfffffffe);
+			break;
+		case 1:
+			*((u_int32_t *)&guid->g_guid[12]) = BE_32(0x0000000a);
+			break;
+		case 2:
+			*((u_int32_t *)&guid->g_guid[12]) = BE_32(0x00000010);
+	};
 }
 
 
 /*
  * Convert Darwin ACL list, into ZFS ACL "aces" list.
  */
-void aces_from_acl(ace_t *aces, int *nentries, struct kauth_acl *k_acl,
-	int *seen_type)
+void
+aces_from_acl(ace_t *aces, int *nentries, struct kauth_acl *k_acl,
+    int *seen_type)
 {
-    int i;
-    ace_t *ace;
-    guid_t          *guidp;
-    kauth_ace_rights_t  ace_rights;
-    uid_t  who;
-    uint32_t  mask = 0;
-    uint16_t  flags = 0;
-    uint16_t  type = 0;
-    u_int32_t  ace_flags;
-    int wkg;
+	int i;
+	ace_t *ace;
+	guid_t *guidp;
+	kauth_ace_rights_t  ace_rights;
+	uid_t  who;
+	uint32_t  mask = 0;
+	uint16_t  flags = 0;
+	uint16_t  type = 0;
+	u_int32_t  ace_flags;
+	int wkg;
 	int err = 0;
 
-    *nentries = k_acl->acl_entrycount;
+	*nentries = k_acl->acl_entrycount;
 
-    //bzero(aces, sizeof(*aces) * *nentries);
+	// bzero(aces, sizeof (*aces) * *nentries);
 
-    //*nentries = aclp->acl_cnt;
+	// *nentries = aclp->acl_cnt;
 
-    for (i = 0; i < *nentries; i++) {
-        //entry = &(aclp->acl_entry[i]);
+	for (i = 0; i < *nentries; i++) {
+		// entry = &(aclp->acl_entry[i]);
 
-        flags = 0;
-        mask  = 0;
+		flags = 0;
+		mask  = 0;
 
+		ace = &(aces[i]);
 
-        ace = &(aces[i]);
+		/* Note Mac OS X GUID is a 128-bit identifier */
+		guidp = &k_acl->acl_ace[i].ace_applicable;
 
-        /* Note Mac OS X GUID is a 128-bit identifier */
-        guidp = &k_acl->acl_ace[i].ace_applicable;
+		who = -1;
+		wkg = kauth_wellknown_guid(guidp);
 
-        who = -1;
-        wkg = kauth_wellknown_guid(guidp);
+		switch (wkg) {
+			case KAUTH_WKG_OWNER:
+				flags |= ACE_OWNER;
+				if (seen_type) *seen_type |= ACE_OWNER;
+				break;
+			case KAUTH_WKG_GROUP:
+				flags |= ACE_GROUP|ACE_IDENTIFIER_GROUP;
+				if (seen_type) *seen_type |= ACE_GROUP;
+				break;
+			case KAUTH_WKG_EVERYBODY:
+				flags |= ACE_EVERYONE;
+				if (seen_type) *seen_type |= ACE_EVERYONE;
+				break;
 
-		switch(wkg) {
-        case KAUTH_WKG_OWNER:
-            flags |= ACE_OWNER;
-			if (seen_type) *seen_type |= ACE_OWNER;
-            break;
-        case KAUTH_WKG_GROUP:
-            flags |= ACE_GROUP|ACE_IDENTIFIER_GROUP;
-			if (seen_type) *seen_type |= ACE_GROUP;
-            break;
-        case KAUTH_WKG_EVERYBODY:
-            flags |= ACE_EVERYONE;
-			if (seen_type) *seen_type |= ACE_EVERYONE;
-            break;
-
-        case KAUTH_WKG_NOBODY:
-        default:
-            /* Try to get a uid from supplied guid */
-			err = kauth_cred_guid2uid(guidp, &who);
-			if (err) {
-				err = kauth_cred_guid2gid(guidp, &who);
-				if (!err) {
-					flags |= ACE_IDENTIFIER_GROUP;
+			case KAUTH_WKG_NOBODY:
+			default:
+				/* Try to get a uid from supplied guid */
+				err = kauth_cred_guid2uid(guidp, &who);
+				if (err) {
+					err = kauth_cred_guid2gid(guidp, &who);
+					if (!err) {
+						flags |= ACE_IDENTIFIER_GROUP;
+					}
 				}
-			}
-			if (err) {
-				*nentries=0;
-				dprintf("ZFS: returning due to guid2gid\n");
-				return;
-			}
+				if (err) {
+					*nentries = 0;
+					return;
+				}
 
-        } // switch
+		} // switch
 
-        ace->a_who = who;
+		ace->a_who = who;
 
-        ace_rights = k_acl->acl_ace[i].ace_rights;
-        if (ace_rights & KAUTH_VNODE_READ_DATA)
-            mask |= ACE_READ_DATA;
-        if (ace_rights & KAUTH_VNODE_WRITE_DATA)
-            mask |= ACE_WRITE_DATA;
-        if (ace_rights & KAUTH_VNODE_APPEND_DATA)
-            mask |= ACE_APPEND_DATA;
-        if (ace_rights & KAUTH_VNODE_READ_EXTATTRIBUTES)
-            mask |= ACE_READ_NAMED_ATTRS;
-        if (ace_rights & KAUTH_VNODE_WRITE_EXTATTRIBUTES)
-            mask |= ACE_WRITE_NAMED_ATTRS;
-        if (ace_rights & KAUTH_VNODE_EXECUTE)
-            mask |= ACE_EXECUTE;
-        if (ace_rights & KAUTH_VNODE_DELETE_CHILD)
-            mask |= ACE_DELETE_CHILD;
-        if (ace_rights & KAUTH_VNODE_READ_ATTRIBUTES)
-            mask |= ACE_READ_ATTRIBUTES;
-        if (ace_rights & KAUTH_VNODE_WRITE_ATTRIBUTES)
-            mask |= ACE_WRITE_ATTRIBUTES;
-        if (ace_rights & KAUTH_VNODE_DELETE)
-            mask |= ACE_DELETE;
-        if (ace_rights & KAUTH_VNODE_READ_SECURITY)
-            mask |= ACE_READ_ACL;
-        if (ace_rights & KAUTH_VNODE_WRITE_SECURITY)
-            mask |= ACE_WRITE_ACL;
-        if (ace_rights & KAUTH_VNODE_TAKE_OWNERSHIP)
-            mask |= ACE_WRITE_OWNER;
-        if (ace_rights & KAUTH_VNODE_SYNCHRONIZE)
-            mask |= ACE_SYNCHRONIZE;
-        ace->a_access_mask = mask;
+		ace_rights = k_acl->acl_ace[i].ace_rights;
+		if (ace_rights & KAUTH_VNODE_READ_DATA)
+			mask |= ACE_READ_DATA;
+		if (ace_rights & KAUTH_VNODE_WRITE_DATA)
+			mask |= ACE_WRITE_DATA;
+		if (ace_rights & KAUTH_VNODE_APPEND_DATA)
+			mask |= ACE_APPEND_DATA;
+		if (ace_rights & KAUTH_VNODE_READ_EXTATTRIBUTES)
+			mask |= ACE_READ_NAMED_ATTRS;
+		if (ace_rights & KAUTH_VNODE_WRITE_EXTATTRIBUTES)
+			mask |= ACE_WRITE_NAMED_ATTRS;
+		if (ace_rights & KAUTH_VNODE_EXECUTE)
+			mask |= ACE_EXECUTE;
+		if (ace_rights & KAUTH_VNODE_DELETE_CHILD)
+			mask |= ACE_DELETE_CHILD;
+		if (ace_rights & KAUTH_VNODE_READ_ATTRIBUTES)
+			mask |= ACE_READ_ATTRIBUTES;
+		if (ace_rights & KAUTH_VNODE_WRITE_ATTRIBUTES)
+			mask |= ACE_WRITE_ATTRIBUTES;
+		if (ace_rights & KAUTH_VNODE_DELETE)
+			mask |= ACE_DELETE;
+		if (ace_rights & KAUTH_VNODE_READ_SECURITY)
+			mask |= ACE_READ_ACL;
+		if (ace_rights & KAUTH_VNODE_WRITE_SECURITY)
+			mask |= ACE_WRITE_ACL;
+		if (ace_rights & KAUTH_VNODE_TAKE_OWNERSHIP)
+			mask |= ACE_WRITE_OWNER;
+		if (ace_rights & KAUTH_VNODE_SYNCHRONIZE)
+			mask |= ACE_SYNCHRONIZE;
+		ace->a_access_mask = mask;
 
-        ace_flags = k_acl->acl_ace[i].ace_flags;
-        if (ace_flags & KAUTH_ACE_FILE_INHERIT)
-            flags |= ACE_FILE_INHERIT_ACE;
-        if (ace_flags & KAUTH_ACE_DIRECTORY_INHERIT)
-            flags |= ACE_DIRECTORY_INHERIT_ACE;
-        if (ace_flags & KAUTH_ACE_LIMIT_INHERIT)
-            flags |= ACE_NO_PROPAGATE_INHERIT_ACE;
-        if (ace_flags & KAUTH_ACE_ONLY_INHERIT)
-            flags |= ACE_INHERIT_ONLY_ACE;
-        ace->a_flags = flags;
+		ace_flags = k_acl->acl_ace[i].ace_flags;
+		if (ace_flags & KAUTH_ACE_FILE_INHERIT)
+			flags |= ACE_FILE_INHERIT_ACE;
+		if (ace_flags & KAUTH_ACE_DIRECTORY_INHERIT)
+			flags |= ACE_DIRECTORY_INHERIT_ACE;
+		if (ace_flags & KAUTH_ACE_LIMIT_INHERIT)
+			flags |= ACE_NO_PROPAGATE_INHERIT_ACE;
+		if (ace_flags & KAUTH_ACE_ONLY_INHERIT)
+			flags |= ACE_INHERIT_ONLY_ACE;
+		ace->a_flags = flags;
 
-        switch(ace_flags & KAUTH_ACE_KINDMASK) {
-        case KAUTH_ACE_PERMIT:
-            type = ACE_ACCESS_ALLOWED_ACE_TYPE;
-            break;
-        case KAUTH_ACE_DENY:
-            type = ACE_ACCESS_DENIED_ACE_TYPE;
-            break;
-        case KAUTH_ACE_AUDIT:
-            type = ACE_SYSTEM_AUDIT_ACE_TYPE;
-            break;
-        case KAUTH_ACE_ALARM:
-            type = ACE_SYSTEM_ALARM_ACE_TYPE;
-            break;
-        }
-        ace->a_type = type;
-        dprintf("  ACL: %d type %04x, mask %04x, flags %04x, who %d\n",
-               i, type, mask, flags, who);
-    }
+		switch (ace_flags & KAUTH_ACE_KINDMASK) {
+			case KAUTH_ACE_PERMIT:
+				type = ACE_ACCESS_ALLOWED_ACE_TYPE;
+				break;
+			case KAUTH_ACE_DENY:
+				type = ACE_ACCESS_DENIED_ACE_TYPE;
+				break;
+			case KAUTH_ACE_AUDIT:
+				type = ACE_SYSTEM_AUDIT_ACE_TYPE;
+				break;
+			case KAUTH_ACE_ALARM:
+				type = ACE_SYSTEM_ALARM_ACE_TYPE;
+				break;
+		}
+		ace->a_type = type;
+		dprintf("  ACL: %d type %04x, mask %04x, flags %04x, who %d\n",
+		    i, type, mask, flags, who);
+	}
 
 }
 
-void finderinfo_update(uint8_t *finderinfo, znode_t *zp)
+void
+finderinfo_update(uint8_t *finderinfo, znode_t *zp)
 {
 	u_int8_t *finfo = NULL;
 	struct timespec va_crtime;
@@ -1858,17 +1867,17 @@ void finderinfo_update(uint8_t *finderinfo, znode_t *zp)
 
 	/* hfs_xattr.c hfs_zero_hidden_fields() */
 	if ((IFTOVT((mode_t)zp->z_mode) == VREG) ||
-		(IFTOVT((mode_t)zp->z_mode) == VLNK)) {
-			struct FndrExtendedFileInfo *extinfo =
-			    (struct FndrExtendedFileInfo *)finfo;
-			extinfo->document_id = 0;
-			extinfo->date_added = 0;
-			extinfo->write_gen_counter = 0;
+	    (IFTOVT((mode_t)zp->z_mode) == VLNK)) {
+		struct FndrExtendedFileInfo *extinfo =
+		    (struct FndrExtendedFileInfo *)finfo;
+		extinfo->document_id = 0;
+		extinfo->date_added = 0;
+		extinfo->write_gen_counter = 0;
 	}
 
 	if (IFTOVT((mode_t)zp->z_mode) == VDIR) {
 		struct FndrExtendedDirInfo *extinfo =
-			(struct FndrExtendedDirInfo *)finfo;
+		    (struct FndrExtendedDirInfo *)finfo;
 		extinfo->document_id = 0;
 		extinfo->date_added = 0;
 		extinfo->write_gen_counter = 0;
@@ -1880,7 +1889,7 @@ void finderinfo_update(uint8_t *finderinfo, znode_t *zp)
 
 int
 zpl_xattr_set_sa(struct vnode *vp, const char *name, const void *value,
-				 size_t size, int flags, cred_t *cr)
+    size_t size, int flags, cred_t *cr)
 {
 	znode_t *zp = VTOZ(vp);
 	nvlist_t *nvl;
@@ -1893,33 +1902,33 @@ zpl_xattr_set_sa(struct vnode *vp, const char *name, const void *value,
 	if (value == NULL) {
 		error = -nvlist_remove(nvl, name, DATA_TYPE_BYTE_ARRAY);
 		if (error == -ENOENT)
-			return error;
-		//error = zpl_xattr_set_dir(vp, name, NULL, 0, flags, cr);
-        } else {
-                /* Limited to 32k to keep nvpair memory allocations small */
-                if (size > DXATTR_MAX_ENTRY_SIZE)
-                        return (-EFBIG);
+			return (error);
+		// error = zpl_xattr_set_dir(vp, name, NULL, 0, flags, cr);
+	} else {
+		/* Limited to 32k to keep nvpair memory allocations small */
+		if (size > DXATTR_MAX_ENTRY_SIZE)
+			return (-EFBIG);
 
-                /* Prevent the DXATTR SA from consuming the entire SA region */
-                error = -nvlist_size(nvl, &sa_size, NV_ENCODE_XDR);
-                if (error)
-                        return (error);
+		/* Prevent the DXATTR SA from consuming the entire SA region */
+		error = -nvlist_size(nvl, &sa_size, NV_ENCODE_XDR);
+		if (error)
+			return (error);
 
-                if (sa_size > DXATTR_MAX_SA_SIZE)
-                        return (-EFBIG);
-                error = -nvlist_add_byte_array(nvl, name,
-                    (uchar_t *)value, size);
-                if (error)
-                        return (error);
-        }
+		if (sa_size > DXATTR_MAX_SA_SIZE)
+			return (-EFBIG);
+		error = -nvlist_add_byte_array(nvl, name,
+		    (uchar_t *)value, size);
+		if (error)
+			return (error);
+	}
 
-        /* Update the SA for additions, modifications, and removals. */
-        if (!error)
-                error = -zfs_sa_set_xattr(zp);
+	/* Update the SA for additions, modifications, and removals. */
+	if (!error)
+		error = -zfs_sa_set_xattr(zp);
 
-        ASSERT3S(error, <=, 0);
+	ASSERT3S(error, <=, 0);
 
-        return (error);
+	return (error);
 }
 
 int
@@ -1944,7 +1953,7 @@ zpl_xattr_get_sa(struct vnode *vp, const char *name, void *value, size_t size)
 
 	ASSERT(zp->z_xattr_cached);
 	error = -nvlist_lookup_byte_array(zp->z_xattr_cached, name,
-									  &nv_value, &nv_size);
+	    &nv_value, &nv_size);
 	if (error)
 		return (error);
 
@@ -1990,7 +1999,8 @@ zpl_xattr_get_sa(struct vnode *vp, const char *name, void *value, size_t size)
  * If "name" or "parent" is known, pass it along, or it needs to look it up.
  *
  */
-void zfs_setattr_generate_id(znode_t *zp, uint64_t val, char *name)
+void
+zfs_setattr_generate_id(znode_t *zp, uint64_t val, char *name)
 {
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	char *nameptr = NULL;
@@ -2002,7 +2012,7 @@ void zfs_setattr_generate_id(znode_t *zp, uint64_t val, char *name)
 	if (!zp->z_document_id && zp->z_sa_hdl) {
 
 		error = sa_lookup(zp->z_sa_hdl, SA_ZPL_DOCUMENTID(zfsvfs),
-						  &docid, sizeof(docid));
+		    &docid, sizeof (docid));
 		if (!error && docid) {
 			zp->z_document_id = docid;
 			return;
@@ -2014,24 +2024,27 @@ void zfs_setattr_generate_id(znode_t *zp, uint64_t val, char *name)
 		} else {
 			/* Do we have parent? */
 			if (!parent) {
-				VERIFY(sa_lookup(zp->z_sa_hdl, SA_ZPL_PARENT(zfsvfs),
-								 &parent, sizeof (parent)) == 0);
+				VERIFY(sa_lookup(zp->z_sa_hdl,
+				    SA_ZPL_PARENT(zfsvfs), &parent,
+				    sizeof (parent)) == 0);
 			}
 			/* Lookup filename */
 			filename = kmem_zalloc(MAXPATHLEN + 2, KM_SLEEP);
 			if (zap_value_search(zfsvfs->z_os, parent, zp->z_id,
-								 ZFS_DIRENT_OBJ(-1ULL), filename) == 0) {
+			    ZFS_DIRENT_OBJ(-1ULL), filename) == 0) {
 
 				nameptr = filename;
 				// Might as well keep this name too.
 				strlcpy(zp->z_name_cache, filename,
-					MAXPATHLEN);
+				    MAXPATHLEN);
 			}
 		}
 
-		zp->z_document_id = fnv_32a_buf(&parent, sizeof(parent), FNV1_32A_INIT);
+		zp->z_document_id = fnv_32a_buf(&parent, sizeof (parent),
+		    FNV1_32A_INIT);
 		if (nameptr)
-			zp->z_document_id = fnv_32a_str(nameptr, zp->z_document_id);
+			zp->z_document_id =
+			    fnv_32a_str(nameptr, zp->z_document_id);
 
 		if (filename)
 			kmem_free(filename, MAXPATHLEN + 2);
@@ -2042,31 +2055,32 @@ void zfs_setattr_generate_id(znode_t *zp, uint64_t val, char *name)
  * setattr asked for UF_TRACKED to be set, which means we will make sure
  * we have a hash made (includes getting filename) and stored in SA.
  */
-int zfs_setattr_set_documentid(znode_t *zp, boolean_t update_flags)
+int
+zfs_setattr_set_documentid(znode_t *zp, boolean_t update_flags)
 {
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	int error = 0;
 	dmu_tx_t *tx;
-	int             count = 0;
+	int count = 0;
 	sa_bulk_attr_t  bulk[2];
 
 	dprintf("ZFS: vnop_setattr(UF_TRACKED) obj %llu : documentid %08u\n",
-		   zp->z_id,
-		   zp->z_document_id);
+	    zp->z_id,
+	    zp->z_document_id);
 
 	/* Write the new documentid to SA */
 	if ((zfsvfs->z_use_sa == B_TRUE) &&
-		!vfs_isrdonly(zfsvfs->z_vfs) &&
-		spa_writeable(dmu_objset_spa(zfsvfs->z_os))) {
+	    !vfs_isrdonly(zfsvfs->z_vfs) &&
+	    spa_writeable(dmu_objset_spa(zfsvfs->z_os))) {
 
 		uint64_t docid = zp->z_document_id;  // 32->64
 
 		if (update_flags == B_TRUE) {
-			SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs), NULL,
-							 &zp->z_pflags, 8);
+			SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zfsvfs),
+			    NULL, &zp->z_pflags, 8);
 		}
-        SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_DOCUMENTID(zfsvfs), NULL,
-						 &docid, sizeof(docid));
+		SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_DOCUMENTID(zfsvfs), NULL,
+		    &docid, sizeof (docid));
 
 		tx = dmu_tx_create(zfsvfs->z_os);
 		dmu_tx_hold_sa(tx, zp->z_sa_hdl, B_TRUE);
@@ -2081,33 +2095,32 @@ int zfs_setattr_set_documentid(znode_t *zp, boolean_t update_flags)
 
 		if (error)
 			dprintf("ZFS: sa_update(SA_ZPL_DOCUMENTID) failed %d\n",
-				   error);
+			    error);
 
 	} // if z_use_sa && !readonly
 
-	return error;
+	return (error);
 }
 
-
-
-int zfs_hardlink_addmap(znode_t *zp, uint64_t parentid, uint32_t linkid)
+int
+zfs_hardlink_addmap(znode_t *zp, uint64_t parentid, uint32_t linkid)
 {
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	hardlinks_t *searchnode, *findnode;
 	avl_index_t loc;
 
-	searchnode = kmem_alloc(sizeof(hardlinks_t), KM_SLEEP);
+	searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
 	searchnode->hl_parent = parentid;
 	searchnode->hl_fileid = zp->z_id;
 	strlcpy(searchnode->hl_name, zp->z_name_cache, PATH_MAX);
 
 	rw_enter(&zfsvfs->z_hardlinks_lock, RW_WRITER);
 	findnode = avl_find(&zfsvfs->z_hardlinks, searchnode, &loc);
-	kmem_free(searchnode, sizeof(hardlinks_t));
+	kmem_free(searchnode, sizeof (hardlinks_t));
 	if (!findnode) {
 		// Add hash entry
 		zp->z_finder_hardlink = TRUE;
-		findnode = kmem_alloc(sizeof(hardlinks_t), KM_SLEEP);
+		findnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
 
 		findnode->hl_parent = parentid;
 		findnode->hl_fileid = zp->z_id;
@@ -2117,17 +2130,19 @@ int zfs_hardlink_addmap(znode_t *zp, uint64_t parentid, uint32_t linkid)
 
 		avl_add(&zfsvfs->z_hardlinks, findnode);
 		avl_add(&zfsvfs->z_hardlinks_linkid, findnode);
-		dprintf("ZFS: Inserted new hardlink node (%llu,%llu,'%s') <-> (%x,%u)\n",
-				findnode->hl_parent,
-				findnode->hl_fileid, findnode->hl_name,
-				findnode->hl_linkid, findnode->hl_linkid	);
-	} // findnode2
+		dprintf("ZFS: Inserted new hardlink node (%llu,%llu,'%s') "
+		    "<-> (%x,%u)\n",
+		    findnode->hl_parent,
+		    findnode->hl_fileid, findnode->hl_name,
+		    findnode->hl_linkid, findnode->hl_linkid);
+	}
 	rw_exit(&zfsvfs->z_hardlinks_lock);
 
-	return findnode ? 1 : 0;
-} // findnode
+	return (findnode ? 1 : 0);
+}
 
 /* dst buffer must be at least UUID_PRINTABLE_STRING_LENGTH bytes */
+
 int
 zfs_vfs_uuid_unparse(uuid_t uuid, char *dst)
 {
@@ -2167,10 +2182,10 @@ zfs_vfs_uuid_gen(const char *osname, uuid_t uuid)
 	 * UUID version 3 (MD5) namespace variant:
 	 * hash namespace (uuid) together with name
 	 */
-	MD5Init( &md5c );
-	MD5Update( &md5c, &namespace, sizeof (namespace));
-	MD5Update( &md5c, osname, strlen(osname));
-	MD5Final( uuid, &md5c );
+	MD5Init(&md5c);
+	MD5Update(&md5c, &namespace, sizeof (namespace));
+	MD5Update(&md5c, osname, strlen(osname));
+	MD5Final(uuid, &md5c);
 
 	/*
 	 * To make UUID version 3, twiddle a few bits:
@@ -2183,7 +2198,7 @@ zfs_vfs_uuid_gen(const char *osname, uuid_t uuid)
 	uuid[8] = (uuid[8] & 0x3F) | 0x80;
 
 	/* Print all caps */
-	//dprintf("%s UUIDgen: [%s](%ld)->"
+	// dprintf("%s UUIDgen: [%s](%ld)->"
 	dprintf("%s UUIDgen: [%s](%ld) -> "
 	    "[%02X%02X%02X%02X-%02X%02X-%02X%02X-"
 	    "%02X%02X-%02X%02X%02X%02X%02X%02X]\n",
@@ -2199,18 +2214,19 @@ zfs_vfs_uuid_gen(const char *osname, uuid_t uuid)
 int
 uio_prefaultpages(ssize_t n, struct uio *uio)
 {
-	return 0;
+	return (0);
 }
 
 /* No #pragma weaks here! */
-void dmu_buf_add_ref(dmu_buf_t *db, void *tag)
+void
+dmu_buf_add_ref(dmu_buf_t *db, void *tag)
 {
 	dbuf_add_ref((dmu_buf_impl_t *)db, tag);
 }
 
-boolean_t dmu_buf_try_add_ref(dmu_buf_t *db, objset_t *os, uint64_t object,
-	uint64_t blkid, void *tag)
+boolean_t
+dmu_buf_try_add_ref(dmu_buf_t *db, objset_t *os, uint64_t object,
+    uint64_t blkid, void *tag)
 {
-	return dbuf_try_add_ref(db, os, object, blkid, tag);
+	return (dbuf_try_add_ref(db, os, object, blkid, tag));
 }
-

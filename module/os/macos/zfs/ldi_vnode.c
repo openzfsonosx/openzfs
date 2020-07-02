@@ -395,8 +395,6 @@ printf("%s missing argument\n", __func__);
 	    sizeof (bootinfo->dev_path))) != 0) {
 		dprintf("%s get size or dev_path error %d\n",
 		    __func__, error);
-printf("%s get size or dev_path error %d\n",
-    __func__, error);
 	}
 
 	return (error);
@@ -1005,8 +1003,9 @@ handle_unmap_vnode(struct ldi_handle *lhp,
 	ext.offset = dkm->dfle_start;
 	ext.length = dkm->dfle_length;
 
-	/* dkm->dfl_flags vs dkun.options
-	 * #define DF_WAIT_SYNC 0x00000001 / * Wait for full write-out of free. * /
+	/*
+	 * dkm->dfl_flags vs dkun.options
+	 * #define DF_WAIT_SYNC 0x00000001 Wait for full write-out of free.
 	 * #define _DK_UNMAP_INITIALIZE    0x00000100
 	 */
 
@@ -1015,8 +1014,8 @@ handle_unmap_vnode(struct ldi_handle *lhp,
 	    (caddr_t)&dkun, 0, context);
 
 	if (error) {
-		dprintf("%s unmap: 0x%x for off %llx size %llx\n", __func__, error,
-			ext.offset, ext.length);
+		dprintf("%s unmap: 0x%x for off %llx size %llx\n", __func__,
+		    error, ext.offset, ext.length);
 	}
 
 	/* Release iocount on vnode (still has usecount) */
