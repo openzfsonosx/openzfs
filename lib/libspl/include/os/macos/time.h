@@ -26,7 +26,8 @@
 
 /* Linux also has a timer_create() API we need to emulate. */
 
-/* OsX version can probably be implemented by using:
+/*
+ * OsX version can probably be implemented by using:
  * dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
  * dispatch_source_set_event_handler(timer1, ^{vector1(timer1);});
  * dispatch_source_set_cancel_handler(timer1
@@ -37,28 +38,28 @@
 typedef void *timer_t;
 
 struct itimerspec {
-	struct timespec it_interval;    /* timer period */
-	struct timespec it_value;       /* timer expiration */
+	struct timespec it_interval;	/* timer period */
+	struct timespec it_value;		/* timer expiration */
 };
 
-static inline int timer_create(clockid_t clockid, struct sigevent *sevp,
-	timer_t *timerid)
+static inline int
+timer_create(clockid_t clockid, struct sigevent *sevp,
+    timer_t *timerid)
 {
-	return 0;
+	return (0);
 }
 
-static inline int timer_settime(timer_t id, int flags,
-	const struct itimerspec *its, struct itimerspec *remainvalue)
+static inline int
+timer_settime(timer_t id, int flags,
+    const struct itimerspec *its, struct itimerspec *remainvalue)
 {
-	return 0;
+	return (0);
 }
 
-static inline int timer_delete (timer_t id)
+static inline int
+timer_delete(timer_t id)
 {
-	return 0;
+	return (0);
 }
 
 #endif
-
-
-

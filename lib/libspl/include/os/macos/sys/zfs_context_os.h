@@ -26,7 +26,7 @@
 #include <sys/ioctl.h>
 
 #define	ZFS_EXPORTS_PATH	"/etc/exports"
-#define MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
+#define	MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
 
 struct spa_iokit;
 typedef struct spa_iokit spa_iokit_t;

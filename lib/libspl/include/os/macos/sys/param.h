@@ -53,7 +53,7 @@
 #define	MAXPROJID	MAXUID		/* max project id */
 
 #ifndef PAGESIZE
-#define PAGESIZE        (sysconf(_SC_PAGESIZE))
+#define	PAGESIZE (sysconf(_SC_PAGESIZE))
 #endif /* PAGESIZE */
 
 extern int execvpe(const char *name, char * const argv[], char * const envp[]);

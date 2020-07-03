@@ -25,10 +25,7 @@
 #include_next <sys/poll.h>
 
 #ifndef O_DIRECT
-#define O_DIRECT 0
+#define	O_DIRECT 0
 #endif
 
 #endif
-
-
-

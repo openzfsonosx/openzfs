@@ -61,7 +61,7 @@ struct mnttab {
 	uint32_t mnt_fssubtype;
 };
 
-#define        extmnttab        mnttab
+#define	extmnttab mnttab
 
 struct stat64;
 struct statfs;
@@ -78,7 +78,7 @@ extern int getextmntent(const char *path, struct extmnttab *entry,
 extern void statfs2mnttab(struct statfs *sfs, struct mnttab *mp);
 
 #ifndef AT_SYMLINK_NOFOLLOW
-#define AT_SYMLINK_NOFOLLOW     0x100
+#define	AT_SYMLINK_NOFOLLOW 0x100
 #endif
 
 extern int fstatat64(int, const char *, struct stat *, int);

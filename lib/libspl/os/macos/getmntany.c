@@ -42,8 +42,8 @@
 #include <dirent.h>
 #include <sys/fcntl.h>
 
-#define DIFF(xx) ((mrefp->xx != NULL) && \
-		  (mgetp->xx == NULL || strcmp(mrefp->xx, mgetp->xx) != 0))
+#define	DIFF(xx) ((mrefp->xx != NULL) && \
+		(mgetp->xx == NULL || strcmp(mrefp->xx, mgetp->xx) != 0))
 
 static struct statfs *gsfs = NULL;
 static int allfs = 0;
@@ -57,7 +57,7 @@ static int allfs = 0;
 typedef struct attrlist attrlist_t;
 
 struct attrBufS {
-	u_int32_t       length;
+	u_int32_t length;
 	vol_capabilities_set_t caps;
 } __attribute__((aligned(4), packed));
 
@@ -203,29 +203,30 @@ optadd(char *mntopts, size_t size, const char *opt)
 #include <IOKit/IOBSD.h>
 
 
-char * MYCFStringCopyUTF8String(CFStringRef aString)
+char *
+MYCFStringCopyUTF8String(CFStringRef aString)
 {
-  if (aString == NULL) {
-    return NULL;
-  }
+	if (aString == NULL)
+		return (NULL);
 
-  CFIndex length = CFStringGetLength(aString);
-  CFIndex maxSize =
-  CFStringGetMaximumSizeForEncoding(length,
-                                    kCFStringEncodingUTF8);
-  char *buffer = (char *)malloc(maxSize);
-  if (CFStringGetCString(aString, buffer, maxSize,
-                         kCFStringEncodingUTF8)) {
-    return buffer;
-  }
-  return NULL;
+	CFIndex length = CFStringGetLength(aString);
+	CFIndex maxSize =
+	    CFStringGetMaximumSizeForEncoding(length,
+	    kCFStringEncodingUTF8);
+	char *buffer = (char *)malloc(maxSize);
+	if (CFStringGetCString(aString, buffer, maxSize,
+	    kCFStringEncodingUTF8)) {
+		return (buffer);
+	}
+	return (NULL);
 }
 
 /*
  * Given "/dev/disk6" connect to IOkit and fetch the dataset
  * name "BOOM/lower", and use it instead.
  */
-void expand_disk_to_zfs(char *devname, int len)
+void
+expand_disk_to_zfs(char *devname, int len)
 {
 	char *result = NULL;
 	CFMutableDictionaryRef matchingDict;
@@ -249,14 +250,14 @@ void expand_disk_to_zfs(char *devname, int len)
 	 * IOServiceGetMatchingServices to simplify the code.
 	 */
 	service = IOServiceGetMatchingService(kIOMasterPortDefault,
-										  matchingDict);
+	    matchingDict);
 
 	if (IO_OBJECT_NULL == service) {
 		return;
 	}
 
 	cfstr = IORegistryEntryCreateCFProperty(service,
-		CFSTR("ZFS Dataset"), kCFAllocatorDefault, 0);
+	    CFSTR("ZFS Dataset"), kCFAllocatorDefault, 0);
 	if (cfstr) {
 		result = MYCFStringCopyUTF8String(cfstr);
 		CFRelease(cfstr);
@@ -270,8 +271,6 @@ void expand_disk_to_zfs(char *devname, int len)
 	}
 }
 
-
-
 void
 statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 {
@@ -281,7 +280,7 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 	mntopts[0] = '\0';
 
 	flags = sfs->f_flags;
-#define	OPTADD(opt)	optadd(mntopts, sizeof(mntopts), (opt))
+#define	OPTADD(opt)	optadd(mntopts, sizeof (mntopts), (opt))
 	if (flags & MNT_RDONLY)
 		OPTADD(MNTOPT_RO);
 	else
@@ -302,17 +301,17 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 		OPTADD(MNTOPT_ATIME);
 		{
 			struct attrBufS attrBuf;
-			attrlist_t      attrList;
+			attrlist_t attrList;
 
-			memset(&attrList, 0, sizeof(attrList));
+			memset(&attrList, 0, sizeof (attrList));
 			attrList.bitmapcount = ATTR_BIT_MAP_COUNT;
 			attrList.volattr = ATTR_VOL_INFO|ATTR_VOL_CAPABILITIES;
 
 			if (getattrlist(sfs->f_mntonname, &attrList, &attrBuf,
-							sizeof(attrBuf), 0) == 0)  {
+			    sizeof (attrBuf), 0) == 0)  {
 
 				if (attrBuf.caps[VOL_CAPABILITIES_INTERFACES] &
-					VOL_CAP_INT_EXTENDED_ATTR) {
+				    VOL_CAP_INT_EXTENDED_ATTR) {
 					OPTADD(MNTOPT_XATTR);
 				} else {
 					OPTADD(MNTOPT_NOXATTR);
@@ -340,9 +339,7 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 
 	// If a disk is /dev/diskX, lets see if it has "zfs_dataset_name"
 	// set, and if so, use it instead, for mount matching.
-	expand_disk_to_zfs(sfs->f_mntfromname, sizeof(sfs->f_mntfromname));
-
-
+	expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname));
 
 	mp->mnt_special = sfs->f_mntfromname;
 	mp->mnt_mountp = sfs->f_mntonname;
@@ -365,14 +362,14 @@ statfs_init(void)
 	allfs = getfsstat(NULL, 0, MNT_NOWAIT);
 	if (allfs == -1)
 		goto fail;
-	gsfs = malloc(sizeof(gsfs[0]) * allfs * 2);
+	gsfs = malloc(sizeof (gsfs[0]) * allfs * 2);
 	if (gsfs == NULL)
 		goto fail;
-	allfs = getfsstat(gsfs, (long)(sizeof(gsfs[0]) * allfs * 2),
-                      MNT_NOWAIT);
+	allfs = getfsstat(gsfs, (long)(sizeof (gsfs[0]) * allfs * 2),
+	    MNT_NOWAIT);
 	if (allfs == -1)
 		goto fail;
-	sfs = realloc(gsfs, allfs * sizeof(gsfs[0]));
+	sfs = realloc(gsfs, allfs * sizeof (gsfs[0]));
 	if (sfs != NULL)
 		gsfs = sfs;
 	return (0);
@@ -432,7 +429,7 @@ getmntent(FILE *fp, struct mnttab *mp)
 	// start from the beginning, and return EOF.
 	if (index >= allfs) {
 		index = -1;
-		return -1;
+		return (-1);
 	}
 
 	statfs2mnttab(&gsfs[index], mp);

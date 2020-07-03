@@ -29,7 +29,7 @@
 #define	O_RSYNC	0
 
 #ifndef O_DIRECT
-#define O_DIRECT 0
+#define	O_DIRECT 0
 #endif
 
 #endif

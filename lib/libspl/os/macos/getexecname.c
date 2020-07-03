@@ -27,5 +27,5 @@
 const char *
 getexecname(void)
 {
-	return getprogname();
+	return (getprogname());
 }

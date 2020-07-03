@@ -29,9 +29,7 @@
 #include_next <sys/xattr.h>
 
 /* macOS has one more argument */
-#define setxattr(A,B,C,D,E) setxattr(A,B,C,D,E,0)
-#define getxattr(A,B,C,D,E) getxattr(A,B,C,D,E,0)
+#define	setxattr(A, B, C, D, E) setxattr(A, B, C, D, E, 0)
+#define	getxattr(A, B, C, D, E) getxattr(A, B, C, D, E, 0)
 
 #endif
-
-

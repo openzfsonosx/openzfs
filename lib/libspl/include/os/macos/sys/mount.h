@@ -39,7 +39,7 @@
 /* Unfortunately, XNU has a different meaning for "vnode_t". */
 #undef vnode_t
 #include_next <sys/mount.h>
-#define vnode_t struct vnode
+#define	vnode_t struct vnode
 
 /*
  * Some old glibc headers don't define BLKGETSIZE64

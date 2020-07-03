@@ -29,9 +29,9 @@
 unsigned long
 get_system_hostid(void)
 {
-    size_t len;
+	size_t len;
 	uint32_t myhostid = 0;
-	len = sizeof(myhostid);
-    sysctlbyname("kern.hostid", &myhostid, &len, NULL, 0);
+	len = sizeof (myhostid);
+	sysctlbyname("kern.hostid", &myhostid, &len, NULL, 0);
 	return (myhostid);
 }

@@ -38,11 +38,8 @@ static inline int
 fdatasync(int fd)
 {
 	if (fcntl(fd, F_FULLFSYNC) == -1)
-		return -1;
-	return 0;
+		return (-1);
+	return (0);
 }
 
 #endif
-
-
-

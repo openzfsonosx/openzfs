@@ -41,9 +41,9 @@ static inline int
 fstat_blk(int fd, struct stat *st)
 {
 	if (fstat(fd, st) == -1)
-		return -1;
+		return (-1);
 
-	/* In Mac OS X we need to use an ioctl to get the size of a block device */
+	/* In OS X we need to use ioctl to get the size of a block dev */
 	if (st->st_mode & (S_IFBLK | S_IFCHR)) {
 		uint32_t blksize;
 		uint64_t blkcnt;

@@ -31,10 +31,7 @@
 
 /* Handle Linux use of 64 names */
 
-#define readdir64 readdir
-#define dirent64 dirent
+#define	readdir64 readdir
+#define	dirent64 dirent
 
 #endif
-
-
-
