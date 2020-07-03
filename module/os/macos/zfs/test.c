@@ -1,7 +1,0 @@
-
-roger()
-{
-	spl_start();
-}
-
-

@@ -38,8 +38,8 @@
 #ifdef	dprintf
 #undef	dprintf
 #endif
-#define	dprintf(fmt, ...) do {							\
-	IOLog("ZFSDatasetScheme %s " fmt "\n", __func__, ##__VA_ARGS__);	\
+#define	dprintf(fmt, ...) do {	\
+	IOLog("ZFSDatasetScheme %s " fmt "\n", __func__, ##__VA_ARGS__);\
 _NOTE(CONSTCOND) } while (0)
 #else
 #ifndef dprintf
@@ -540,7 +540,7 @@ zfs_osx_proxy_exists(const char *osname)
 	/* Get dataset proxy (takes a retain) */
 	if ((dataset = zfs_osx_proxy_get(osname)) != NULL) {
 		OSSafeReleaseNULL(dataset);
-		return(1);
+		return (1);
 	}
 
 	return (0);
@@ -632,7 +632,8 @@ orderHoles(const OSMetaClassBase *obj1, const OSMetaClassBase *obj2,
 	if (obj2 == NULL ||
 	    (num2 = OSDynamicCast(OSNumber, obj2)) == NULL) {
 		/* If both are non-OSNumber, same ordering */
-		if (num1 == NULL) return (0);
+		if (num1 == NULL)
+			return (0);
 		/* If num1 is a valid OSNumber, push num2 to end */
 		return (1);
 	}
@@ -645,7 +646,8 @@ orderHoles(const OSMetaClassBase *obj1, const OSMetaClassBase *obj2,
 	 *   <li>and 0 if obj1 and obj2 have an equivalent ordering.</li>
 	 * </ul>
 	 */
-	if (num1->isEqualTo(num2)) return (0);
+	if (num1->isEqualTo(num2))
+		return (0);
 
 	if (num1->unsigned32BitValue() < num2->unsigned32BitValue()) {
 		return (1);
@@ -720,7 +722,7 @@ ZFSDatasetScheme::start(IOService *provider)
 		setProperty(kZFSPoolNameKey, pool_name);
 	}
 
-	//registerService(kIOServiceAsynchronous);
+	// registerService(kIOServiceAsynchronous);
 	registerService(kIOServiceSynchronous);
 
 	return (true);
@@ -769,7 +771,7 @@ ZFSDatasetScheme::probe(IOService *provider, SInt32 *score)
 
 	/* Successful match */
 	dprintf("Match");
-	//*score = 5000;
+	// *score = 5000;
 	return (this);
 }
 
@@ -932,7 +934,8 @@ ZFSDatasetScheme::addDataset(const char *osname)
 	// This sets the "diskutil list -> TYPE" field
 	dataset->setProperty("Content", "ZFS Dataset");
 	// This matches with Info.plist, so it calls zfs.util for NAME
-	dataset->setProperty("Content Hint","6A898CC3-1DD2-11B2-99A6-080020736631");
+	dataset->setProperty("Content Hint",
+	    "6A898CC3-1DD2-11B2-99A6-080020736631");
 
 	if (dataset->attach(this) == false) {
 		dprintf("attach failed");
@@ -952,7 +955,7 @@ ZFSDatasetScheme::addDataset(const char *osname)
 	_datasets->setObject(dataset);
 	unlockForArbitration();
 
-	//dataset->registerService(kIOServiceAsynchronous);
+	// dataset->registerService(kIOServiceAsynchronous);
 	dataset->registerService(kIOServiceSynchronous);
 
 	/* Adding to OSSet takes a retain */
@@ -1057,7 +1060,7 @@ ZFSDatasetScheme::write(IOService *client,
 	IOStorage::complete(completion, kIOReturnError, 0);
 }
 
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 IOReturn
 ZFSDatasetScheme::synchronize(IOService *client,
@@ -1076,7 +1079,7 @@ IOReturn
 ZFSDatasetScheme::unmap(IOService *client,
     IOStorageExtent		*extents,
     UInt32			extentsCount,
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	    IOStorageUnmapOptions	options)
 #else
@@ -1103,10 +1106,9 @@ ZFSDatasetScheme::copyPhysicalExtent(IOService *client,
 void
 ZFSDatasetScheme::unlockPhysicalExtents(IOService *client)
 {
-	return;
 }
 
-#if defined (MAC_OS_X_VERSION_10_10) &&        \
+#if defined(MAC_OS_X_VERSION_10_10) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10)
 IOReturn
 ZFSDatasetScheme::setPriority(IOService *client,

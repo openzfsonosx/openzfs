@@ -142,7 +142,7 @@ ZFSDatasetProxy::start(IOService *provider)
 
 		if (!nameString) {
 			OSSymbol *nameSymbol;
-		       	nameSymbol = OSDynamicCast(OSSymbol, property);
+			nameSymbol = OSDynamicCast(OSSymbol, property);
 			if (!nameSymbol) {
 				dprintf("couldn't get name");
 				goto error;
@@ -310,10 +310,10 @@ ZFSDatasetProxy::doAsyncReadWrite(IOMemoryDescriptor *buffer,
 			off += cur;
 			len -= cur;
 		}
-		//dprintf("%s: read: %llu %llu",
+		// dprintf("%s: read: %llu %llu",
 		//    __func__, block, nblks);
 		IOStorage::complete(completion, kIOReturnSuccess,
-		    buffer->getLength());
+			    buffer->getLength());
 		return (kIOReturnSuccess);
 	}
 
@@ -348,7 +348,7 @@ ZFSDatasetProxy::doFormatMedia(UInt64 byteCapacity)
 	DPRINTF_FUNC();
 	/* XXX shouldn't need it */
 	return (kIOReturnError);
-	//return (kIOReturnSuccess);
+	// return (kIOReturnSuccess);
 }
 
 UInt32
@@ -438,7 +438,8 @@ IOReturn
 ZFSDatasetProxy::reportBlockSize(UInt64 *blockSize)
 {
 	DPRINTF_FUNC();
-	if (!blockSize) return (kIOReturnError);
+	if (!blockSize)
+		return (kIOReturnError);
 
 	*blockSize = ZFS_PROXY_DEV_BSIZE;
 	return (kIOReturnSuccess);
@@ -450,10 +451,11 @@ IOReturn
 ZFSDatasetProxy::reportMaxValidBlock(UInt64 *maxBlock)
 {
 	DPRINTF_FUNC();
-	if (!maxBlock) return (kIOReturnError);
+	if (!maxBlock)
+		return (kIOReturnError);
 
-	//*maxBlock = 0;
-	//*maxBlock = ZFS_PROXY_DEV_BCOUNT - 1;
+	// *maxBlock = 0;
+	// *maxBlock = ZFS_PROXY_DEV_BCOUNT - 1;
 	*maxBlock = _pool_bcount - 1;
 	dprintf("maxBlock %llu", *maxBlock);
 

@@ -122,7 +122,6 @@ ZFSPool::close(IOService *client, IOOptionBits options)
 {
 	IOLog("ZFSPool %s\n", __func__);
 	IOService::close(client, options);
-	return;
 }
 #endif
 
@@ -133,13 +132,13 @@ ZFSPool::handleOpen(IOService *client,
 	bool ret = true;
 
 	dprintf("");
-	//IOLog("ZFSPool %s\n", __func__);
+	// IOLog("ZFSPool %s\n", __func__);
 
 	/* XXX IOService open() locks for arbitration around handleOpen */
-	//lockForArbitration();
+	// lockForArbitration();
 	_openClients->setObject(client);
 	ret = _openClients->containsObject(client);
-	//unlockForArbitration();
+	// unlockForArbitration();
 
 	return (ret);
 //	return (IOService::handleOpen(client, options, NULL));
@@ -151,12 +150,12 @@ ZFSPool::handleIsOpen(const IOService *client) const
 	bool ret;
 
 	dprintf("");
-	//IOLog("ZFSPool %s\n", __func__);
+	// IOLog("ZFSPool %s\n", __func__);
 
 	/* XXX IOService isOpen() locks for arbitration around handleIsOpen */
-	//lockForArbitration();
+	// lockForArbitration();
 	ret = _openClients->containsObject(client);
-	//unlockForArbitration();
+	// unlockForArbitration();
 
 	return (ret);
 //	return (IOService::handleIsOpen(client));
@@ -167,16 +166,16 @@ ZFSPool::handleClose(IOService *client,
     IOOptionBits options)
 {
 	dprintf("");
-	//IOLog("ZFSPool %s\n", __func__);
+	// IOLog("ZFSPool %s\n", __func__);
 
 	/* XXX IOService close() locks for arbitration around handleClose */
-	//lockForArbitration();
+	// lockForArbitration();
 	if (_openClients->containsObject(client) == false) {
 		dprintf("not open");
 	}
 	/* Remove client from set */
 	_openClients->removeObject(client);
-	//unlockForArbitration();
+	// unlockForArbitration();
 
 //	IOService::handleClose(client, options);
 }
@@ -207,7 +206,7 @@ ZFSPool::setPoolName(const char *name)
 {
 /* Assign dataset name from null-terminated string */
 	OSString *dsstr;
-	//const OSSymbol *dsstr;
+	// const OSSymbol *dsstr;
 #if 0
 	OSDictionary *dict;
 	char *newname, *oldname;
@@ -244,7 +243,7 @@ ZFSPool::setPoolName(const char *name)
 
 	/* Save an OSString copy for IORegistry */
 	dsstr = OSString::withCString(newname);
-	//dsstr = OSSymbol::withCString(newname);
+	// dsstr = OSSymbol::withCString(newname);
 
 	kmem_free(newname, len+1);
 
@@ -371,7 +370,7 @@ ZFSPool::init(OSDictionary *properties, spa_t *spa)
 		goto error;
 	}
 	_spa = spa;
-	//setName(spa_name(spa));
+	// setName(spa_name(spa));
 
 #if 0
 	/* Init class statics every time an instance inits */
@@ -585,7 +584,7 @@ spa_iokit_pool_proxy_destroy(spa_t *spa)
 	proxy = wrapper->proxy;
 
 	/* Free the struct */
-	kmem_free(wrapper, sizeof(spa_iokit_t));
+	kmem_free(wrapper, sizeof (spa_iokit_t));
 	if (!proxy) {
 		printf("missing proxy");
 		return;
@@ -598,14 +597,14 @@ spa_iokit_pool_proxy_destroy(spa_t *spa)
 	proxy->release();
 
 	/*
-	IOService *provider;
-	provider = proxy->getProvider();
-
-	proxy->detach(provider);
-	proxy->stop(provider);
-
-	proxy->release();
-	*/
+	 * IOService *provider;
+	 * provider = proxy->getProvider();
+	 *
+	 * proxy->detach(provider);
+	 * proxy->stop(provider);
+	 *
+	 * proxy->release();
+	 */
 }
 
 int
@@ -679,7 +678,7 @@ ZFSPool::withProviderAndPool(IOService *zfs_hl, spa_t *spa)
 	}
 
 	/* Open zfs_hl, adding proxy to its open clients */
-	//if (proxy->open(zfs_hl) == false) {
+	// if (proxy->open(zfs_hl) == false) {
 	if (zfs_hl->open(proxy) == false) {
 		printf("open failed");
 		proxy->stop(zfs_hl);
@@ -730,9 +729,9 @@ ZFSPool::doAsyncReadWrite(IOMemoryDescriptor *buffer,
 			off += cur;
 			len -= cur;
 		}
-		//dprintf("read: %llu %llu", block, nblks);
+		// dprintf("read: %llu %llu", block, nblks);
 		IOStorage::complete(completion, kIOReturnSuccess,
-		    buffer->getLength());
+			    buffer->getLength());
 		return (kIOReturnSuccess);
 	}
 
@@ -767,7 +766,7 @@ ZFSPool::doFormatMedia(UInt64 byteCapacity)
 	DPRINTF_FUNC();
 	/* XXX shouldn't need it */
 	return (kIOReturnError);
-	//return (kIOReturnSuccess);
+	// return (kIOReturnSuccess);
 }
 
 UInt32
@@ -857,7 +856,8 @@ IOReturn
 ZFSPool::reportBlockSize(UInt64 *blockSize)
 {
 	DPRINTF_FUNC();
-	if (!blockSize) return (kIOReturnError);
+	if (!blockSize)
+		return (kIOReturnError);
 
 	*blockSize = ZFS_POOL_DEV_BSIZE;
 	return (kIOReturnSuccess);
@@ -869,9 +869,10 @@ IOReturn
 ZFSPool::reportMaxValidBlock(UInt64 *maxBlock)
 {
 	DPRINTF_FUNC();
-	if (!maxBlock) return (kIOReturnError);
+	if (!maxBlock)
+		return (kIOReturnError);
 
-	//*maxBlock = 0;
+	// *maxBlock = 0;
 	*maxBlock = ZFS_POOL_DEV_BCOUNT - 1;
 	dprintf("maxBlock %llu", *maxBlock);
 

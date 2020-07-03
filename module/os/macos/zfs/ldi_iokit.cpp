@@ -394,7 +394,7 @@ dprintf("%s got path [%s]\n", __func__, path);
 int handle_get_bootinfo_iokit(struct ldi_handle *lhp,
     struct io_bootinfo *bootinfo)
 {
-	int error=0;
+	int error = 0;
 
 	if (!lhp || !bootinfo) {
 		dprintf("%s missing argument\n", __func__);
@@ -405,7 +405,7 @@ printf("%s missing argument\n", __func__);
 	if ((error = handle_get_size_iokit(lhp,
 	    &bootinfo->dev_size)) != 0 ||
 	    (error = handle_get_dev_path_iokit(lhp, bootinfo->dev_path,
-	    sizeof(bootinfo->dev_path))) != 0) {
+	    sizeof (bootinfo->dev_path))) != 0) {
 		dprintf("%s get size or dev_path error %d\n",
 		    __func__, error);
 	}
@@ -425,7 +425,7 @@ handle_sync_iokit(struct ldi_handle *lhp)
 	}
 #endif
 
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	/* Issue device sync */
 	if (LH_MEDIA(lhp)->synchronize(LH_CLIENT(lhp), 0, 0, 0) !=
@@ -593,7 +593,7 @@ media_matchdict_from_path(const char *path)
 			/* Lookup IOMedia with UUID */
 			uuid = OSString::withCString(substr+strlen("media-"));
 		} else if (strncmp(substr, "volume-", 7) == 0) {
-			/* XXX
+			/*
 			 * volume-UUID is specified by DiskArbitration
 			 * when a Filesystem bundle is able to probe
 			 * the media and retrieve/generate a UUID for
@@ -608,7 +608,8 @@ media_matchdict_from_path(const char *path)
 			    __func__, path);
 		} else if (strncmp(substr, "device-", 7) == 0) {
 			/* Lookup IOMedia with device GUID */
-			/* XXX Not sure when this is used, no devices
+			/*
+			 * XXX Not sure when this is used, no devices
 			 * seem to be presented this way.
 			 */
 			dprintf("%s Unsupported device-GUID path %s\n",
@@ -896,7 +897,7 @@ media_from_serial(const char *path = 0)
 		if ((entry = OSDynamicCast(IORegistryEntry, obj)) == NULL ||
 		    (media = OSDynamicCast(IOMedia, entry)) == NULL ||
 		    media->isFormatted() == false) {
-		    //media->isWhole() == false) {
+		    // media->isWhole() == false) {
 			continue;
 		}
 
@@ -1004,7 +1005,8 @@ media_from_serial(const char *path = 0)
 		 */
 		if (newlen == 0 ||
 		    (newlen < (sep2 - sep1 - 1)) ||
-		    (substr[soff+newlen] != '\0' && substr[soff+newlen] != ':')) {
+		    (substr[soff+newlen] != '\0' &&
+		    substr[soff+newlen] != ':')) {
 			serial->release();
 			serial = 0;
 			continue;
@@ -1026,7 +1028,7 @@ media_from_serial(const char *path = 0)
 		serial->release();
 		serial = 0;
 
-		/* XXX
+		/*
 		 * Still need to get the slice - the component
 		 * after an optional ':' at the end of the
 		 * string, by searching for IOMedia with that
@@ -1203,12 +1205,12 @@ ldi_iokit_io_intr(void *target, void *parameter,
 	ASSERT3U(iobp->iomem, !=, 0);
 
 	if (!iobp->iomem) {
-	  printf("%s missing iobp->iomem\n", __func__);
-	  return;
+		printf("%s missing iobp->iomem\n", __func__);
+		return;
 	}
 
 	// this is very very very noisy in --enable-boot
-	//ASSERT3U(ldi_zfs_handle, !=, 0);
+	// ASSERT3U(ldi_zfs_handle, !=, 0);
 
 	if (actualByteCount == 0 ||
 	    actualByteCount != lbp->b_bcount ||
@@ -1217,12 +1219,12 @@ ldi_iokit_io_intr(void *target, void *parameter,
 		    "actualByteCount != lbp->b_bcount",
 		    actualByteCount, lbp->b_bcount);
 		if (ldi_zfs_handle)
-		  printf("%s status %d %d %s\n", __func__, status,
-			 ldi_zfs_handle->errnoFromReturn(status),
-			 ldi_zfs_handle->stringFromReturn(status));
+			printf("%s status %d %d %s\n", __func__, status,
+			    ldi_zfs_handle->errnoFromReturn(status),
+			    ldi_zfs_handle->stringFromReturn(status));
 		else
-		  printf("%s status %d ldi_zfs_handle is NULL\n",
-			 __func__, status);
+			printf("%s status %d ldi_zfs_handle is NULL\n",
+			    __func__, status);
 	}
 #endif
 
@@ -1579,8 +1581,8 @@ handle_register_notifier(struct ldi_handle *lhp)
 		return (EINVAL);
 	}
 
-	notifier = (handle_notifier_t)kmem_alloc(sizeof (
-	    struct _handle_notifier), KM_SLEEP);
+	notifier = (handle_notifier_t)kmem_alloc(
+	    sizeof (struct _handle_notifier), KM_SLEEP);
 	if (!notifier) {
 		dprintf("%s couldn't alloc notifier struct\n", __func__);
 		return (ENOMEM);
@@ -1674,7 +1676,7 @@ handle_set_wce_iokit(struct ldi_handle *lhp, int *wce)
 
 	result = device->getWriteCacheState(&value);
 	if (result != kIOReturnSuccess) {
-		//dprintf("%s couldn't get current write cache state %d\n",
+		// dprintf("%s couldn't get current write cache state %d\n",
 		//   __func__, ldi_zfs_handle->errnoFromReturn(result));
 		return (ENXIO);
 	}
@@ -1688,7 +1690,7 @@ handle_set_wce_iokit(struct ldi_handle *lhp, int *wce)
 
 	/* Set error and wce to return */
 	if (result != kIOReturnSuccess) {
-		//dprintf("%s couldn't set write cache %d\n",
+		// dprintf("%s couldn't set write cache %d\n",
 		//   __func__, ldi_zfs_handle->errnoFromReturn(result));
 		/* Flip wce to indicate current status */
 		*wce = !(*wce);
@@ -1896,50 +1898,50 @@ handle_features_iokit(struct ldi_handle *lhp,
 	LH_MEDIA(lhp)->retain();
 
 	OSDictionary *dictionary = OSDynamicCast(
-		/* class  */ OSDictionary,
-		/* object */ LH_MEDIA(lhp)->getProperty(
-			/* key    */ kIOStorageFeaturesKey,
-			/* plane  */ gIOServicePlane ) );
+	    /* class  */ OSDictionary,
+	    /* object */ LH_MEDIA(lhp)->getProperty(
+	    /* key    */ kIOStorageFeaturesKey,
+	    /* plane  */ gIOServicePlane));
 
 	*data = 0;
 
-	if ( dictionary ) {
+	if (dictionary) {
 		OSBoolean *boolean;
 
 #ifdef DK_FEATURE_BARRIER
 		boolean = OSDynamicCast(
-			/* class  */ OSBoolean,
-			/* object */ dictionary->getObject(
-				/* key    */ kIOStorageFeatureBarrier ) );
+		    /* class  */ OSBoolean,
+		    /* object */ dictionary->getObject(
+		    /* key    */ kIOStorageFeatureBarrier));
 
-		if ( boolean == kOSBooleanTrue )
+		if (boolean == kOSBooleanTrue)
 			*(uint32_t *)data |= DK_FEATURE_BARRIER;
 #endif
 
 		boolean = OSDynamicCast(
-			/* class  */ OSBoolean,
-			/* object */ dictionary->getObject(
-				/* key    */ kIOStorageFeatureForceUnitAccess ) );
+		    /* class  */ OSBoolean,
+		    /* object */ dictionary->getObject(
+		    /* key    */ kIOStorageFeatureForceUnitAccess));
 
-		if ( boolean == kOSBooleanTrue )
+		if (boolean == kOSBooleanTrue)
 			*(uint32_t *)data |= DK_FEATURE_FORCE_UNIT_ACCESS;
 
 #ifdef DK_FEATURE_PRIORITY
 		boolean = OSDynamicCast(
-			/* class  */ OSBoolean,
-			/* object */ dictionary->getObject(
-				/* key    */ kIOStorageFeaturePriority ) );
+		    /* class  */ OSBoolean,
+		    /* object */ dictionary->getObject(
+		    /* key    */ kIOStorageFeaturePriority));
 
-		if ( boolean == kOSBooleanTrue )
+		if (boolean == kOSBooleanTrue)
 			*(uint32_t *)data |= DK_FEATURE_PRIORITY;
 #endif
 
 		boolean = OSDynamicCast(
-			/* class  */ OSBoolean,
-			/* object */ dictionary->getObject(
-				/* key    */ kIOStorageFeatureUnmap ) );
+		    /* class  */ OSBoolean,
+		    /* object */ dictionary->getObject(
+		    /* key    */ kIOStorageFeatureUnmap));
 
-		if ( boolean == kOSBooleanTrue )
+		if (boolean == kOSBooleanTrue)
 			*(uint32_t *)data |= DK_FEATURE_UNMAP;
 	}
 
@@ -1971,8 +1973,10 @@ handle_unmap_iokit(struct ldi_handle *lhp,
 	extents[0].byteStart = dkm->dfle_start;
 	extents[0].byteCount = dkm->dfle_length;
 
-	/* dkm->dfl_flags vs IOStorageUnmapOptions
-	 * #define DF_WAIT_SYNC 0x00000001 / * Wait for full write-out of free. * /
+	/*
+	 * dkm->dfl_flags vs IOStorageUnmapOptions
+	 * #define DF_WAIT_SYNC 0x00000001
+	 * Wait for full write-out of free.
 	 * IOStorageUnmapOptions is only 0
 	 */
 

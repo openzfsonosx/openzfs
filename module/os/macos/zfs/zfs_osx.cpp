@@ -48,7 +48,7 @@
 #include <zfs_config.h>
 
 // Define the superclass.
-#define super IOService
+#define	super IOService
 
 OSDefineMetaClassAndStructors(net_lundman_zfs_zvol, IOService)
 
@@ -68,26 +68,26 @@ extern SInt32 zfs_active_fs_count;
 
 static char spl_gitrev[64] = ZFS_META_GITREV;
 
-//struct sysctl_oid_list sysctl__zfs_children;
 SYSCTL_DECL(_zfs);
-SYSCTL_NODE( , OID_AUTO, zfs, CTLFLAG_RD, 0, "");
+SYSCTL_NODE(, OID_AUTO, zfs, CTLFLAG_RD, 0, "");
 SYSCTL_STRING(_zfs, OID_AUTO, kext_version,
-			  CTLFLAG_RD | CTLFLAG_LOCKED,
-			  spl_gitrev, 0, "ZFS KEXT Version");
+    CTLFLAG_RD | CTLFLAG_LOCKED,
+    spl_gitrev, 0, "ZFS KEXT Version");
 
 
 extern kern_return_t _start(kmod_info_t *ki, void *data);
 extern kern_return_t _stop(kmod_info_t *ki, void *data);
 
-__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(net.lundman.zfs, "1.0.0", _start, _stop)
+__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(net.lundman.zfs,
+    "1.0.0", _start, _stop)
 kmod_start_func_t *_realmain = 0;
 kmod_stop_func_t  *_antimain = 0;
-int _kext_apple_cc = __APPLE_CC__ ;
+int _kext_apple_cc = __APPLE_CC__;
 
 } // Extern "C"
 
 bool
-net_lundman_zfs_zvol::init (OSDictionary* dict)
+net_lundman_zfs_zvol::init(OSDictionary* dict)
 {
 	bool res;
 
@@ -100,16 +100,16 @@ net_lundman_zfs_zvol::init (OSDictionary* dict)
 
 	res = super::init(dict);
 
-	//IOLog("ZFS::init\n");
-	return res;
+	// IOLog("ZFS::init\n");
+	return (res);
 }
 
 void
-net_lundman_zfs_zvol::free (void)
+net_lundman_zfs_zvol::free(void)
 {
 	OSSafeReleaseNULL(_openClients);
 
-	//IOLog("ZFS::free\n");
+	// IOLog("ZFS::free\n");
 	super::free();
 }
 
@@ -161,10 +161,10 @@ net_lundman_zfs_zvol::handleClose(IOService *client,
 }
 
 IOService*
-net_lundman_zfs_zvol::probe (IOService* provider, SInt32* score)
+net_lundman_zfs_zvol::probe(IOService *provider, SInt32 *score)
 {
-    IOService *res = super::probe(provider, score);
-    return res;
+	IOService *res = super::probe(provider, score);
+	return (res);
 }
 
 
@@ -179,14 +179,14 @@ net_lundman_zfs_zvol::probe (IOService* provider, SInt32* score)
  */
 
 bool
-net_lundman_zfs_zvol::start (IOService *provider)
+net_lundman_zfs_zvol::start(IOService *provider)
 {
 	bool res = super::start(provider);
 
 	IOLog("ZFS: Loading module ... \n");
 
 	if (!res)
-		return res;
+		return (res);
 
 	/* Fire up all SPL modules and threads */
 	spl_start(NULL, NULL);
@@ -201,26 +201,32 @@ net_lundman_zfs_zvol::start (IOService *provider)
 	 */
 	if (!zone_get_hostid(NULL)) {
 		uint32_t myhostid = 0;
-		IORegistryEntry *ioregroot =  IORegistryEntry::getRegistryRoot();
-		if(ioregroot) {
+		IORegistryEntry *ioregroot =
+		    IORegistryEntry::getRegistryRoot();
+		if (ioregroot) {
 			IORegistryEntry *macmodel =
 			    ioregroot->getChildEntry(gIOServicePlane);
 
 			if (macmodel) {
 				OSObject *ioplatformuuidobj;
-				ioplatformuuidobj = macmodel->getProperty(kIOPlatformUUIDKey);
+				ioplatformuuidobj =
+				    macmodel->getProperty(kIOPlatformUUIDKey);
 				if (ioplatformuuidobj) {
 					OSString *ioplatformuuidstr =
-					    OSDynamicCast(OSString, ioplatformuuidobj);
+					    OSDynamicCast(OSString,
+					    ioplatformuuidobj);
 
 					myhostid = fnv_32a_str(
-					    ioplatformuuidstr->getCStringNoCopy(),
+					    ioplatformuuidstr->
+					    getCStringNoCopy(),
 					    FNV1_32A_INIT);
 
-					sysctlbyname("kern.hostid", NULL, NULL, &myhostid,
-					    sizeof(myhostid));
-					printf("ZFS: hostid set to %08x from UUID '%s'\n",
-						myhostid, ioplatformuuidstr->getCStringNoCopy());
+					sysctlbyname("kern.hostid", NULL, NULL,
+					    &myhostid, sizeof (myhostid));
+					printf("ZFS: hostid set to %08x from "
+					    "UUID '%s'\n", myhostid,
+					    ioplatformuuidstr->
+					    getCStringNoCopy());
 				}
 			}
 		}
@@ -253,17 +259,17 @@ net_lundman_zfs_zvol::start (IOService *provider)
 	res = zfs_boot_init((IOService *)this);
 
 	printf("ZFS: Loaded module v%s-%s%s, "
-		"ZFS pool version %s, ZFS filesystem version %s\n",
-		ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR,
-		SPA_VERSION_STRING, ZPL_VERSION_STRING);
+	    "ZFS pool version %s, ZFS filesystem version %s\n",
+	    ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR,
+	    SPA_VERSION_STRING, ZPL_VERSION_STRING);
 
-	return true;
+	return (true);
 
-  failure:
+failure:
 	spl_stop(NULL, NULL);
 	sysctl_unregister_oid(&sysctl__zfs_kext_version);
 	sysctl_unregister_oid(&sysctl__zfs);
-	return false;
+	return (false);
 }
 
 /* Here we are, at the end of all things */
@@ -291,7 +297,7 @@ net_lundman_zfs_zvol::stop(IOService *provider)
 	spl_stop(NULL, NULL);
 
 	printf("ZFS: Unloaded module v%s-%s%s\n",
-		ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR);
+	    ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR);
 
 	/*
 	 * There is no way to ensure all threads have actually got to the

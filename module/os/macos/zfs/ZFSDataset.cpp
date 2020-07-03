@@ -188,24 +188,24 @@ ZFSDataset::init(UInt64 base, UInt64 size,
 	logSize = OSNumber::withNumber(512, 32);
 
 #if 0
-kIOPropertyPhysicalInterconnectTypeVirtual
-kIOPropertyPhysicalInterconnectTypeKey
-kIOPropertyInterconnectFileKey
-kIOPropertyInternalKey
-kIOPropertyPhysicalInterconnectLocationKey
+	kIOPropertyPhysicalInterconnectTypeVirtual
+	    kIOPropertyPhysicalInterconnectTypeKey
+	    kIOPropertyInterconnectFileKey
+	    kIOPropertyInternalKey
+	    kIOPropertyPhysicalInterconnectLocationKey
 
-kIOPropertyProtocolCharacteristicsKey
-kIOPropertyMediumTypeKey
-kIOPropertyLogicalBlockSizeKey
-kIOPropertyPhysicalBlockSizeKey
-kIOPropertyBytesPerPhysicalSectorKey
-kIOPropertyDeviceCharacteristicsKey
-kIOBlockStorageDeviceTypeKey
-kIOBlockStorageDeviceTypeGeneric
+	    kIOPropertyProtocolCharacteristicsKey
+	    kIOPropertyMediumTypeKey
+	    kIOPropertyLogicalBlockSizeKey
+	    kIOPropertyPhysicalBlockSizeKey
+	    kIOPropertyBytesPerPhysicalSectorKey
+	    kIOPropertyDeviceCharacteristicsKey
+	    kIOBlockStorageDeviceTypeKey
+	    kIOBlockStorageDeviceTypeGeneric
 #endif
 
 #if 0
-	virtualSymbol = OSSymbol::withCString(
+	    virtualSymbol = OSSymbol::withCString(
 	    kIOPropertyPhysicalInterconnectTypeVirtual);
 	internalSymbol = OSSymbol::withCString(
 	    kIOPropertyInternalKey);
@@ -214,7 +214,7 @@ kIOBlockStorageDeviceTypeGeneric
 	/* Validate allocations */
 	if (!newProps || !deviceDict || !physSize || !logSize
 #if 0
-	     || !protocolDict || !virtualSymbol || !internalSymbol
+	    // || !protocolDict || !virtualSymbol || !internalSymbol
 #endif
 	    ) {
 		dprintf("symbol allocation failed");
@@ -254,9 +254,9 @@ kIOBlockStorageDeviceTypeGeneric
 	if (newProps->setObject(kIOPropertyDeviceCharacteristicsKey,
 	    deviceDict) == false
 #if 0
-		||
-	    newProps->setObject(kIOPropertyProtocolCharacteristicsKey,
-	    protocolDict) == false
+		// ||
+	    // newProps->setObject(kIOPropertyProtocolCharacteristicsKey,
+	    // protocolDict) == false
 #endif
 	    ) {
 		dprintf("setup properties failed");
@@ -365,7 +365,7 @@ ZFSDataset::setDatasetName(const char *name)
 	/* Length of IOMedia name plus null terminator */
 	len = (strlen(kZFSIOMediaPrefix) + strlen(name) +
 	    strlen(kZFSIOMediaSuffix) + 1);
-	//len = strlen("ZFS ") + strlen(name) + strlen(" Media") + 1;
+	// len = strlen("ZFS ") + strlen(name) + strlen(" Media") + 1;
 
 	newname = (char *)kmem_alloc(len, KM_SLEEP);
 #endif
@@ -407,7 +407,8 @@ ZFSDataset::setDatasetName(const char *name)
 
 	/* Clone existing dictionary */
 	if (prevDict) {
-		if ((newDict = OSDictionary::withDictionary(prevDict)) == NULL) {
+		if ((newDict = OSDictionary::withDictionary(prevDict)) ==
+		    NULL) {
 			dprintf("couldn't clone prop dict");
 		}
 		OSSafeReleaseNULL(prevDict);
@@ -426,8 +427,8 @@ ZFSDataset::setDatasetName(const char *name)
 		    datasetString) == false) {
 			dprintf("couldn't set name");
 			OSSafeReleaseNULL(datasetString);
-			//OSSafeReleaseNULL(nameString);
-			//kmem_free(newname, len);
+			// OSSafeReleaseNULL(nameString);
+			// kmem_free(newname, len);
 			OSSafeReleaseNULL(newDict);
 			return (false);
 		}
@@ -439,8 +440,8 @@ ZFSDataset::setDatasetName(const char *name)
 			unlockForArbitration();
 			dprintf("couldn't set name");
 			OSSafeReleaseNULL(datasetString);
-			//OSSafeReleaseNULL(nameString);
-			//kmem_free(newname, len);
+			// OSSafeReleaseNULL(nameString);
+			// kmem_free(newname, len);
 			OSSafeReleaseNULL(newDict);
 			return (false);
 		}
@@ -453,13 +454,13 @@ ZFSDataset::setDatasetName(const char *name)
 	/* Assign plain ZFS Dataset name */
 	setProperty(kZFSDatasetNameKey, datasetString);
 	/* Assign IOMedia name */
-	//setName(name);
+	// setName(name);
 	setName(newname);
 
 	/* Unlock IORegistryEntry and cleanup allocations */
 	unlockForArbitration();
-	//kmem_free(newname, len);
-	//OSSafeReleaseNULL(nameString);
+	// kmem_free(newname, len);
+	// OSSafeReleaseNULL(nameString);
 	return (true);
 }
 
@@ -471,7 +472,8 @@ get_objnum(const char *name)
 	uint64_t objnum;
 	int error;
 
-	if (!name) return (0);
+	if (!name)
+		return (0);
 
 	error = dmu_objset_own(name, DMU_OST_ZFS, B_TRUE, FTAG, &os);
 	if (error != 0) {
@@ -500,7 +502,7 @@ ZFSDataset::withDatasetNameAndSize(const char *name, uint64_t size)
 	char uuid_cstr[37];
 	uint64_t objnum, readonly, guid;
 #if 0
-	//uint64_t ref_size, avail_size, obj_count, obj_free;
+	// uint64_t ref_size, avail_size, obj_count, obj_free;
 #endif
 	uuid_t uuid;
 	int error;
@@ -537,9 +539,9 @@ ZFSDataset::withDatasetNameAndSize(const char *name, uint64_t size)
 		dprintf("UUID gen failed");
 		goto error;
 	}
-	//uuid_unparse(uuid, uuid_cstr);
+	// uuid_unparse(uuid, uuid_cstr);
 	zfs_vfs_uuid_unparse(uuid, uuid_cstr);
-	//snprintf(uuid_cstr, sizeof (uuid_cstr), "");
+	// snprintf(uuid_cstr, sizeof (uuid_cstr), "");
 
 	uuidStr = OSString::withCString(uuid_cstr);
 	if (!uuidStr) {
@@ -567,18 +569,18 @@ ZFSDataset::withDatasetNameAndSize(const char *name, uint64_t size)
 	dmu_objset_space(os, &ref_size, &avail_size, &obj_count, &obj_free);
 #endif
 
-	//if (os->os_dsl_dataset)
+	// if (os->os_dsl_dataset)
 	//	guid = dsl_dataset_phys(os->os_dsl_dataset)->ds_guid;
 	guid = dmu_objset_fsid_guid(os);
-	//dsl_prop_get_integer(name, "guid", &guid, NULL) != 0) {
+	// dsl_prop_get_integer(name, "guid", &guid, NULL) != 0) {
 
 	if (dsl_prop_get_integer(name, "readonly", &readonly, NULL) != 0) {
 		dmu_objset_disown(os, B_FALSE, FTAG);
 		dprintf("get readonly property failed");
 		goto error;
 	}
-	//size = (1<<30);
-	//isWritable = true;
+	// size = (1<<30);
+	// isWritable = true;
 	dmu_objset_disown(os, B_FALSE, FTAG);
 
 #if 0
@@ -586,12 +588,6 @@ ZFSDataset::withDatasetNameAndSize(const char *name, uint64_t size)
 #endif
 
 	isWritable = (readonly == 0ULL);
-
-#if 0
-dprintf("[%s] readonly %lld isWritable %d guid %016llx"
-    " size %llu ref %llu avail %llu", name, readonly,
-    isWritable, guid, size, ref_size, avail_size);
-#endif
 
 	if (dataset->init(/* base */ 0, size, DEV_BSIZE,
 	    /* attributes */ 0, /* isWhole */ false, isWritable,
@@ -649,7 +645,7 @@ ZFSDataset::read(IOService *client,
 	}
 	ASSERT3U(done, ==, total);
 
-	//if (!completion || !completion->action) {
+	// if (!completion || !completion->action) {
 	if (!completion) {
 		dprintf("invalid completion");
 		return;
@@ -679,7 +675,7 @@ ZFSDataset::write(IOService *client,
 
 	total = buffer->getLength();
 
-	//if (!completion || !completion->action) {
+	// if (!completion || !completion->action) {
 	if (!completion) {
 		dprintf("invalid completion");
 		return;
@@ -698,7 +694,7 @@ volatile SInt64 num_sync = 0;
 /*
  * Compatibility method simulates a barrier sync as a no-op.
  */
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 IOReturn
 ZFSDataset::synchronize(IOService *client,
@@ -726,7 +722,7 @@ ZFSDataset::synchronizeCache(IOService *client)
 IOReturn
 ZFSDataset::unmap(IOService *client,
     IOStorageExtent *extents, UInt32 extentsCount,
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	IOStorageUnmapOptions	options)
 #else
@@ -746,7 +742,7 @@ ZFSDataset::copyPhysicalExtent(IOService *client,
 {
 	DPRINTF_FUNC();
 	return (0);
-	//return (IOMedia::copyPhysicalExtent(client, byteStart, byteCount));
+	// return (IOMedia::copyPhysicalExtent(client, byteStart, byteCount));
 }
 
 /*
@@ -756,7 +752,7 @@ bool
 ZFSDataset::lockPhysicalExtents(IOService *client)
 {
 	DPRINTF_FUNC();
-	//return (IOMedia::unlockPhysicalExtents(client));
+	// return (IOMedia::unlockPhysicalExtents(client));
 	return (true);
 }
 
@@ -767,13 +763,13 @@ void
 ZFSDataset::unlockPhysicalExtents(IOService *client)
 {
 	DPRINTF_FUNC();
-	//IOMedia::unlockPhysicalExtents(client);
+	// IOMedia::unlockPhysicalExtents(client);
 }
 
 /*
  * Compatibility method returns failure (unsupported).
  */
-#if defined (MAC_OS_X_VERSION_10_10) &&        \
+#if defined(MAC_OS_X_VERSION_10_10) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10)
 IOReturn
 ZFSDataset::setPriority(IOService *client,
@@ -782,7 +778,8 @@ ZFSDataset::setPriority(IOService *client,
 {
 	DPRINTF_FUNC();
 	return (kIOReturnUnsupported);
-	//return (IOMedia::setPriority(client, extents, extentsCount, priority));
+	// return (IOMedia::setPriority(client, extents,
+	// extentsCount, priority));
 }
 #endif
 
@@ -794,7 +791,7 @@ ZFSDataset::getPreferredBlockSize() const
 {
 	DPRINTF_FUNC();
 	return (DEV_BSIZE);
-	//return (IOMedia::getPreferredBlockSize());
+	// return (IOMedia::getPreferredBlockSize());
 }
 
 /* XXX Only for debug tracing */
