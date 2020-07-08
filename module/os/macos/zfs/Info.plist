@@ -108,8 +108,6 @@
 		<string>8.0.0</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0</string>
-		<key>net.lundman.kernel.dependencies</key>
-		<string>12.5.0</string>
 	</dict>
 </dict>
 </plist>

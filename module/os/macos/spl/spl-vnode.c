@@ -36,6 +36,7 @@
 
 #include <sys/taskq.h>
 
+#include <sys/kernel_map.h>
 
 int
 vn_open(char *pnamep, enum uio_seg seg, int filemode, int createmode,
@@ -193,8 +194,8 @@ VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4)
 	return (error);
 }
 
-errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
-    struct componentname *, vfs_context_t);
+//errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
+//    struct componentname *, vfs_context_t);
 
 errno_t
 VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
@@ -205,11 +206,11 @@ VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
 
 #undef VFS_ROOT
 
-extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
+//extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
 int
 spl_vfs_root(mount_t mount, struct vnode **vp)
 {
-	return (VFS_ROOT(mount, vp, vfs_context_current()));
+	return ((*REAL_VFS_ROOT)(mount, vp, vfs_context_current()));
 }
 
 void
@@ -241,6 +242,7 @@ spl_vnode_fini(void)
 #include <sys/file.h>
 struct fileproc;
 
+#if 0
 extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
 extern int fp_drop_written(struct proc *p, int fd, struct fileproc *fp,
     int locked);
@@ -250,8 +252,13 @@ extern int fo_read(struct fileproc *fp, struct uio *uio, int flags,
     vfs_context_t ctx);
 extern int fo_write(struct fileproc *fp, struct uio *uio, int flags,
     vfs_context_t ctx);
-extern int file_vnode_withvid(int, struct vnode **, uint32_t *);
+#endif
 extern int file_drop(int);
+extern int file_vnode_withvid(int, struct vnode **, uint32_t *);
+
+extern int
+(*REAL_fp_getfvp)(struct proc *p, int fd, struct fileproc **resultfp,
+    struct vnode **resultvp);
 
 /*
  * getf(int fd) - hold a lock on a file descriptor, to be released by calling
@@ -264,7 +271,7 @@ getf(int fd)
 	struct fileproc *fp  = NULL;
 	struct spl_fileproc *sfp = NULL;
 	struct vnode *vp = NULL;
-	uint32_t vid;
+	int error;
 
 	/*
 	 * We keep the "fp" pointer as well, both for unlocking in releasef()
@@ -275,13 +282,15 @@ getf(int fd)
 	if (!sfp)
 		return (NULL);
 
-	if (fp_lookup(current_proc(), fd, &fp, 0 /* !locked */)) {
+	error = (*REAL_fp_getfvp)(current_proc(), fd, &fp, &vp);
+	if (error != 0) {
+		printf("%s: failed to fp_getfvp(): %d - trying pipe\n",
+		    __func__, error);
 		kmem_free(sfp, sizeof (*sfp));
 		return (NULL);
 	}
 
-	dprintf("current_proc %p: fd %d fp %p vp %p\n", current_proc(),
-	    fd, fp, vp);
+	printf("current_proc %p\n", current_proc());
 
 	sfp->f_vnode	= vp;
 	sfp->f_fd		= fd;
@@ -290,14 +299,12 @@ getf(int fd)
 	sfp->f_fp		= fp;
 
 	/* Also grab vnode, so we can fish out the minor, for onexit */
-	if (!file_vnode_withvid(fd, &vp, &vid)) {
+	if (vp != NULL) {
 		sfp->f_vnode = vp;
 		if (vnode_vtype(vp) != VDIR) {
 			sfp->f_file = minor(vnode_specrdev(vp));
 		}
-		file_drop(fd);
 	}
-
 	mutex_enter(&spl_getf_lock);
 	list_insert_tail(&spl_getf_list, sfp);
 	mutex_exit(&spl_getf_lock);
@@ -308,15 +315,9 @@ getf(int fd)
 struct vnode *
 getf_vnode(void *fp)
 {
-	struct spl_fileproc *sfp = (struct spl_fileproc *)fp;
-	struct vnode *vp = NULL;
-	uint32_t vid;
+	struct spl_fileproc *sfp = (struct spl_fileproc *) fp;
 
-	if (!file_vnode_withvid(sfp->f_fd, &vp, &vid)) {
-		file_drop(sfp->f_fd);
-	}
-
-	return (vp);
+	return (sfp->f_vnode);
 }
 
 void
@@ -335,10 +336,9 @@ releasef(int fd)
 	if (!fp)
 		return; // Not found
 
-	if (fp->f_writes)
-		fp_drop_written(p, fd, fp->f_fp, 0 /* !locked */);
-	else
-		fp_drop(p, fd, fp->f_fp, 0 /* !locked */);
+	/* Release hold from fp_getfvpandvid() */
+	if (fp->f_fp)
+		file_drop(fp->f_fd);
 
 	/* Remove node from the list */
 	mutex_enter(&spl_getf_lock);
@@ -356,34 +356,19 @@ int spl_vn_rdwr(enum uio_rw rw,	struct spl_fileproc *sfp,
     caddr_t base, ssize_t len, offset_t offset, enum uio_seg seg,
     int ioflag, rlim64_t ulimit, cred_t *cr, ssize_t *residp)
 {
-	uio_t *auio;
-	int spacetype;
 	int error = 0;
-	vfs_context_t vctx;
+	struct uio *auio;
+	int spacetype;
+	user_ssize_t roger;
+	int64_t res;
 
-	spacetype = UIO_SEG_IS_USER_SPACE(seg) ? UIO_USERSPACE32 : UIO_SYSSPACE;
+	VERIFY3P(sfp, !=, NULL);
 
-	vctx = vfs_context_create((vfs_context_t)0);
-	auio = uio_create(1, 0, spacetype, rw);
-	uio_reset(auio, offset, spacetype, rw);
-	uio_addiov(auio, (uint64_t)(uintptr_t)base, len);
+	if (sfp->f_vnode != NULL)
+		return zfs_vn_rdwr(rw, sfp->f_vnode, base, len, offset, seg,
+			ioflag, ulimit, cr, residp);
 
-	if (rw == UIO_READ) {
-		error = fo_read(sfp->f_fp, auio, ioflag, vctx);
-	} else {
-		error = fo_write(sfp->f_fp, auio, ioflag, vctx);
-	}
-
-	if (residp) {
-		*residp = uio_resid(auio);
-	} else {
-		if (uio_resid(auio) && error == 0)
-			error = EIO;
-	}
-
-	uio_free(auio);
-	vfs_context_rele(vctx);
-
+	printf("bad call in spl_vn_rdwr\n");
 	return (error);
 }
 
@@ -450,7 +435,7 @@ extern int build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
 int spl_build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
     int flags, vfs_context_t ctx)
 {
-	return (build_path(vp, buff, buflen, outlen, flags, ctx));
+	return ((*REAL_build_path)(vp, buff, buflen, outlen, flags, ctx));
 }
 
 /*

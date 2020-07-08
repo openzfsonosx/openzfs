@@ -222,6 +222,8 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
+#include <sys/kernel_map.h>
+
 #define	VMEM_INITIAL		21	/* early vmem arenas */
 #define	VMEM_SEG_INITIAL	800
 

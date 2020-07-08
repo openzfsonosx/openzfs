@@ -226,6 +226,7 @@ uint32_t fnv_32a_str(const char *str, uint32_t hval);
 
 void zfs_setbsdflags(struct znode *, uint32_t bsdflags);
 uint32_t zfs_getbsdflags(struct znode *zp);
+extern void zfs_inode_update(struct znode *);
 
 #ifdef	__cplusplus
 }

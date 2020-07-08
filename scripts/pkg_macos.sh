@@ -135,7 +135,6 @@ bindir=$(dirname "$file")
 popd || fail "failed to popd"
 
 codesign_dirs="
-${WORKDIR}/Library/Extensions/zfs.kext/Contents/PlugIns/KernelExports.kext/
 ${WORKDIR}/Library/Extensions/zfs.kext/
 "
 codesign_files="

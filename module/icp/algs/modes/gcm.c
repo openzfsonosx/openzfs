@@ -1595,7 +1595,11 @@ icp_gcm_avx_set_chunk_size(const char *buf, zfs_kernel_param_t *kp)
 	char val_rounded[16];
 	int error = 0;
 
+#ifdef HAVE_KSTRTOUL
 	error = kstrtoul(buf, 0, &val);
+#else
+	error = strtoul(buf, 0, &val);
+#endif
 	if (error)
 		return (error);
 

@@ -72,6 +72,8 @@
 #include <sys/sa_impl.h>
 #include <sys/utfconv.h>
 
+#include <sys/kernel_map.h>
+
 int zfs_vnop_force_formd_normalized_output = 0; /* disabled by default */
 
 /*

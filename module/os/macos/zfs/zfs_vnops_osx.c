@@ -74,7 +74,7 @@
 #include <sys/callb.h>
 #include <sys/unistd.h>
 
-
+#include <sys/kernel_map.h>
 
 
 #ifdef _KERNEL

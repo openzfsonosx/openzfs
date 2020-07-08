@@ -37,6 +37,8 @@
 
 #include <stdbool.h>
 
+#include <sys/kernel_map.h>
+
 /*
  * seg_kmem is the primary kernel memory segment driver.  It
  * maps the kernel heap [kernelheap, ekernelheap), module text,
@@ -112,8 +114,8 @@ typedef uint8_t vm_tag_t;
 /*
  * In kernel lowlevel form of malloc.
  */
-extern kern_return_t kernel_memory_allocate(vm_map_t map, void **addrp,
-    vm_size_t size, vm_offset_t mask, int flags, vm_tag_t tag);
+//extern kern_return_t kernel_memory_allocate(vm_map_t map, void **addrp,
+//    vm_size_t size, vm_offset_t mask, int flags, vm_tag_t tag);
 
 /*
  * Free memory

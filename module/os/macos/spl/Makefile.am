@@ -39,6 +39,7 @@ libspl_la_SOURCES = 	\
 	spl-condvar.c \
 	spl-cred.c \
 	spl-ddi.c \
+	spl-debug.c \
 	spl-err.c \
 	spl-kmem.c \
 	spl-kstat.c \
@@ -49,6 +50,7 @@ libspl_la_SOURCES = 	\
 	spl-proc.c \
 	spl-processor.c \
 	spl-proc_list.c \
+	spl-qsort.c \
 	spl-rwlock.c \
 	spl-seg_kmem.c \
 	spl-taskq.c \

@@ -68,6 +68,12 @@ kern_return_t spl_stop(kmod_info_t *ki, void *d);
 struct zfs_kernel_param_s;
 typedef struct zfs_kernel_param_s zfs_kernel_param_t;
 
+static inline int
+param_set_uint(char *v, zfs_kernel_param_t *kp)
+{
+	return (0);
+}
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

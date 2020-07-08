@@ -49,6 +49,8 @@
 #include <sys/dsl_dir.h>
 #include <sys/dataset_kstats.h>
 
+#include <sys/kernel_map.h>
+
 unsigned int zfs_vnop_skip_unlinked_drain = 0;
 
 int  zfs_module_start(kmod_info_t *ki, void *data);
