@@ -25,6 +25,8 @@
  *
  */
 
+#define	KERNEL_MAP_NO_LOAD
+
 #include <sys/debug.h>
 #include <sys/kmem.h>
 #include <sys/systm.h>
@@ -55,7 +57,57 @@ uint64_t  real_total_memory = 0;
 // Size in bytes of the memory allocated in seg_kmem
 extern uint64_t		segkmem_total_mem_allocated;
 
-extern char hostname[MAXHOSTNAMELEN];
+/* List of pointers to be filled in, to the real locations */
+volatile unsigned int *REAL_vm_page_free_wanted = NULL;
+volatile unsigned int *REAL_vm_page_free_count = NULL;
+volatile unsigned int *REAL_vm_page_speculative_count = NULL;
+volatile unsigned int *REAL_vm_page_free_min = NULL;
+int *REAL_system_inshutdown = NULL;
+char *REAL_hostname = NULL;
+#ifdef DEBUG
+OSKextLoadedKextSummaryHeader *REAL_gLoadedKextSummaries = NULL;
+kernel_mach_header_t *REAL__mh_execute_header = NULL;
+#endif
+
+struct fileproc;
+
+/* Functions */
+struct vnode *(*REAL_rootvnode) = NULL;
+vfs_context_t (*REAL_vfs_context_kernel)(void) = NULL;
+int (*REAL_vnode_iocount)(struct vnode *vp) = NULL;
+void (*REAL_cache_purgevfs)(mount_t mp) = NULL;
+int (*REAL_VFS_ROOT)(mount_t mp, struct vnode **vpp, vfs_context_t ctx) = NULL;
+errno_t (*REAL_VNOP_LOOKUP)(struct vnode *dvp, struct vnode **vpp,
+		struct componentname *cnp, vfs_context_t ctx) = NULL;
+int (*REAL_build_path)(struct vnode *vp, char *buff, int buflen, int *outlen,
+		int flags, vfs_context_t ctx) = NULL;
+addr64_t  (*REAL_kvtophys)(vm_offset_t va) = NULL;
+kern_return_t (*REAL_kernel_memory_allocate)(vm_map_t map, void **addrp,
+		vm_size_t size, vm_offset_t mask, int flags, int tag) = NULL;
+void (*REAL_kx_qsort)(void *array, size_t nm, size_t member_size,
+		int (*cmpf)(const void *, const void *)) = NULL;
+int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups, int *_groupcount) = NULL;
+
+struct i386_cpu_info;
+typedef struct i386_cpu_info i386_cpu_info_t;
+i386_cpu_info_t *(*REAL_cpuid_info)(void) = NULL;
+
+#ifdef __arm64__
+int (*REAL_setjmp)(void *e) = NULL;
+void (*longjmp)(void *e, int val) = NULL;
+#endif
+
+#if 0
+int (*REAL_fp_drop)(struct proc *p, int fd, struct fileproc *fp, int locked) = NULL;
+int (*REAL_fp_drop_written)(struct proc *p, int fd, struct fileproc *fp, int locked) = NULL;
+int (*REAL_fp_lookup)(struct proc *p, int fd, struct fileproc **resultfp, int locked) = NULL;
+int (*REAL_fo_read)(struct fileproc *fp, struct uio *uio, int flags, vfs_context_t ctx) = NULL;
+int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags, vfs_context_t ctx) = NULL;
+#endif
+
+int
+(*REAL_fp_getfvp)(proc_t p, int fd, struct fileproc **resultfp,
+    struct vnode **resultvp) = NULL;
 
 utsname_t *
 utsname(void)
@@ -105,256 +157,6 @@ zone_get_hostid(void *zone)
 
 extern void *(*__ihook_malloc)(size_t size);
 extern void (*__ihook_free)(void *);
-
-const char *
-spl_panicstr(void)
-{
-	return (NULL);
-}
-
-int
-spl_system_inshutdown(void)
-{
-	return (system_inshutdown);
-}
-
-#include <mach-o/loader.h>
-typedef struct mach_header_64	kernel_mach_header_t;
-#include <mach-o/nlist.h>
-typedef struct nlist_64			kernel_nlist_t;
-
-typedef struct segment_command_64 kernel_segment_command_t;
-
-typedef struct _loaded_kext_summary {
-	char		name[KMOD_MAX_NAME];
-	uuid_t		uuid;
-	uint64_t	address;
-	uint64_t	size;
-	uint64_t	version;
-	uint32_t	loadTag;
-	uint32_t	flags;
-	uint64_t	reference_list;
-} OSKextLoadedKextSummary;
-
-typedef struct _loaded_kext_summary_header {
-    uint32_t version;
-    uint32_t entry_size;
-    uint32_t numSummaries;
-    uint32_t reserved; /* explicit alignment for gdb  */
-    OSKextLoadedKextSummary summaries[0];
-} OSKextLoadedKextSummaryHeader;
-
-extern OSKextLoadedKextSummaryHeader * gLoadedKextSummaries;
-
-typedef struct _cframe_t {
-	struct _cframe_t	*prev;
-	uintptr_t			caller;
-#if PRINT_ARGS_FROM_STACK_FRAME
-	unsigned			args[0];
-#endif
-} cframe_t;
-
-extern kernel_mach_header_t _mh_execute_header;
-
-extern kmod_info_t *kmod; /* the list of modules */
-
-extern addr64_t  kvtophys(vm_offset_t va);
-
-static int
-panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
-    const char *module_name)
-{
-	kernel_nlist_t			*sym = NULL;
-	struct load_command		*cmd;
-	kernel_segment_command_t	*orig_ts = NULL, *orig_le = NULL;
-	struct symtab_command		*orig_st = NULL;
-	unsigned int			i;
-	char				*strings, *bestsym = NULL;
-	vm_address_t			bestaddr = 0, diff, curdiff;
-
-	/*
-	 * Assume that if it's loaded and linked into the kernel,
-	 * it's a valid Mach-O
-	 */
-	cmd = (struct load_command *)&mh[1];
-	for (i = 0; i < mh->ncmds; i++) {
-		if (cmd->cmd == LC_SEGMENT_64) {
-			kernel_segment_command_t *orig_sg =
-			    (kernel_segment_command_t *)cmd;
-
-			if (strncmp(SEG_TEXT, orig_sg->segname,
-			    sizeof (orig_sg->segname)) == 0)
-				orig_ts = orig_sg;
-			else if (strncmp(SEG_LINKEDIT, orig_sg->segname,
-			    sizeof (orig_sg->segname)) == 0)
-				orig_le = orig_sg;
-			/* pre-Lion i386 kexts have a single unnamed segment */
-			else if (strncmp("", orig_sg->segname,
-			    sizeof (orig_sg->segname)) == 0)
-				orig_ts = orig_sg;
-		} else if (cmd->cmd == LC_SYMTAB)
-			orig_st = (struct symtab_command *)cmd;
-
-		cmd = (struct load_command *)((uintptr_t)cmd + cmd->cmdsize);
-	}
-
-	if ((orig_ts == NULL) || (orig_st == NULL) || (orig_le == NULL))
-		return (0);
-
-	if ((search < orig_ts->vmaddr) ||
-	    (search >= orig_ts->vmaddr + orig_ts->vmsize)) {
-		/* search out of range for this mach header */
-		return (0);
-	}
-
-	sym = (kernel_nlist_t *)(uintptr_t)(orig_le->vmaddr +
-	    orig_st->symoff - orig_le->fileoff);
-	strings = (char *)(uintptr_t)(orig_le->vmaddr +
-	    orig_st->stroff - orig_le->fileoff);
-	diff = search;
-
-	for (i = 0; i < orig_st->nsyms; i++) {
-		if (sym[i].n_type & N_STAB) continue;
-
-		if (sym[i].n_value <= search) {
-			curdiff = search - (vm_address_t)sym[i].n_value;
-			if (curdiff < diff) {
-				diff = curdiff;
-				bestaddr = sym[i].n_value;
-				bestsym = strings + sym[i].n_un.n_strx;
-			}
-		}
-	}
-
-	if (bestsym != NULL) {
-		if (diff != 0) {
-			printf("%s : %s + 0x%lx", module_name, bestsym,
-			    (unsigned long)diff);
-		} else {
-			printf("%s : %s", module_name, bestsym);
-		}
-		return (1);
-	}
-	return (0);
-}
-
-
-static void
-panic_print_kmod_symbol_name(vm_address_t search)
-{
-	uint_t i;
-
-	if (gLoadedKextSummaries == NULL)
-		return;
-	for (i = 0; i < gLoadedKextSummaries->numSummaries; ++i) {
-		OSKextLoadedKextSummary *summary =
-		    gLoadedKextSummaries->summaries + i;
-
-		if ((search >= summary->address) &&
-		    (search < (summary->address + summary->size))) {
-			kernel_mach_header_t *header =
-			    (kernel_mach_header_t *)(uintptr_t)summary->address;
-			if (panic_print_macho_symbol_name(header, search,
-			    summary->name) == 0) {
-				printf("%s + %llu", summary->name,
-				    (unsigned long)search - summary->address);
-			}
-			break;
-		}
-	}
-}
-
-
-static void
-panic_print_symbol_name(vm_address_t search)
-{
-	/* try searching in the kernel */
-	if (panic_print_macho_symbol_name(&_mh_execute_header,
-	    search, "mach_kernel") == 0) {
-		/* that failed, now try to search for the right kext */
-		panic_print_kmod_symbol_name(search);
-	}
-}
-
-
-void
-spl_backtrace(char *thesignal)
-{
-	void *stackptr;
-
-	printf("SPL: backtrace \"%s\"\n", thesignal);
-
-#if defined(__i386__)
-	__asm__ volatile("movl %%ebp, %0" : "=m" (stackptr));
-#elif defined(__x86_64__)
-	__asm__ volatile("movq %%rbp, %0" : "=m" (stackptr));
-#endif
-
-	int frame_index;
-	int nframes = 16;
-	cframe_t *frame = (cframe_t *)stackptr;
-
-	for (frame_index = 0; frame_index < nframes; frame_index++) {
-		vm_offset_t curframep = (vm_offset_t)frame;
-		if (!curframep)
-			break;
-		if (curframep & 0x3) {
-			printf("SPL: Unaligned frame\n");
-			break;
-		}
-		if (!kvtophys(curframep) ||
-		    !kvtophys(curframep + sizeof (cframe_t) - 1)) {
-			printf("SPL: No mapping exists for frame pointer\n");
-			break;
-		}
-		printf("SPL: %p : 0x%lx ", frame, frame->caller);
-		panic_print_symbol_name((vm_address_t)frame->caller);
-		printf("\n");
-		frame = frame->prev;
-	}
-}
-
-int
-getpcstack(uintptr_t *pcstack, int pcstack_limit)
-{
-	int  depth = 0;
-	void *stackptr;
-
-#if defined(__i386__)
-	__asm__ volatile("movl %%ebp, %0" : "=m" (stackptr));
-#elif defined(__x86_64__)
-	__asm__ volatile("movq %%rbp, %0" : "=m" (stackptr));
-#endif
-
-	int frame_index;
-	int nframes = pcstack_limit;
-	cframe_t *frame = (cframe_t *)stackptr;
-
-	for (frame_index = 0; frame_index < nframes; frame_index++) {
-		vm_offset_t curframep = (vm_offset_t)frame;
-		if (!curframep)
-			break;
-		if (curframep & 0x3) {
-			break;
-		}
-		if (!kvtophys(curframep) ||
-		    !kvtophys(curframep + sizeof (cframe_t) - 1)) {
-			break;
-		}
-		pcstack[depth++] = frame->caller;
-		frame = frame->prev;
-	}
-
-	return (depth);
-}
-
-void
-print_symbol(uintptr_t symbol)
-{
-	printf("SPL: ");
-	panic_print_symbol_name((vm_address_t)(symbol));
-	printf("\n");
-}
 
 int
 ddi_copyin(const void *from, void *to, size_t len, int flags)
@@ -430,6 +232,18 @@ spl_start(kmod_info_t *ki, void *d)
 		delay(hz>>1);
 	}
 
+	/*
+	 * We need to map a handful of functions and variables for ZFS to work.
+	 * If any fail, we need to fail to load.
+	 *
+	 * It would be desirable to one day remove all of these.
+	 */
+	extern int spl_loadsymbols(void);
+	int error;
+	error = spl_loadsymbols();
+	if (error != 0)
+		return (error);
+
 	sysctlbyname("hw.logicalcpu_max", &max_ncpus, &len, NULL, 0);
 	if (!max_ncpus) max_ncpus = 1;
 
@@ -459,7 +273,7 @@ spl_start(kmod_info_t *ki, void *d)
 	len = sizeof (utsname_static.version);
 	sysctlbyname("kern.version", &utsname_static.version, &len, NULL, 0);
 
-	strlcpy(utsname_static.nodename, hostname,
+	strlcpy(utsname_static.nodename, REAL_hostname,
 	    sizeof (utsname_static.nodename));
 
 	spl_mutex_subsystem_init();
@@ -484,4 +298,199 @@ spl_stop(kmod_info_t *ki, void *d)
 	spl_mutex_subsystem_fini();
 
 	return (KERN_SUCCESS);
+}
+
+
+
+#include <mach/mach_types.h>
+#include <mach-o/loader.h>
+#include <sys/systm.h>
+#include <sys/types.h>
+#include <mach-o/nlist.h>
+
+#define DLOG(args...)   printf(args)
+
+/* Exported: xnu/osfmk/mach/i386/vm_param.h */
+#ifndef VM_MIN_KERNEL_ADDRESS
+#define VM_MIN_KERNEL_ADDRESS           ((vm_offset_t) 0xffffff8000000000ULL)
+#endif
+#ifndef VM_MIN_KERNEL_AND_KEXT_ADDRESS
+#define VM_MIN_KERNEL_AND_KEXT_ADDRESS  (VM_MIN_KERNEL_ADDRESS - 0x80000000ULL)
+#endif
+
+#define KERN_HIB_BASE                   ((vm_offset_t) 0xffffff8000100000ULL)
+#define KERN_TEXT_BASE                  ((vm_offset_t) 0xffffff8000200000ULL)
+
+typedef struct mach_header_64 mach_header_t;
+typedef struct segment_command_64 segment_command_t;
+typedef struct section_64 section_t;
+typedef struct nlist_64 nlist_t;
+
+#define LC_SGMT LC_SEGMENT_64
+#define MH_MAGIC_ MH_MAGIC_64
+#define load_cmd struct load_command
+
+load_cmd *
+macho_find_load_command(mach_header_t* header, uint32_t cmd)
+{
+	load_cmd *lc;
+	vm_address_t cur = (vm_address_t)header + sizeof(mach_header_t);
+	for (uint i = 0; i < header->ncmds; i++,cur += lc->cmdsize) {
+		lc = (load_cmd*)cur;
+		if(lc->cmd == cmd){
+			return lc;
+		}
+	}
+	return NULL;
+}
+
+segment_command_t* macho_find_segment(mach_header_t* header,const char *segname){
+	segment_command_t *cur_seg_cmd;
+	vm_address_t cur = (vm_address_t)header + sizeof(mach_header_t);
+	for (uint i = 0; i < header->ncmds; i++,cur += cur_seg_cmd->cmdsize) {
+		cur_seg_cmd = (segment_command_t*)cur;
+		if(cur_seg_cmd->cmd == LC_SGMT){
+			if(!strcmp(segname,cur_seg_cmd->segname)){
+				return cur_seg_cmd;
+			}
+		}
+	}
+	return NULL;
+}
+
+section_t* macho_find_section(mach_header_t* header, const char *segname, const char *secname){
+	segment_command_t *cur_seg_cmd;
+	vm_address_t cur = (vm_address_t)header + sizeof(mach_header_t);
+	for (uint i = 0; i < header->ncmds; i++,cur += cur_seg_cmd->cmdsize) {
+		cur_seg_cmd = (segment_command_t*)cur;
+		if(cur_seg_cmd->cmd == LC_SGMT){
+			if(!strcmp(segname,cur_seg_cmd->segname)){
+				for (uint j = 0; j < cur_seg_cmd->nsects; j++) {
+					section_t *sect = (section_t *)(cur + sizeof(segment_command_t)) + j;
+					if(!strcmp(secname, sect->sectname)){
+						return sect;
+					}
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
+
+void* macho_find_symbol(mach_header_t* header, const char *name)
+{
+	segment_command_t* first = (segment_command_t*) macho_find_load_command(header, LC_SGMT);
+	segment_command_t* linkedit_segment = macho_find_segment(header, SEG_LINKEDIT);
+	struct symtab_command* symtab_cmd = (struct symtab_command*)macho_find_load_command(header, LC_SYMTAB);
+
+	vm_address_t vmaddr_slide = (vm_address_t)header - (vm_address_t)first->vmaddr;
+
+	uintptr_t linkedit_base = (uintptr_t)vmaddr_slide + linkedit_segment->vmaddr - linkedit_segment->fileoff;
+	nlist_t *symtab = (nlist_t *)(linkedit_base + symtab_cmd->symoff);
+	char *strtab = (char *)(linkedit_base + symtab_cmd->stroff);
+
+	for (int i = 0; i < symtab_cmd->nsyms; i++) {
+		if (symtab[i].n_value && !strcmp(name,&strtab[symtab[i].n_un.n_strx])) {
+			return (void*) (uint64_t) (symtab[i].n_value + vmaddr_slide);
+		}
+	}
+
+	return NULL;
+}
+
+#define LOAD_SYMBOL(data, str, found, failed) \
+	do { \
+		(data) = macho_find_symbol(mh, (str));	\
+		if ((data) == NULL) { \
+			printf("%s: failed to locate '%s'\n", __func__, (str)); \
+			(failed)++;	\
+		} else \
+			(found)++;	\
+	} while (0)
+
+int spl_loadsymbols(void)
+{
+    vm_offset_t vm_kern_slide;
+    vm_address_t hib_base;
+    vm_address_t kern_base;
+    struct mach_header_64 *mh;
+	int symbol_failed = 0;
+	int symbol_found = 0;
+#ifdef DEBUG
+	int symbol_debug = 0;
+#endif
+
+	vm_offset_t func_address = (vm_offset_t) vm_kernel_unslide_or_perm_external;
+	vm_offset_t func_address_unslid = 0;
+	vm_kernel_unslide_or_perm_external(func_address, &func_address_unslid);
+    vm_kern_slide = func_address - func_address_unslid;
+
+	delay(hz);
+	printf("Kernel slide: %lx\n", vm_kern_slide);
+
+    hib_base = KERN_HIB_BASE + vm_kern_slide;
+    kern_base = KERN_TEXT_BASE + vm_kern_slide /* + 0xc000 */;
+
+	mh = (struct mach_header_64 *) kern_base;
+
+	printf("Kernel base: %llx\n", (uint64_t)mh);
+	LOAD_SYMBOL(REAL_vm_page_speculative_count, "_vm_page_speculative_count",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_vnode_iocount, "_vnode_iocount",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_cache_purgevfs, "_cache_purgevfs",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_kx_qsort, "_kx_qsort",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_vm_page_free_wanted, "_vm_page_free_wanted",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_vm_page_free_count, "_vm_page_free_count",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_vm_page_free_min, "_vm_page_free_min",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_rootvnode, "_rootvnode",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_system_inshutdown, "_system_inshutdown",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_VFS_ROOT, "_VFS_ROOT",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_build_path, "_build_path",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_kvtophys, "_kvtophys",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_kernel_memory_allocate, "_kernel_memory_allocate",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_hostname, "_hostname",
+		symbol_found, symbol_failed);
+#ifdef DEBUG
+	LOAD_SYMBOL(REAL_gLoadedKextSummaries, "_gLoadedKextSummaries",
+		symbol_debug, symbol_failed);
+	LOAD_SYMBOL(REAL__mh_execute_header, "__mh_execute_header",
+		symbol_debug, symbol_failed);
+#endif
+	LOAD_SYMBOL(REAL_VNOP_LOOKUP, "_VNOP_LOOKUP",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_cpuid_info, "_cpuid_info",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_vfs_context_kernel, "_vfs_context_kernel",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_fp_getfvp, "_fp_getfvp",
+		symbol_found, symbol_failed);
+
+	printf("%s: Loaded %d, "
+#ifdef DEBUG
+		"debug %d "
+#endif
+		"failed %d.\n",
+		__func__,
+		symbol_found,
+#ifdef DEBUG
+		symbol_debug,
+#endif
+		symbol_failed);
+
+	delay(hz);
+
+	return symbol_failed;
 }

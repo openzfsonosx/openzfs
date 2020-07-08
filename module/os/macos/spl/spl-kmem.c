@@ -46,6 +46,8 @@
 #include <sys/callb.h>
 #include <stdbool.h>
 
+#include <sys/kernel_map.h>
+
 // ===============================================================
 // Options
 // ===============================================================
@@ -67,7 +69,7 @@
 extern volatile unsigned int vm_page_free_wanted;
 
 // 3500 kern.vm_page_free_min, rarely changes
-extern unsigned int vm_page_free_min;
+extern volatile unsigned int vm_page_free_min;
 
 // will tend to vm_page_free_min smd
 extern volatile unsigned int vm_page_free_count;

@@ -29,6 +29,7 @@
 #include <sys/cred.h>
 #include <sys/kmem.h>
 #include <sys/kauth.h>
+#include <sys/kernel_map.h>
 
 /* Return the effective user id */
 uid_t

@@ -29,6 +29,7 @@
 #include <i386/cpuid.h>
 
 extern int cpu_number(void);
+extern i386_cpu_info_t *(*REAL_cpuid_info)(void);
 
 uint32_t
 getcpuid()
@@ -41,7 +42,7 @@ spl_cpuid_features(void)
 {
 	i386_cpu_info_t *info;
 
-	info = cpuid_info();
+	info = (*REAL_cpuid_info)();
 	return (info->cpuid_features);
 }
 
@@ -50,6 +51,6 @@ spl_cpuid_leaf7_features(void)
 {
 	i386_cpu_info_t *info;
 
-	info = cpuid_info();
+	info = (*REAL_cpuid_info)();
 	return (info->cpuid_leaf7_features);
 }
