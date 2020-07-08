@@ -26,12 +26,6 @@ tags = ['functional']
 tests = ['atime_001_pos', 'atime_002_neg', 'root_atime_off', 'root_atime_on']
 tags = ['functional', 'atime']
 
-[tests/functional/btree]
-tests = ['btree_positive', 'btree_negative']
-tags = ['functional', 'btree']
-pre =
-post =
-
 [tests/functional/cache]
 tests = ['cache_001_pos', 'cache_002_pos', 'cache_003_pos', 'cache_004_neg',
     'cache_005_neg', 'cache_006_pos', 'cache_007_neg', 'cache_008_neg',
@@ -271,10 +265,6 @@ tags = ['functional', 'migration']
 tests = ['umount_001', 'umountall_001']
 tags = ['functional', 'mount']
 
-[tests/functional/mv_files]
-tests = ['mv_files_001_pos', 'mv_files_002_pos', 'random_creation']
-tags = ['functional', 'mv_files']
-
 [tests/functional/nestedfs]
 tests = ['nestedfs_001_pos']
 tags = ['functional', 'nestedfs']
@@ -435,15 +425,6 @@ tests = ['xattr_001_pos', 'xattr_002_neg', 'xattr_003_neg', 'xattr_004_pos',
     'xattr_005_pos', 'xattr_006_pos', 'xattr_007_neg',
     'xattr_011_pos', 'xattr_012_pos', 'xattr_013_pos']
 tags = ['functional', 'xattr']
-
-[tests/functional/zvol/zvol_cli]
-tests = ['zvol_cli_001_pos', 'zvol_cli_002_pos', 'zvol_cli_003_neg']
-tags = ['functional', 'zvol', 'zvol_cli']
-
-[tests/functional/zvol/zvol_misc]
-tests = ['zvol_misc_002_pos', 'zvol_misc_hierarchy', 'zvol_misc_rename_inuse',
-    'zvol_misc_snapdev', 'zvol_misc_volmode', 'zvol_misc_zil']
-tags = ['functional', 'zvol', 'zvol_misc']
 
 [tests/functional/log_spacemap]
 tests = ['log_spacemap_import_logs']

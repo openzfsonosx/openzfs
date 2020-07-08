@@ -26,6 +26,8 @@
 #include <sys/ioctl.h>
 #include <sys/callb.h>
 
+#include <sys/kernel_map.h>
+
 #define MSEC_TO_TICK(msec)		((msec) / (MILLISEC / hz))
 
 #define	KMALLOC_MAX_SIZE		MAXPHYS

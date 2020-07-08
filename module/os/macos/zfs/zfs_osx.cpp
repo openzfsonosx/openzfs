@@ -189,7 +189,10 @@ net_lundman_zfs_zvol::start(IOService *provider)
 		return (res);
 
 	/* Fire up all SPL modules and threads */
-	spl_start(NULL, NULL);
+	if (spl_start(NULL, NULL)) {
+	    super::stop(provider);
+		return FALSE;
+	}
 
 	/* registerService() allows zconfigd to match against the service */
 	this->registerService();

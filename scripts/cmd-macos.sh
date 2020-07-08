@@ -46,7 +46,7 @@ if test x$topdir = x"." ; then
 	fi
 fi
 
-topdir=$topdir/../
+topdir=$topdir/
 
 for lib in nvpair uutil zpool zfs zfs_core diskmgt; do
 	export DYLD_LIBRARY_PATH=$topdir/lib/lib${lib}/.libs:$DYLD_LIBRARY_PATH

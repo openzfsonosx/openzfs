@@ -36,6 +36,8 @@
 
 #include <sys/taskq.h>
 
+#include <sys/kernel_map.h>
+
 int
 vn_open(char *pnamep, enum uio_seg seg, int filemode, int createmode,
     struct vnode **vpp, enum create crwhy, mode_t umask)
@@ -192,8 +194,8 @@ VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4)
 	return (error);
 }
 
-errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
-    struct componentname *, vfs_context_t);
+//errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
+//    struct componentname *, vfs_context_t);
 
 errno_t
 VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
@@ -204,11 +206,11 @@ VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
 
 #undef VFS_ROOT
 
-extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
+//extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
 int
 spl_vfs_root(mount_t mount, struct vnode **vp)
 {
-	return (VFS_ROOT(mount, vp, vfs_context_current()));
+	return ((*REAL_VFS_ROOT)(mount, vp, vfs_context_current()));
 }
 
 void
@@ -240,6 +242,7 @@ spl_vnode_fini(void)
 #include <sys/file.h>
 struct fileproc;
 
+#if 0
 extern int fp_drop(struct proc *p, int fd, struct fileproc *fp, int locked);
 extern int fp_drop_written(struct proc *p, int fd, struct fileproc *fp,
     int locked);
@@ -249,8 +252,9 @@ extern int fo_read(struct fileproc *fp, struct uio *uio, int flags,
     vfs_context_t ctx);
 extern int fo_write(struct fileproc *fp, struct uio *uio, int flags,
     vfs_context_t ctx);
-extern int file_vnode_withvid(int, struct vnode **, uint32_t *);
 extern int file_drop(int);
+#endif
+extern int file_vnode_withvid(int, struct vnode **, uint32_t *);
 
 /*
  * getf(int fd) - hold a lock on a file descriptor, to be released by calling
@@ -274,10 +278,10 @@ getf(int fd)
 	if (!sfp)
 		return (NULL);
 
-	if (fp_lookup(current_proc(), fd, &fp, 0 /* !locked */)) {
-		kmem_free(sfp, sizeof (*sfp));
+//	if (fp_lookup(current_proc(), fd, &fp, 0 /* !locked */)) {
+//		kmem_free(sfp, sizeof (*sfp));
 		return (NULL);
-	}
+//	}
 
 	sfp->f_vnode	= NULL;
 	sfp->f_fd		= fd;
@@ -291,7 +295,7 @@ getf(int fd)
 		if (vnode_vtype(vp) != VDIR) {
 			sfp->f_file = minor(vnode_specrdev(vp));
 		}
-		file_drop(fd);
+//		file_drop(fd);
 	}
 
 	mutex_enter(&spl_getf_lock);
@@ -308,9 +312,9 @@ getf_vnode(void *fp)
 	struct vnode *vp = NULL;
 	uint32_t vid;
 
-	if (!file_vnode_withvid(sfp->f_fd, &vp, &vid)) {
-		file_drop(sfp->f_fd);
-	}
+//	if (!file_vnode_withvid(sfp->f_fd, &vp, &vid)) {
+//		file_drop(sfp->f_fd);
+//	}
 
 	return (vp);
 }
@@ -331,10 +335,10 @@ releasef(int fd)
 	if (!fp)
 		return; // Not found
 
-	if (fp->f_writes)
-		fp_drop_written(p, fd, fp->f_fp, 0 /* !locked */);
-	else
-		fp_drop(p, fd, fp->f_fp, 0 /* !locked */);
+//	if (fp->f_writes)
+//		fp_drop_written(p, fd, fp->f_fp, 0 /* !locked */);
+//	else
+//		fp_drop(p, fd, fp->f_fp, 0 /* !locked */);
 
 	/* Remove node from the list */
 	mutex_enter(&spl_getf_lock);
@@ -365,9 +369,9 @@ int spl_vn_rdwr(enum uio_rw rw,	struct spl_fileproc *sfp,
 	uio_addiov(auio, (uint64_t)(uintptr_t)base, len);
 
 	if (rw == UIO_READ) {
-		error = fo_read(sfp->f_fp, auio, ioflag, vctx);
+//		error = fo_read(sfp->f_fp, auio, ioflag, vctx);
 	} else {
-		error = fo_write(sfp->f_fp, auio, ioflag, vctx);
+//		error = fo_write(sfp->f_fp, auio, ioflag, vctx);
 	}
 
 	if (residp) {
@@ -446,7 +450,7 @@ extern int build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
 int spl_build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
     int flags, vfs_context_t ctx)
 {
-	return (build_path(vp, buff, buflen, outlen, flags, ctx));
+	return ((*REAL_build_path)(vp, buff, buflen, outlen, flags, ctx));
 }
 
 /*
@@ -528,7 +532,7 @@ spl_decmpfs_cnode_alloc(void)
 {
 #if defined(MAC_OS_X_VERSION_10_12) && \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12)
-	return (decmpfs_cnode_alloc());
+	return ((*REAL_decmpfs_cnode_alloc)());
 #else
 	struct decmpfs_cnode *dp;
 	dp = kmem_alloc(sizeof (struct decmpfs_cnode), KM_SLEEP);
@@ -542,7 +546,7 @@ spl_decmpfs_cnode_free(struct decmpfs_cnode *dp)
 {
 #if defined(MAC_OS_X_VERSION_10_12) && \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12)
-	decmpfs_cnode_free(dp);
+	(*REAL_decmpfs_cnode_free)(dp);
 #else
 	kmem_free(dp, sizeof (struct decmpfs_cnode));
 #endif
@@ -554,7 +558,7 @@ int
 spl_decmpfs_decompress_file(struct vnode *vp, struct decmpfs_cnode *cp,
     off_t toSize, int truncate_okay, int skiplock)
 {
-	return (decmpfs_decompress_file(vp, cp, toSize, truncate_okay,
+	return ((*REAL_decmpfs_decompress_file)(vp, cp, toSize, truncate_okay,
 	    skiplock));
 }
 
@@ -562,19 +566,19 @@ int decmpfs_file_is_compressed(struct vnode *vp, struct decmpfs_cnode *cp);
 int
 spl_decmpfs_file_is_compressed(struct vnode *vp, struct decmpfs_cnode *cp)
 {
-	return (decmpfs_file_is_compressed(vp, cp));
+	return ((*REAL_decmpfs_file_is_compressed)(vp, cp));
 }
 
 void decmpfs_cnode_init(struct decmpfs_cnode *cp);
 void
 spl_decmpfs_cnode_init(struct decmpfs_cnode *cp)
 {
-	decmpfs_cnode_init(cp);
+	(*REAL_decmpfs_cnode_init)(cp);
 }
 
 void decmpfs_cnode_destroy(struct decmpfs_cnode *cp);
 void
 spl_decmpfs_cnode_destroy(struct decmpfs_cnode *cp)
 {
-	decmpfs_cnode_destroy(cp);
+	(*REAL_decmpfs_cnode_destroy)(cp);
 }
