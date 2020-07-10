@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include <sys/stat.h>
+#include <sys/efi_partition.h>
 
 #include <libzutil.h>
 
@@ -76,14 +77,21 @@ zfs_get_underlying_path(const char *dev_name)
 boolean_t
 zfs_dev_is_whole_disk(const char *dev_name)
 {
+	struct dk_gpt *label;
 	int fd;
 
-	fd = open(dev_name, 0);
-	if (fd >= 0) {
-		close(fd);
-		return (B_TRUE);
+	if ((fd = open(dev_name, O_RDONLY | O_DIRECT)) < 0)
+		return (B_FALSE);
+
+	if (efi_alloc_and_init(fd, EFI_NUMPAR, &label) != 0) {
+		(void) close(fd);
+		return (B_FALSE);
 	}
-	return (B_FALSE);
+
+	efi_free(label);
+	(void) close(fd);
+
+	return (B_TRUE);
 }
 
 /*
