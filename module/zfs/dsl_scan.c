@@ -1903,7 +1903,7 @@ dsl_scan_visitdnode(dsl_scan_t *scn, dsl_dataset_t *ds,
 
 
 #if !defined(__OPTIMIZE__) && defined(__APPLE__) && defined(_KERNEL)
-#warning "dsl_scan_visitbp is known to panic during scrubs without optimize (-O)"
+#warning "dsl_scan_visitbp will panic during scrubs without optimize (-O)"
 #endif
 
 /*

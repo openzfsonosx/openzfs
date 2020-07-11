@@ -20,10 +20,9 @@
  * CDDL HEADER END
  */
 #ifndef _LINUX_MODULE_H
-#define _LINUX_MODULE_H
+#define	_LINUX_MODULE_H
 
 #include <libkern/libkern.h>
 #include <sys/mod_os.h>
 
 #endif
-

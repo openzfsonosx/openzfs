@@ -80,7 +80,7 @@ class net_lundman_zfs_zvol_device : public IOBlockStorageDevice
 	OSDeclareDefaultStructors(net_lundman_zfs_zvol_device)
 
 private:
-	//IOService *m_provider;
+	// IOService *m_provider;
 	zvol_state_t *zv;
 
 public:

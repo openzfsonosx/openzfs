@@ -304,7 +304,7 @@ getf(int fd)
 struct vnode *
 getf_vnode(void *fp)
 {
-	struct spl_fileproc *sfp = (struct spl_fileproc *) fp;
+	struct spl_fileproc *sfp = (struct spl_fileproc *)fp;
 	struct vnode *vp = NULL;
 	uint32_t vid;
 

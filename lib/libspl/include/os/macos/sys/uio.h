@@ -61,8 +61,8 @@ typedef struct iovec iovec_t;
 
 
 /*
-* I/O direction.
-*/
+ * I/O direction.
+ */
 // typedef enum uio_rw { UIO_READ, UIO_WRITE } uio_rw_t;
 
 /*
@@ -146,9 +146,9 @@ typedef struct xuio {
 #define	XUIO_XUZC_RW(xuio)		xuio->xu_ext.xu_zc.xu_zc_rw
 
 /*
-* same as uiomove() but doesn't modify uio structure.
-* return in cbytes how many bytes were copied.
-*/
+ * same as uiomove() but doesn't modify uio structure.
+ * return in cbytes how many bytes were copied.
+ */
 static inline int uiocopy(const unsigned char *p, uint32_t n,
     enum uio_rw rw, struct uio *uio, uint64_t *cbytes)
 {

@@ -55,8 +55,7 @@ zfs_lbolt(void)
 		typeof(x) __dummy2;		\
 		(void) (&__dummy == &__dummy2);	\
 		1;				\
-	} 					\
-	)
+	})
 
 
 

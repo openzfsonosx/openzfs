@@ -105,7 +105,7 @@ extern int cpu_number(void);
 extern void Debugger(const char *message);
 
 // Read from /dev/random
-void read_random(void* buffer, u_int numbytes);
+void read_random(void *buffer, uint_t numbytes);
 
 // ===============================================================
 // Non Illumos Variables
@@ -1061,7 +1061,7 @@ _bcp->bc_lastlog = kmem_log_enter((lp), _bcp, sizeof (*_bcp));		\
 
 static void
 kmem_log_event(kmem_log_header_t *lp, kmem_cache_t *cp,
-	kmem_slab_t *sp, void *addr)
+    kmem_slab_t *sp, void *addr)
 {
 	kmem_bufctl_audit_t bca;
 
@@ -4469,7 +4469,7 @@ spl_free_thread()
 		if ((rvfreebits & rvmask) == 0) {
 			reserve_low = true;
 		} else {
-			new_spl_free += (int64_t) sixtyfour;
+			new_spl_free += (int64_t)sixtyfour;
 		}
 
 		// do we have lots of memory in the spl_heap_arena ?
@@ -4482,7 +4482,7 @@ spl_free_thread()
 		} else if (vmem_size_semi_atomic(spl_heap_arena,
 		    VMEM_FREE) > onetwentyeight) {
 			early_lots_free = true;
-			new_spl_free += (int64_t) sixteen;
+			new_spl_free += (int64_t)sixteen;
 		}
 
 		// do we have lots of memory in the bucket_arenas ?
@@ -4490,15 +4490,15 @@ spl_free_thread()
 		extern int64_t vmem_buckets_size(int); // non-locking
 		int64_t buckets_free = vmem_buckets_size(VMEM_FREE);
 		if ((uint64_t)buckets_free != spl_buckets_mem_free)
-			spl_buckets_mem_free = (uint64_t) buckets_free;
+			spl_buckets_mem_free = (uint64_t)buckets_free;
 
 		if (buckets_free >= 512LL*1024LL*1024LL) {
 			early_lots_free = true;
-			new_spl_free += (int64_t) sixteen;
+			new_spl_free += (int64_t)sixteen;
 		}
 		if (buckets_free >= 1024LL*1024LL*1024LL) {
 			reserve_low = false;
-			new_spl_free += (int64_t) sixteen;
+			new_spl_free += (int64_t)sixteen;
 		}
 
 		/*
@@ -6373,7 +6373,7 @@ kmem_strstr(const char *in, const char *str)
 
 	c = *str++;
 	if (!c)
-		return ((char *) in);	// Trivial empty string case
+		return ((char *)in);	// Trivial empty string case
 
 	len = strlen(str);
 	do {
@@ -6382,11 +6382,11 @@ kmem_strstr(const char *in, const char *str)
 		do {
 			sc = *in++;
 			if (!sc)
-				return ((char *) 0);
+				return ((char *)0);
 		} while (sc != c);
 	} while (strncmp(in, str, len) != 0);
 
-	return ((char *) (in - 1));
+	return ((char *)(in - 1));
 }
 
 

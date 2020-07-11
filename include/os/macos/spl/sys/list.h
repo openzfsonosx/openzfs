@@ -94,7 +94,7 @@ list_link_init(list_node_t *node)
 }
 
 static inline void
-__list_del(list_node_t * prev, list_node_t * next)
+__list_del(list_node_t *prev, list_node_t *next)
 {
 	next->list_prev = prev;
 	prev->list_next = next;

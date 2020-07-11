@@ -194,7 +194,7 @@ zfsdev_release(dev_t dev, int flags, int devtype, struct proc *p)
 }
 
 static int
-zfsdev_ioctl(dev_t dev, u_long cmd, caddr_t arg,  __unused int xflag,
+zfsdev_ioctl(dev_t dev, ulong_t cmd, caddr_t arg,  __unused int xflag,
     struct proc *p)
 {
 	uint_t len, vecnum;
@@ -285,7 +285,7 @@ zfs_ioctl_init_os(void)
 
 /* ioctl handler for block device. Relay to zvol */
 static int
-zfsdev_bioctl(dev_t dev, u_long cmd, caddr_t data,
+zfsdev_bioctl(dev_t dev, ulong_t cmd, caddr_t data,
     __unused int flag, struct proc *p)
 {
 	return (zvol_os_ioctl(dev, cmd, data, 1, NULL, NULL));

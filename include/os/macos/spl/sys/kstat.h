@@ -35,7 +35,7 @@
 #define	KSTAT_STRLEN		63
 
 /*
- *For reference valid classes are:
+ * For reference valid classes are:
  * disk, tape, net, controller, vm, kvm, hat, streams, kstat, misc
  */
 

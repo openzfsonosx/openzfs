@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 #ifndef _SYS_ZVOL_OS_h
-#define _SYS_ZVOL_OS_h
+#define	_SYS_ZVOL_OS_h
 
 #ifdef  __cplusplus
 extern "C" {
@@ -31,11 +31,11 @@ typedef struct zvol_state zvol_state_t;
 struct iomem;
 
 struct zvol_state_os {
-	dev_t				zvo_dev;		/* device id */
+	dev_t	zvo_dev;	/* device id */
 
-	zvol_iokit_t 		*zvo_iokitdev;	/* IOKit device */
-	uint64_t			zvo_openflags;	/* Remember flags used at open */
-	char 				zvo_bsdname[MAXPATHLEN]; /* /dev/diskX */
+	zvol_iokit_t *zvo_iokitdev;	/* IOKit device */
+	uint64_t	zvo_openflags;	/* Remember flags used at open */
+	char 	zvo_bsdname[MAXPATHLEN]; /* /dev/diskX */
 };
 
 extern int zvol_os_ioctl(dev_t, unsigned long, caddr_t,

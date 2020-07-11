@@ -95,7 +95,7 @@ int
 zfs_dev_flush(int fd)
 {
 //	return (ioctl(fd, BLKFLSBUF));
-	return 0;
+	return (0);
 }
 
 void
@@ -302,7 +302,7 @@ zpool_find_import_blkid(libpc_handle_t *hdl, pthread_mutex_t *lock,
 			if (errno == ENOENT)
 				continue;
 
-			return EPERM;
+			return (EPERM);
 		}
 		end = &path[strlen(path)];
 		*end++ = '/';
@@ -312,20 +312,20 @@ zpool_find_import_blkid(libpc_handle_t *hdl, pthread_mutex_t *lock,
 		(void) strlcpy(rdsk, path, sizeof (rdsk));
 
 		if ((dfd = open(rdsk, O_RDONLY)) < 0 ||
-			(dirp = fdopendir(dfd)) == NULL) {
+		    (dirp = fdopendir(dfd)) == NULL) {
 			if (dfd >= 0)
 				(void) close(dfd);
-			return ENOENT;
+			return (ENOENT);
 		}
 
-        *slice_cache = zutil_alloc(hdl, sizeof (avl_tree_t));
+		*slice_cache = zutil_alloc(hdl, sizeof (avl_tree_t));
 		avl_create(*slice_cache, slice_cache_compare,
-			sizeof (rdsk_node_t), offsetof(rdsk_node_t, rn_node));
+		    sizeof (rdsk_node_t), offsetof(rdsk_node_t, rn_node));
 
 		while ((dp = readdir(dirp)) != NULL) {
 			const char *name = dp->d_name;
 			if (name[0] == '.' &&
-				(name[1] == 0 || (name[1] == '.' && name[2] == 0)))
+			    (name[1] == 0 || (name[1] == '.' && name[2] == 0)))
 				continue;
 
 			slice = zutil_alloc(hdl, sizeof (rdsk_node_t));

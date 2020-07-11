@@ -336,9 +336,9 @@ zfs_stop_notify_thread(void)
 }
 
 int
-zfs_vfs_sysctl(int *name, __unused u_int namelen, user_addr_t oldp,
+zfs_vfs_sysctl(int *name, __unused uint_t namelen, user_addr_t oldp,
     size_t *oldlenp, user_addr_t newp, size_t newlen,
-	__unused vfs_context_t context)
+    __unused vfs_context_t context)
 {
 #if 0
 	int error;
@@ -457,7 +457,7 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 #if 0
 	struct vnop_ioctl_args {
 		struct vnode	*a_vp;
-		u_long		a_command;
+		ulong_t		a_command;
 		caddr_t		a_data;
 		int		a_fflag;
 		kauth_cred_t	a_cred;
@@ -2318,7 +2318,7 @@ zfs_vnop_pagein(struct vnop_pagein_args *ap)
 
 static int
 zfs_pageout(zfsvfs_t *zfsvfs, znode_t *zp, upl_t upl, vm_offset_t upl_offset,
-			offset_t off, size_t size, int flags)
+    offset_t off, size_t size, int flags)
 {
 	dmu_tx_t *tx;
 	zfs_locked_range_t *lr;
@@ -3773,7 +3773,7 @@ out:
 
 int
 zfs_vnop_removexattr_int(zfsvfs_t *zfsvfs, znode_t *zp, const char *name,
-	cred_t *cr)
+    cred_t *cr)
 {
 	struct vnode *vp = ZTOV(zp);
 	struct componentname cn = { 0 };
@@ -4433,11 +4433,11 @@ zfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 		struct vnode	*a_vp;
 		struct attrlist	*a_alist;
 		struct uio	*a_uio;
-		u_long		a_maxcount;
-		u_long		a_options;
-		u_long		*a_newstate;
+		ulong_t		a_maxcount;
+		ulong_t		a_options;
+		ulong_t		*a_newstate;
 		int		*a_eofflag;
-		u_long		*a_actualcount;
+		ulong_t		*a_actualcount;
 		vfs_context_t	a_context;
 	};
 #endif
@@ -4698,12 +4698,12 @@ zfs_vnop_searchfs(struct vnop_searchfs_args *ap)
 		void		*a_searchparams1;
 		void		*a_searchparams2;
 		struct attrlist	*a_searchattrs;
-		u_long		a_maxmatches;
+		ulong_t		a_maxmatches;
 		struct timeval	*a_timelimit;
 		struct attrlist	*a_returnattrs;
-		u_long		*a_nummatches;
-		u_long		a_scriptcode;
-		u_long		a_options;
+		ulong_t		*a_nummatches;
+		ulong_t		a_scriptcode;
+		ulong_t		a_options;
 		struct uio	*a_uio;
 		struct searchstate *a_searchstate;
 		vfs_context_t	a_context;

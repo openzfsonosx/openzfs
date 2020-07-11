@@ -425,7 +425,7 @@ zfsctl_vnop_lookup(struct vnop_lookup_args *ap)
 	 */
 	if (cnp->cn_nameptr[cnp->cn_namelen] != 0) {
 		filename_num_bytes = cnp->cn_namelen + 1;
-		filename = (char *) kmem_alloc(filename_num_bytes, KM_SLEEP);
+		filename = (char *)kmem_alloc(filename_num_bytes, KM_SLEEP);
 		bcopy(cnp->cn_nameptr, filename, cnp->cn_namelen);
 		filename[cnp->cn_namelen] = '\0';
 	}

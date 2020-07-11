@@ -34,7 +34,6 @@
  */
 #include_next <libkern/libkern.h>
 #undef copyinstr
-#define copyinstr(U, K, L, D) ddi_copyinstr((U), (K), (L), (D))
+#define	copyinstr(U, K, L, D) ddi_copyinstr((U), (K), (L), (D))
 
 #endif
-

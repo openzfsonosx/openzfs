@@ -23,7 +23,7 @@
  */
 
 #ifndef KSTAT_OSX_INCLUDED
-#define KSTAT_OSX_INCLUDED
+#define	KSTAT_OSX_INCLUDED
 
 typedef struct osx_kstat {
 	kstat_named_t spa_version;
@@ -361,8 +361,8 @@ extern int vdev_validate_skip;
 extern int zfs_zevent_len_max;
 extern int zio_slow_io_ms;
 
-int        kstat_osx_init(void);
-void       kstat_osx_fini(void);
+int kstat_osx_init(void);
+void kstat_osx_fini(void);
 
 int arc_kstat_update(kstat_t *ksp, int rw);
 int arc_kstat_update_osx(kstat_t *ksp, int rw);

@@ -175,7 +175,7 @@ strrchr(const char *p, int ch)
 }
 
 static inline int
-is_ascii_str(const char * str)
+is_ascii_str(const char *str)
 {
 	unsigned char ch;
 
@@ -204,19 +204,19 @@ kmemchr(const void *s, int c, size_t n)
 #define	memchr kmemchr
 #endif
 
-#define	IDX(c)  ((u_char)(c) / LONG_BIT)
-#define	BIT(c)  ((u_long)1 << ((u_char)(c) % LONG_BIT))
+#define	IDX(c)	((unsigned char)(c) / LONG_BIT)
+#define	BIT(c)	((unsigned long)1 << ((unsigned char)(c) % LONG_BIT))
 
 static inline size_t
-strcspn(const char * __restrict s, const char * __restrict charset)
+strcspn(const char *__restrict s, const char *__restrict charset)
 {
 	/*
 	 * NB: idx and bit are temporaries whose use causes gcc 3.4.2 to
 	 * generate better code.  Without them, gcc gets a little confused.
 	 */
 	const char *s1;
-	u_long bit;
-	u_long tbl[(UCHAR_MAX + 1) / LONG_BIT];
+	unsigned long bit;
+	unsigned long tbl[(UCHAR_MAX + 1) / LONG_BIT];
 	int idx;
 
 	if (*s == '\0')

@@ -44,23 +44,23 @@
 extern "C" {
 #endif
 
-#define ZFS_UIMMUTABLE          0x0000001000000000ull // OSX
-#define ZFS_UAPPENDONLY         0x0000004000000000ull // OSX
+#define	ZFS_UIMMUTABLE	0x0000001000000000ull // OSX
+#define	ZFS_UAPPENDONLY	0x0000004000000000ull // OSX
 
-//#define ZFS_IMMUTABLE  (ZFS_UIMMUTABLE  | ZFS_SIMMUTABLE)
-//#define ZFS_APPENDONLY (ZFS_UAPPENDONLY | ZFS_SAPPENDONLY)
+// #define	ZFS_IMMUTABLE  (ZFS_UIMMUTABLE  | ZFS_SIMMUTABLE)
+// #define	ZFS_APPENDONLY (ZFS_UAPPENDONLY | ZFS_SAPPENDONLY)
 
-#define ZFS_TRACKED             0x0010000000000000ull
-#define ZFS_COMPRESSED  0x0020000000000000ull
+#define	ZFS_TRACKED	0x0010000000000000ull
+#define	ZFS_COMPRESSED	0x0020000000000000ull
 
-#define ZFS_SIMMUTABLE          0x0040000000000000ull
-#define ZFS_SAPPENDONLY         0x0080000000000000ull
+#define	ZFS_SIMMUTABLE	0x0040000000000000ull
+#define	ZFS_SAPPENDONLY	0x0080000000000000ull
 
-#define SA_ZPL_ADDTIME(z)               z->z_attr_table[ZPL_ADDTIME]
-#define SA_ZPL_DOCUMENTID(z)    z->z_attr_table[ZPL_DOCUMENTID]
+#define	SA_ZPL_ADDTIME(z)	z->z_attr_table[ZPL_ADDTIME]
+#define	SA_ZPL_DOCUMENTID(z)	z->z_attr_table[ZPL_DOCUMENTID]
 
-#define ZGET_FLAG_UNLINKED		(1<<0) /* Also lookup unlinked */
-#define ZGET_FLAG_ASYNC			(1<<3) /* taskq the vnode_create call */
+#define	ZGET_FLAG_UNLINKED	(1<<0) /* Also lookup unlinked */
+#define	ZGET_FLAG_ASYNC		(1<<3) /* taskq the vnode_create call */
 
 extern int zfs_zget_ext(zfsvfs_t *zfsvfs, uint64_t obj_num,
 	struct znode **zpp,	int flags);
@@ -71,25 +71,25 @@ extern int zfs_zget_ext(zfsvfs_t *zfsvfs, uint64_t obj_num,
  * They are used to protect creates, deletes, and renames.
  * Each directory znode has a mutex and a list of locked names.
  */
-#define	ZNODE_OS_FIELDS							\
-	struct zfsvfs	*z_zfsvfs;					\
-	struct vnode	*z_vnode;					\
-	uint64_t		z_uid;						\
-	uint64_t		z_gid;						\
-	uint64_t		z_gen;						\
-	uint64_t		z_atime[2];					\
-	uint64_t		z_links;					\
-	uint32_t		z_vid;						\
-	uint32_t		z_document_id;				\
-	uint64_t		z_finder_parentid;			\
-	boolean_t		z_finder_hardlink;			\
-	uint64_t		z_write_gencount;			\
+#define	ZNODE_OS_FIELDS		\
+	struct zfsvfs	*z_zfsvfs;	\
+	struct vnode	*z_vnode;	\
+	uint64_t		z_uid;	\
+	uint64_t		z_gid;	\
+	uint64_t		z_gen;	\
+	uint64_t		z_atime[2];	\
+	uint64_t		z_links;	\
+	uint32_t		z_vid;	\
+	uint32_t		z_document_id;	\
+	uint64_t		z_finder_parentid;	\
+	boolean_t		z_finder_hardlink;	\
+	uint64_t		z_write_gencount;	\
 	char			z_name_cache[MAXPATHLEN];	\
 	boolean_t		z_skip_truncate_undo_decmpfs;	\
-	taskq_ent_t		z_attach_taskq;				\
-	kcondvar_t		z_attach_cv;				\
-	kmutex_t		z_attach_lock;				\
-	hrtime_t		z_snap_mount_time;			\
+	taskq_ent_t		z_attach_taskq;	\
+	kcondvar_t		z_attach_cv;	\
+	kmutex_t		z_attach_lock;	\
+	hrtime_t		z_snap_mount_time;	\
 	krwlock_t		z_map_lock;
 
 #define	ZFS_LINK_MAX	UINT64_MAX
@@ -119,7 +119,7 @@ extern minor_t zfsdev_minor_alloc(void);
 #define	VTOZ(VP)		((znode_t *)vnode_fsnode((VP)))
 #define	ITOZ(VP)		((znode_t *)vnode_fsnode((VP)))
 
-#define VTOM(VP)		((mount_t *)vnode_mount((VP)))
+#define	VTOM(VP)		((mount_t *)vnode_mount((VP)))
 
 /* These are not used so far, VN_HOLD returncode must be checked. */
 #define	zhold(zp)		VN_HOLD(ZTOV(zp))
@@ -136,63 +136,66 @@ extern minor_t zfsdev_minor_alloc(void);
 #define	Z_ISLNK(type)	((type) == VLNK)
 
 /* Called on entry to each ZFS inode and vfs operation. */
-#define ZFS_ENTER_IFERROR(zfsvfs)					  \
+#define	ZFS_ENTER_IFERROR(zfsvfs)	\
 	rrm_enter_read(&(zfsvfs)->z_teardown_lock, FTAG); \
 	if ((zfsvfs)->z_unmounted)
 
-#define ZFS_ENTER_ERROR(zfsvfs, error)								\
-	do {                                                            \
-        rrm_enter_read(&(zfsvfs)->z_teardown_lock, FTAG);			\
-        if ((zfsvfs)->z_unmounted) {								\
-			ZFS_EXIT(zfsvfs);										\
-			return (error);											\
-        }															\
+#define	ZFS_ENTER_ERROR(zfsvfs, error)	\
+	do {	\
+		rrm_enter_read(&(zfsvfs)->z_teardown_lock, FTAG);	\
+		if ((zfsvfs)->z_unmounted) {	\
+			ZFS_EXIT(zfsvfs);	\
+			return (error);	\
+		}	\
 	} while (0)
-#define ZFS_ENTER(zfsvfs)       ZFS_ENTER_ERROR(zfsvfs, EIO)
-#define ZPL_ENTER(zfsvfs)       ZFS_ENTER_ERROR(zfsvfs, EIO)
+
+#define	ZFS_ENTER(zfsvfs)	ZFS_ENTER_ERROR(zfsvfs, EIO)
+#define	ZPL_ENTER(zfsvfs)	ZFS_ENTER_ERROR(zfsvfs, EIO)
 
 /* Must be called before exiting the operation. */
-#define ZFS_EXIT(zfsvfs)											\
-	do {                                                            \
-        rrm_exit(&(zfsvfs)->z_teardown_lock, FTAG);					\
+#define	ZFS_EXIT(zfsvfs)	\
+	do {	\
+		rrm_exit(&(zfsvfs)->z_teardown_lock, FTAG);	\
 	} while (0)
-#define ZPL_EXIT(zfsvfs)        ZFS_EXIT(zfsvfs)
+#define	ZPL_EXIT(zfsvfs)	ZFS_EXIT(zfsvfs)
 
 /* Verifies the znode is valid. */
-#define ZFS_VERIFY_ZP_ERROR(zp, error)								\
-	do {                                                            \
-        if ((zp)->z_sa_hdl == NULL) {								\
-			ZFS_EXIT(ZTOZSB(zp));									\
-			return (error);											\
-        }															\
+#define	ZFS_VERIFY_ZP_ERROR(zp, error)	\
+	do {	\
+		if ((zp)->z_sa_hdl == NULL) {	\
+			ZFS_EXIT(ZTOZSB(zp));	\
+			return (error);	\
+		}	\
 	} while (0)
-#define ZFS_VERIFY_ZP(zp)       ZFS_VERIFY_ZP_ERROR(zp, EIO)
-#define ZPL_VERIFY_ZP(zp)       ZFS_VERIFY_ZP_ERROR(zp, EIO)
+
+#define	ZFS_VERIFY_ZP(zp)	ZFS_VERIFY_ZP_ERROR(zp, EIO)
+#define	ZPL_VERIFY_ZP(zp)	ZFS_VERIFY_ZP_ERROR(zp, EIO)
 
 /*
  * Macros for dealing with dmu_buf_hold
  */
-#define ZFS_OBJ_MTX_SZ				64
-#define ZFS_OBJ_MTX_MAX				(1024 * 1024)
-#define ZFS_OBJ_HASH(zfsvfs, obj)	((obj) & ((zfsvfs->z_hold_size) - 1))
+#define	ZFS_OBJ_MTX_SZ	64
+#define	ZFS_OBJ_MTX_MAX	(1024 * 1024)
+#define	ZFS_OBJ_HASH(zfsvfs, obj)	((obj) & ((zfsvfs->z_hold_size) - 1))
 
 extern unsigned int zfs_object_mutex_size;
 
 /* Encode ZFS stored time values from a struct timespec */
-#define	ZFS_TIME_ENCODE(tp, stmp)		\
-{						\
-	(stmp)[0] = (uint64_t)(tp)->tv_sec;	\
-	(stmp)[1] = (uint64_t)(tp)->tv_nsec;	\
-}
+#define	ZFS_TIME_ENCODE(tp, stmp)	\
+	{	\
+		(stmp)[0] = (uint64_t)(tp)->tv_sec;	\
+		(stmp)[1] = (uint64_t)(tp)->tv_nsec;	\
+	}
 
 /* Decode ZFS stored time values to a struct timespec */
-#define	ZFS_TIME_DECODE(tp, stmp)		\
-{						\
-	(tp)->tv_sec = (time_t)(stmp)[0];		\
-	(tp)->tv_nsec = (long)(stmp)[1];		\
+#define	ZFS_TIME_DECODE(tp, stmp)	\
+	{	\
+	(tp)->tv_sec = (time_t)(stmp)[0];	\
+	(tp)->tv_nsec = (long)(stmp)[1];	\
 }
-#define	ZFS_ACCESSTIME_STAMP(zfsvfs, zp) \
-    if ((zfsvfs)->z_atime && !vfs_isrdonly(zfsvfs->z_vfs))		\
+
+#define	ZFS_ACCESSTIME_STAMP(zfsvfs, zp)	\
+    if ((zfsvfs)->z_atime && !vfs_isrdonly(zfsvfs->z_vfs))	\
 		zfs_tstamp_update_setup_ext(zp, ACCESSED, NULL, NULL, B_FALSE);
 
 extern void	zfs_tstamp_update_setup_ext(struct znode *,
@@ -214,7 +217,7 @@ extern int zfs_setattr_set_documentid(struct znode *zp,
     boolean_t update_flags);
 
 /* Legacy macOS uses fnv_32a hash for hostid. */
-#define FNV1_32A_INIT ((uint32_t)0x811c9dc5)
+#define	FNV1_32A_INIT ((uint32_t)0x811c9dc5)
 uint32_t fnv_32a_str(const char *str, uint32_t hval);
 
 void zfs_setbsdflags(struct znode *, uint32_t bsdflags);

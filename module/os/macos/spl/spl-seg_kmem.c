@@ -206,7 +206,7 @@ kernelheap_fini(void)
 }
 
 void *
-segkmem_alloc(vmem_t * vmp, size_t size, int maybe_unmasked_vmflag)
+segkmem_alloc(vmem_t *vmp, size_t size, int maybe_unmasked_vmflag)
 {
 	return (osif_malloc(size));
 }

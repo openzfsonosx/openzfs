@@ -1014,7 +1014,7 @@ zfs_set_fuid_feature(zfsvfs_t *zfsvfs)
 
 static int
 zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
-	vfs_context_t ctx)
+    vfs_context_t ctx)
 {
 	int error = 0;
 	zfsvfs_t *zfsvfs;
@@ -1298,7 +1298,7 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /* devvp */,
 	size_t		osnamelen = 0;
 	uint32_t	cmdflags = 0;
 
-	cmdflags = (uint32_t) vfs_flags(vfsp) & MNT_CMDFLAGS;
+	cmdflags = (uint32_t)vfs_flags(vfsp) & MNT_CMDFLAGS;
 	rdonly = vfs_isrdonly(vfsp);
 
 	if (!data) {
@@ -1872,13 +1872,6 @@ zfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap,
 		VFSATTR_SET_SUPPORTED(fsap, f_vol_name);
 		dprintf("vfs_getattr: volume name '%s'\n", fsap->f_vol_name);
 	}
-/*
-	if (!zfsvfs->z_issnap) {
-		VFSATTR_RETURN(fsap, f_fssubtype, 0);
-	} else {
-		VFSATTR_RETURN(fsap, f_fssubtype, 2);
-	}
-*/
 
 	/* If we are mimicking, we need userland know we are really ZFS */
 	VFSATTR_RETURN(fsap, f_fssubtype, MNTTYPE_ZFS_SUBTYPE);

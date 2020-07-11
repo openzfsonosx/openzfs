@@ -407,16 +407,16 @@ SYSCTL_DECL(_ldi);
 SYSCTL_NODE(, OID_AUTO, ldi, CTLFLAG_RD | CTLFLAG_LOCKED, 0, "");
 SYSCTL_NODE(_ldi, OID_AUTO, debug, CTLFLAG_RD | CTLFLAG_LOCKED, 0, "");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_iokit_from_dev,
-	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_dev, 0,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_dev, 0,
 	"ZFS LDI use iokit_from_path");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_iokit_from_path,
-	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_path, 0,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_iokit_from_path, 0,
 	"ZFS LDI use iokit_from_dev");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_dev_from_path,
-	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_dev_from_path, 0,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_dev_from_path, 0,
 	"ZFS LDI use dev_from_path");
 SYSCTL_UINT(_ldi_debug, OID_AUTO, use_vnode_from_path,
-	CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_vnode_from_path, 0,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &ldi_use_vnode_from_path, 0,
 	"ZFS LDI use vnode_from_path");
 
 /*

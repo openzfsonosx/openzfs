@@ -43,7 +43,8 @@ zcmd_ioctl_compat(int fd, int request, zfs_cmd_t *zc, const int cflag)
 
 		ret = ioctl(fd, ncmd, &zp);
 
-		/* If ioctl worked, get actual rc from kernel, which goes
+		/*
+		 * If ioctl worked, get actual rc from kernel, which goes
 		 * into errno, and return -1 if not-zero.
 		 */
 		if (ret == 0) {
@@ -51,7 +52,7 @@ zcmd_ioctl_compat(int fd, int request, zfs_cmd_t *zc, const int cflag)
 			if (zp.zfs_ioc_error != 0)
 				ret = -1;
 		}
-		return ret;
+		return (ret);
 
 	default:
 		abort();

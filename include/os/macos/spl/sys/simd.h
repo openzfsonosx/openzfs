@@ -85,7 +85,7 @@ xgetbv(uint32_t c)
 {
 	uint32_t mask_hi, mask_lo;
 	__asm__ __volatile__("xgetbv" : "=a"(mask_lo), "=d"(mask_hi) : "c" (c));
-	return (((uint64_t) mask_hi<<32) + (uint64_t) mask_lo);
+	return (((uint64_t)mask_hi<<32) + (uint64_t)mask_lo);
 }
 
 #endif

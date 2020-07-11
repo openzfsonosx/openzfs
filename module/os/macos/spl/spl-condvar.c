@@ -171,8 +171,8 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 
 
 /*
-* Compatibility wrapper for the cv_timedwait_hires() Illumos interface.
-*/
+ * Compatibility wrapper for the cv_timedwait_hires() Illumos interface.
+ */
 int
 cv_timedwait_hires(kcondvar_t *cvp, kmutex_t *mp, hrtime_t tim,
     hrtime_t res, int flag)

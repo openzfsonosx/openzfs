@@ -79,14 +79,14 @@ osx_delay(int ticks)
 	}
 
 	// ticks are 10 msec units
-	int64_t ticks_to_go = (int64_t) ticks * 10LL;
+	int64_t ticks_to_go = (int64_t)ticks * 10LL;
 	// zfs_lbolt() is in 10 mec units
-	int64_t start_tick = (int64_t) zfs_lbolt();
-	int64_t end_tick = start_tick + (int64_t) ticks_to_go;
+	int64_t start_tick = (int64_t)zfs_lbolt();
+	int64_t end_tick = start_tick + (int64_t)ticks_to_go;
 
 	do {
 		IOSleep(ticks_to_go);
-		int64_t cur_tick = (int64_t) zfs_lbolt();
+		int64_t cur_tick = (int64_t)zfs_lbolt();
 		ticks_to_go = (end_tick - cur_tick);
 	} while (ticks_to_go > 0);
 
@@ -157,7 +157,7 @@ typedef struct _cframe_t {
 
 extern kernel_mach_header_t _mh_execute_header;
 
-extern kmod_info_t * kmod; /* the list of modules */
+extern kmod_info_t *kmod; /* the list of modules */
 
 extern addr64_t  kvtophys(vm_offset_t va);
 
@@ -177,11 +177,11 @@ panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
 	 * Assume that if it's loaded and linked into the kernel,
 	 * it's a valid Mach-O
 	 */
-	cmd = (struct load_command *) &mh[1];
+	cmd = (struct load_command *)&mh[1];
 	for (i = 0; i < mh->ncmds; i++) {
 		if (cmd->cmd == LC_SEGMENT_64) {
 			kernel_segment_command_t *orig_sg =
-			    (kernel_segment_command_t *) cmd;
+			    (kernel_segment_command_t *)cmd;
 
 			if (strncmp(SEG_TEXT, orig_sg->segname,
 			    sizeof (orig_sg->segname)) == 0)
@@ -194,9 +194,9 @@ panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
 			    sizeof (orig_sg->segname)) == 0)
 				orig_ts = orig_sg;
 		} else if (cmd->cmd == LC_SYMTAB)
-			orig_st = (struct symtab_command *) cmd;
+			orig_st = (struct symtab_command *)cmd;
 
-		cmd = (struct load_command *) ((uintptr_t) cmd + cmd->cmdsize);
+		cmd = (struct load_command *)((uintptr_t)cmd + cmd->cmdsize);
 	}
 
 	if ((orig_ts == NULL) || (orig_st == NULL) || (orig_le == NULL))
@@ -243,7 +243,7 @@ panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
 static void
 panic_print_kmod_symbol_name(vm_address_t search)
 {
-	u_int i;
+	uint_t i;
 
 	if (gLoadedKextSummaries == NULL)
 		return;
@@ -296,7 +296,7 @@ spl_backtrace(char *thesignal)
 	cframe_t *frame = (cframe_t *)stackptr;
 
 	for (frame_index = 0; frame_index < nframes; frame_index++) {
-		vm_offset_t curframep = (vm_offset_t) frame;
+		vm_offset_t curframep = (vm_offset_t)frame;
 		if (!curframep)
 			break;
 		if (curframep & 0x3) {
@@ -332,7 +332,7 @@ getpcstack(uintptr_t *pcstack, int pcstack_limit)
 	cframe_t *frame = (cframe_t *)stackptr;
 
 	for (frame_index = 0; frame_index < nframes; frame_index++) {
-		vm_offset_t curframep = (vm_offset_t) frame;
+		vm_offset_t curframep = (vm_offset_t)frame;
 		if (!curframep)
 			break;
 		if (curframep & 0x3) {

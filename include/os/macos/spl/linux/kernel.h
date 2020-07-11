@@ -20,8 +20,6 @@
  * CDDL HEADER END
  */
 #ifndef _LINUX_KERNEL_H
-#define _LINUX_KERNEL_H
-
+#define	_LINUX_KERNEL_H
 
 #endif
-

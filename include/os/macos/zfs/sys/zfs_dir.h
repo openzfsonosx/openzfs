@@ -45,13 +45,13 @@ extern "C" {
 #define	ZHAVELOCK	0x0080		/* z_name_lock is already held */
 
 /* mknode flags */
-#define	IS_ROOT_NODE	0x01		/* create a root node */
-#define	IS_XATTR	0x02		/* create an extended attribute node */
-#define       IS_REPLAY       0x04   /* we are replaying intent log */
+#define	IS_ROOT_NODE	0x01	/* create a root node */
+#define	IS_XATTR	0x02	/* create an extended attribute node */
+#define	IS_REPLAY	0x04	/* we are replaying intent log */
 
 extern int zfs_dirent_lock(zfs_dirlock_t **dlpp, znode_t *dzp, char *name,
-                           znode_t **zpp, int flag, int *direntflags,
-                           struct componentname *realpnp);
+    znode_t **zpp, int flag, int *direntflags,
+    struct componentname *realpnp);
 
 extern void zfs_dirent_unlock(zfs_dirlock_t *);
 extern int zfs_link_create(zfs_dirlock_t *, znode_t *, dmu_tx_t *, int);
@@ -62,13 +62,12 @@ extern int zfs_dirlook(znode_t *, char *name, znode_t **, int,
     int *deflg, struct componentname *rpnp);
 
 extern void zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
-                       uint_t flag, znode_t **zpp, zfs_acl_ids_t *acl_ids);
+    uint_t flag, znode_t **zpp, zfs_acl_ids_t *acl_ids);
 
 extern void zfs_rmnode(znode_t *);
 extern void zfs_dl_name_switch(zfs_dirlock_t *dl, char *new, char **old);
 extern boolean_t zfs_dirempty(znode_t *);
 extern void zfs_unlinked_add(znode_t *, dmu_tx_t *);
-    //extern void zfs_unlinked_drain(zfs_sb_t *);
 extern void zfs_unlinked_drain(zfsvfs_t *zfsvfs);
 extern void zfs_unlinked_drain_stop_wait(zfsvfs_t *zfsvfs);
 extern int zfs_sticky_remove_access(znode_t *, znode_t *, cred_t *cr);

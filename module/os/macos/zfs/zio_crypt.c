@@ -1373,7 +1373,7 @@ zio_crypt_do_indirect_mac_checksum_abd(boolean_t generate, abd_t *abd,
  */
 static int
 zio_crypt_init_uios_zil(boolean_t encrypt, uint8_t *plainbuf,
-	uint8_t *cipherbuf, uint_t datalen, boolean_t byteswap, uio_t **puio,
+    uint8_t *cipherbuf, uint_t datalen, boolean_t byteswap, uio_t **puio,
     uio_t **cuio, uint_t *enc_len, uint8_t **authbuf, uint_t *auth_len,
     boolean_t *no_crypt)
 {
@@ -1746,8 +1746,8 @@ error:
 
 static int
 zio_crypt_init_uios_normal(boolean_t encrypt, uint8_t *plainbuf,
-	uint8_t *cipherbuf, uint_t datalen, uio_t **puio, uio_t **cuio,
-	uint_t *enc_len)
+    uint8_t *cipherbuf, uint_t datalen, uio_t **puio, uio_t **cuio,
+    uint_t *enc_len)
 {
 	int ret = 0;
 

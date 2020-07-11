@@ -20,23 +20,23 @@
  * CDDL HEADER END
  */
 #ifndef _SPL_ZFS_CONTEXT_OS_H
-#define _SPL_ZFS_CONTEXT_OS_H
+#define	_SPL_ZFS_CONTEXT_OS_H
 
 #include <sys/utsname.h>
 #include <sys/ioctl.h>
 #include <sys/callb.h>
 
-#define MSEC_TO_TICK(msec)		((msec) / (MILLISEC / hz))
+#define	MSEC_TO_TICK(msec)		((msec) / (MILLISEC / hz))
 
 #define	KMALLOC_MAX_SIZE		MAXPHYS
 
-#define MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
+#define	MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
 
 #ifndef MAX_UPL_TRANSFER
-#define MAX_UPL_TRANSFER 256
+#define	MAX_UPL_TRANSFER 256
 #endif
 
-#define flock64_t	struct flock
+#define	flock64_t	struct flock
 
 struct spa_iokit;
 typedef struct spa_iokit spa_iokit_t;
@@ -44,10 +44,10 @@ typedef struct spa_iokit spa_iokit_t;
 #define	noinline		__attribute__((noinline))
 
 /* really? */
-#define	kpreempt_disable()		((void)0)
-#define	kpreempt_enable()		((void)0)
-#define	cond_resched()			(void)thread_block(THREAD_CONTINUE_NULL);
-#define	schedule()				(void)thread_block(THREAD_CONTINUE_NULL);
+#define	kpreempt_disable()	((void)0)
+#define	kpreempt_enable()	((void)0)
+#define	cond_resched()	(void)thread_block(THREAD_CONTINUE_NULL);
+#define	schedule()	(void)thread_block(THREAD_CONTINUE_NULL);
 
 #define	current		curthread
 
@@ -58,9 +58,9 @@ extern boolean_t ml_set_interrupts_enabled(boolean_t);
 #include <sys/kmem.h>
 
 /* Since Linux code uses vmem_free() and we already have one: */
-#define vmem_free(A, B)			zfs_kmem_free((A), (B))
-#define vmem_alloc(A, B)		zfs_kmem_alloc((A), (B))
-#define vmem_zalloc(A, B)		zfs_kmem_zalloc((A), (B))
+#define	vmem_free(A, B)			zfs_kmem_free((A), (B))
+#define	vmem_alloc(A, B)		zfs_kmem_alloc((A), (B))
+#define	vmem_zalloc(A, B)		zfs_kmem_zalloc((A), (B))
 
 typedef	int	fstrans_cookie_t;
 #define	spl_fstrans_mark()		(0)
@@ -80,31 +80,33 @@ typedef struct {
 	volatile int counter;
 } atomic_t;
 
-#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+#define	ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
 
-#define barrier()		__asm__ __volatile__("": : :"memory")
-#define smp_rmb()		barrier()
+#define	barrier()		__asm__ __volatile__("": : :"memory")
+#define	smp_rmb()		barrier()
 
-#define READ_ONCE(x) ({							\
-			__typeof(x) __var = ({				\
-					barrier();					\
-					ACCESS_ONCE(x);				\
-				});                             \
-			barrier();							\
-			__var;								\
+#define	READ_ONCE(x) ( \
+{	\
+			__typeof(x) __var = ( \
+					{	\
+					barrier();	\
+					ACCESS_ONCE(x);	\
+				});	\
+			barrier();	\
+			__var;	\
 		})
 
-#define WRITE_ONCE(x, v) do {           \
-        barrier();                      \
-        ACCESS_ONCE(x) = (v);           \
-        barrier();                      \
+#define	WRITE_ONCE(x, v) do { \
+		barrier();  \
+		ACCESS_ONCE(x) = (v);	\
+		barrier();	\
 	} while (0)
 
 /* BEGIN CSTYLED */
-#define hlist_for_each(p, head)					\
+#define	hlist_for_each(p, head)	\
 	for (p = (head)->first; p; p = (p)->next)
 
-#define hlist_entry(ptr, type, field)   container_of(ptr, type, field)
+#define	hlist_entry(ptr, type, field)   container_of(ptr, type, field)
 /* END CSTYLED */
 
 static inline void
@@ -126,12 +128,12 @@ hlist_del(struct hlist_node *n)
 }
 
 
-#define HLIST_HEAD_INIT { }
-#define HLIST_HEAD(name) struct hlist_head name = HLIST_HEAD_INIT
-#define INIT_HLIST_HEAD(head) (head)->first = NULL
+#define	HLIST_HEAD_INIT { }
+#define	HLIST_HEAD(name) struct hlist_head name = HLIST_HEAD_INIT
+#define	INIT_HLIST_HEAD(head) (head)->first = NULL
 
 /* BEGIN CSTYLED */
-#define INIT_HLIST_NODE(node)											\
+#define	INIT_HLIST_NODE(node)											\
 	do {																\
 		(node)->next = NULL;											\
 		(node)->pprev = NULL;											\
@@ -157,11 +159,11 @@ atomic_dec(atomic_t *v)
 	return (__sync_fetch_and_add(&v->counter, -1) - 1);
 }
 
-extern void kx_qsort (void *array, size_t nm, size_t member_size,
+extern void kx_qsort(void *array, size_t nm, size_t member_size,
     int (*cmpf)(const void *, const void *));
-#define qsort kx_qsort
+#define	qsort kx_qsort
 
-#define strstr kmem_strstr
+#define	strstr kmem_strstr
 
 void spa_create_os(void *spa);
 void spa_export_os(void *spa);

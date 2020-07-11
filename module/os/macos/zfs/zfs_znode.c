@@ -469,8 +469,8 @@ zfs_cmpldev(uint64_t dev)
 
 static void
 zfs_znode_sa_init(zfsvfs_t *zfsvfs, znode_t *zp,
-				    dmu_buf_t *db, dmu_object_type_t obj_type,
-				    sa_handle_t *sa_hdl)
+    dmu_buf_t *db, dmu_object_type_t obj_type,
+    sa_handle_t *sa_hdl)
 {
 	ASSERT(zfs_znode_held(zfsvfs, zp->z_id));
 
@@ -672,7 +672,7 @@ static zfs_acl_phys_t acl_phys;
  */
 void
 zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
-		    uint_t flag, znode_t **zpp, zfs_acl_ids_t *acl_ids)
+    uint_t flag, znode_t **zpp, zfs_acl_ids_t *acl_ids)
 {
 	uint64_t	crtime[2], atime[2], mtime[2], ctime[2];
 	uint64_t	mode, size, links, parent, pflags;
@@ -1578,7 +1578,7 @@ zfs_grow_blocksize(znode_t *zp, uint64_t size, dmu_tx_t *tx)
 /* ARGSUSED */
 static int
 zfs_no_putpage(struct vnode *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
-			    int flags, cred_t *cr)
+    int flags, cred_t *cr)
 {
 	ASSERT(0);
 	return (0);
@@ -2100,7 +2100,7 @@ zfs_sa_setup(objset_t *osp, sa_attr_type_t **sa_table)
 }
 static int
 zfs_grab_sa_handle(objset_t *osp, uint64_t obj, sa_handle_t **hdlp,
-			dmu_buf_t **db, void *tag)
+    dmu_buf_t **db, void *tag)
 {
 	dmu_object_info_t doi;
 	int error;
@@ -2138,7 +2138,7 @@ zfs_release_sa_handle(sa_handle_t *hdl, dmu_buf_t *db, void *tag)
  */
 static int
 zfs_obj_to_pobj(objset_t *osp, sa_handle_t *hdl, sa_attr_type_t *sa_table,
-				uint64_t *pobjp, int *is_xattrdir)
+    uint64_t *pobjp, int *is_xattrdir)
 {
 	uint64_t parent;
 	uint64_t pflags;
@@ -2194,7 +2194,7 @@ zfs_obj_to_pobj(objset_t *osp, sa_handle_t *hdl, sa_attr_type_t *sa_table,
  */
 static int
 zfs_obj_to_stats_impl(sa_handle_t *hdl, sa_attr_type_t *sa_table,
-					zfs_stat_t *sb)
+    zfs_stat_t *sb)
 {
 	sa_bulk_attr_t bulk[4];
 	int count = 0;
@@ -2213,7 +2213,7 @@ zfs_obj_to_stats_impl(sa_handle_t *hdl, sa_attr_type_t *sa_table,
 
 static int
 zfs_obj_to_path_impl(objset_t *osp, uint64_t obj, sa_handle_t *hdl,
-				sa_attr_type_t *sa_table, char *buf, int len)
+    sa_attr_type_t *sa_table, char *buf, int len)
 {
 	sa_handle_t *sa_hdl;
 	sa_handle_t *prevhdl = NULL;
@@ -2320,7 +2320,7 @@ zfs_obj_to_path(objset_t *osp, uint64_t obj, char *buf, int len)
 
 int
 zfs_obj_to_stats(objset_t *osp, uint64_t obj, zfs_stat_t *sb,
-				char *buf, int len)
+    char *buf, int len)
 {
 	char *path = buf + len - 1;
 	sa_attr_type_t *sa_table;

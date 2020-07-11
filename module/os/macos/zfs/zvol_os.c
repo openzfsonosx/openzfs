@@ -174,7 +174,7 @@ zvol_os_read(dev_t dev, struct uio *uio, int p)
 
 int
 zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
-	uint64_t count, struct iomem *iomem)
+    uint64_t count, struct iomem *iomem)
 {
 	uint64_t volsize;
 	zfs_locked_range_t *lr;

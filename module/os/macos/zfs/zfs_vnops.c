@@ -329,7 +329,7 @@ zfs_holey(struct vnode *vp, int cmd, loff_t *off)
  */
 static void
 update_pages(vnode_t *vp, int64_t start, int64_t len,
-	objset_t *os, uint64_t oid)
+    objset_t *os, uint64_t oid)
 {
 	znode_t *zp = VTOZ(vp);
 	int error = 0;
@@ -2119,7 +2119,7 @@ out:
 /* ARGSUSED */
 int
 zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp,
-	int flags, int *a_numdirent)
+    int flags, int *a_numdirent)
 {
 
 	znode_t		*zp = VTOZ(vp);
@@ -3505,10 +3505,6 @@ out:
 			err2 = sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
 		dmu_tx_commit(tx);
 		if (attrzp) {
-/*
-			if (err2 == 0 && handle_eadir)
-				err2 = zfs_setattr_dir(attrzp);
-*/
 			zrele(attrzp);
 		}
 	}

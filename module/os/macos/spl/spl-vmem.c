@@ -1947,7 +1947,7 @@ vmem_size_semi_atomic(vmem_t *vmp, int typemask)
 	if (size < 0)
 		size = 0;
 
-	return ((size_t) size);
+	return ((size_t)size);
 }
 
 size_t
@@ -3138,7 +3138,7 @@ vmem_buckets_size(int typemask)
 	if (total_size < 0)
 		total_size = 0;
 
-	return ((size_t) total_size);
+	return ((size_t)total_size);
 }
 
 static uint64_t
@@ -3365,7 +3365,7 @@ vmem_init(const char *heap_name,
 	printf("SPL: %s: real_total_memory %llu, large spans %llu, small "
 	    "spans %llu\n", __func__, real_total_memory,
 	    spl_bucket_tunable_large_span, spl_bucket_tunable_small_span);
-	char* buf = vmem_alloc(spl_default_arena, VMEM_NAMELEN + 21, VM_SLEEP);
+	char *buf = vmem_alloc(spl_default_arena, VMEM_NAMELEN + 21, VM_SLEEP);
 	for (int32_t i = VMEM_BUCKET_LOWBIT; i <= VMEM_BUCKET_HIBIT; i++) {
 		size_t minimum_allocsize = 0;
 		const uint64_t bucket_largest_size = (1ULL << (uint64_t)i);
@@ -3452,9 +3452,11 @@ vmem_init(const char *heap_name,
 	}
 
 	vmem_free(spl_default_arena, buf, VMEM_NAMELEN + 21);
-	// spl_heap_arena, the bucket heap, is the primary interface to the vmem system
+	// spl_heap_arena, the bucket heap, is the primary interface
+	// to the vmem system
 
-	// all arenas not rooted to vmem_metadata will be rooted to spl_heap arena.
+	// all arenas not rooted to vmem_metadata will be rooted to
+	// spl_heap arena.
 
 	spl_heap_arena = vmem_create("bucket_heap", // id 15
 	    NULL, 0, heap_quantum,
@@ -3568,11 +3570,12 @@ static void vmem_fini_freelist(void *vmp, void *start, size_t size)
 	list_insert_tail(&freelist, fs);
 }
 
-void vmem_free_span_list()
+void
+vmem_free_span_list(void)
 {
-	int  total = 0;
+	int total = 0;
 	int total_count = 0;
-	struct free_slab* fs;
+	struct free_slab *fs;
 	int release = 1;
 
 	while ((fs = list_head(&freelist))) {
@@ -3586,13 +3589,15 @@ void vmem_free_span_list()
 			}
 		}
 		if (release)
-			fs->vmp->vm_source_free(fs->vmp, fs->slab, fs->slabsize);
+			fs->vmp->vm_source_free(fs->vmp, fs->slab,
+			    fs->slabsize);
 		release = 1;
 		FREE(fs, M_TEMP);
 	}
 }
 
-static void vmem_fini_void(void *vmp, void *start, uint32_t size)
+static void
+vmem_fini_void(void *vmp, void *start, uint32_t size)
 {
 }
 
@@ -3639,7 +3644,7 @@ vmem_fini(vmem_t *heap)
 
 	vmem_free_span_list();
 	dprintf("\nSPL: %s destroying heap\n", __func__);
- 	vmem_destroy(heap); // PARENT: spl_heap_arena
+	vmem_destroy(heap); // PARENT: spl_heap_arena
 
 	printf("SPL: %s: walking spl_heap_arena, aka bucket_heap (pass 1)\n",
 	    __func__);
@@ -3662,7 +3667,8 @@ vmem_fini(vmem_t *heap)
 	printf("SPL: %s: walking spl_heap_arena, aka bucket_heap (pass 2)\n",
 	    __func__);
 
-	vmem_walk(spl_heap_arena, VMEM_ALLOC, vmem_fini_freelist, spl_heap_arena);
+	vmem_walk(spl_heap_arena, VMEM_ALLOC, vmem_fini_freelist,
+	    spl_heap_arena);
 	vmem_free_span_list();
 
 	printf("SPL: %s: walking bucket arenas...\n", __func__);
@@ -3680,7 +3686,7 @@ vmem_fini(vmem_t *heap)
 
 	dprintf("SPL: %s destroying spl_bucket_arenas...", __func__);
 	for (int32_t i = VMEM_BUCKET_LOWBIT; i <= VMEM_BUCKET_HIBIT; i++) {
-		vmem_t* vmpt = vmem_bucket_arena[i - VMEM_BUCKET_LOWBIT];
+		vmem_t *vmpt = vmem_bucket_arena[i - VMEM_BUCKET_LOWBIT];
 		dprintf(" %llu", (1ULL << i));
 		vmem_destroy(vmpt); // parent: spl_default_arena_parent
 	}
@@ -3696,8 +3702,9 @@ vmem_fini(vmem_t *heap)
 
 	vmem_free_span_list();
 
-	// We should not do VMEM_REENTRANT on vmem_seg_arena or vmem_hash_arena or below
-	// to avoid causing work in vmem_seg_arena and vmem_hash_arena.
+	// We should not do VMEM_REENTRANT on vmem_seg_arena or
+	// vmem_hash_arena or below to avoid causing work in
+	// vmem_seg_arena and vmem_hash_arena.
 
 	vmem_walk(vmem_seg_arena, VMEM_ALLOC,
 	    vmem_fini_freelist, vmem_seg_arena);
@@ -3712,7 +3719,8 @@ vmem_fini(vmem_t *heap)
 	    vmem_fini_freelist, vmem_metadata_arena);
 
 	vmem_free_span_list();
-	dprintf("SPL: %s walking the root arena (spl_default_arena)...\n", __func__);
+	dprintf("SPL: %s walking the root arena (spl_default_arena)...\n",
+	    __func__);
 
 	vmem_walk(spl_default_arena, VMEM_ALLOC,
 	    vmem_fini_freelist, spl_default_arena);
@@ -3720,13 +3728,15 @@ vmem_fini(vmem_t *heap)
 	vmem_free_span_list();
 
 	dprintf("SPL: %s destroying bucket heap\n", __func__);
-	vmem_destroy(spl_heap_arena); // PARENT: spl_default_arena_parent (but depends on buckets)
+	// PARENT: spl_default_arena_parent (but depends on buckets)
+	vmem_destroy(spl_heap_arena);
 
 	// destroying the vmem_vmem arena and any arena afterwards
 	// requires the use of vmem_destroy_internal(), which does
 	// not talk to vmem_vmem_arena like vmem_destroy() does.
-	//dprintf("SPL: %s destroying vmem_vmem_arena\n", __func__);
-	//vmem_destroy_internal(vmem_vmem_arena); // parent: vmem_metadata_arena
+	// dprintf("SPL: %s destroying vmem_vmem_arena\n", __func__);
+	// vmem_destroy_internal(vmem_vmem_arena);
+	// parent: vmem_metadata_arena
 
 	// destroying the seg arena means we must no longer
 	// talk to vmem_populate()
@@ -3856,7 +3866,7 @@ bucket_fragmented(const uint16_t bn, const uint64_t now)
 
 /*
  * return true if the bucket for size is fragmented
- * */
+ */
 static inline bool
 spl_arc_no_grow_impl(const uint16_t b, const size_t size,
     const boolean_t buf_is_metadata, kmem_cache_t **kc)

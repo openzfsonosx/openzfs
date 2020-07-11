@@ -66,9 +66,11 @@ typedef struct zfs_iocparm {
 	uint64_t	zfs_cmd;
 	uint64_t	zfs_cmd_size;
 
-	/* ioctl() return codes can not be used to communicate -
+	/*
+	 * ioctl() return codes can not be used to communicate -
 	 * as XNU will skip copyout() if there is an error, so it
-	 * is passed along in this wrapping structure.*/
+	 * is passed along in this wrapping structure.
+	 */
 	int			zfs_ioc_error;	/* ioctl error value */
 } zfs_iocparm_t;
 
@@ -109,75 +111,75 @@ typedef struct zfs_cmd_1_9_4
 	int		zc_cleanup_fd;
 	uint8_t		zc_simple;
 	uint8_t		zc_pad3[3];
-	boolean_t       zc_resumable;
+	boolean_t	zc_resumable;
 	uint32_t	zc_pad4;
 	uint64_t	zc_sendobj;
 	uint64_t	zc_fromobj;
 	uint64_t	zc_createtxg;
 	zfs_stat_t	zc_stat;
-    int             zc_ioc_error; /* ioctl error value */
-    uint64_t        zc_dev;      /* OSX doesn't have ddi_driver_major*/
+    int		zc_ioc_error; /* ioctl error value */
+	uint64_t	zc_dev;	/* OSX doesn't have ddi_driver_major */
 } zfs_cmd_1_9_4_t;
 
 // Figure this out
 unsigned static long zfs_ioctl_1_9_4[] =
 {
-	//ZFS_IOC_POOL_CREATE = _IOWR('Z', 0, struct zfs_cmd),
+	// ZFS_IOC_POOL_CREATE = _IOWR('Z', 0, struct zfs_cmd),
 
-	0,      /*  0 ZFS_IOC_POOL_CREATE */
-	1,      /*  1 ZFS_IOC_POOL_DESTROY */
-	2,      /*  2 ZFS_IOC_POOL_IMPORT */
-	3,      /*  3 ZFS_IOC_POOL_EXPORT */
-	4,      /*  4 ZFS_IOC_POOL_CONFIGS */
-	5,      /*  5 ZFS_IOC_POOL_STATS */
-	6,      /*  6 ZFS_IOC_POOL_TRYIMPORT */
-	7,      /*  7 ZFS_IOC_POOL_SCRUB */
-	8,      /*  8 ZFS_IOC_POOL_FREEZE */
-	9,      /*  9 ZFS_IOC_POOL_UPGRADE */
-	10,     /* 10 ZFS_IOC_POOL_GET_HISTORY */
-	11,     /* 11 ZFS_IOC_VDEV_ADD */
-	12,     /* 12 ZFS_IOC_VDEV_REMOVE */
-	13,     /* 13 ZFS_IOC_VDEV_SET_STATE */
-	14,     /* 14 ZFS_IOC_VDEV_ATTACH */
-	15,     /* 15 ZFS_IOC_VDEV_DETACH */
-	16,     /* 16 ZFS_IOC_VDEV_SETPATH */
-	18,     /* 17 ZFS_IOC_OBJSET_STATS */
-	19,     /* 18 ZFS_IOC_OBJSET_ZPLPROPS */
-	20,     /* 19 ZFS_IOC_DATASET_LIST_NEXT */
-	21,     /* 20 ZFS_IOC_SNAPSHOT_LIST_NEXT */
-	22,     /* 21 ZFS_IOC_SET_PROP */
-	ZFS_IOC_COMPAT_PASS,    /* 22 ZFS_IOC_CREATE_MINOR */
-	ZFS_IOC_COMPAT_PASS,    /* 23 ZFS_IOC_REMOVE_MINOR */
-	23,     /* 24 ZFS_IOC_CREATE */
-	24,     /* 25 ZFS_IOC_DESTROY */
-	25,     /* 26 ZFS_IOC_ROLLBACK */
-	26,     /* 27 ZFS_IOC_RENAME */
-	27,     /* 28 ZFS_IOC_RECV */
-	28,     /* 29 ZFS_IOC_SEND */
-	29,     /* 30 ZFS_IOC_INJECT_FAULT */
-	30,     /* 31 ZFS_IOC_CLEAR_FAULT */
-	31,     /* 32 ZFS_IOC_INJECT_LIST_NEXT */
-	32,     /* 33 ZFS_IOC_ERROR_LOG */
-	33,     /* 34 ZFS_IOC_CLEAR */
-	34,     /* 35 ZFS_IOC_PROMOTE */
-	35,     /* 36 ZFS_IOC_DESTROY_SNAPS */
-	36,     /* 37 ZFS_IOC_SNAPSHOT */
-	37,     /* 38 ZFS_IOC_DSOBJ_TO_DSNAME */
-	38,     /* 39 ZFS_IOC_OBJ_TO_PATH */
-	39,     /* 40 ZFS_IOC_POOL_SET_PROPS */
-	40,     /* 41 ZFS_IOC_POOL_GET_PROPS */
-	41,     /* 42 ZFS_IOC_SET_FSACL */
-	42,     /* 43 ZFS_IOC_GET_FSACL */
-	ZFS_IOC_COMPAT_PASS,    /* 44 ZFS_IOC_ISCSI_PERM_CHECK */
-	43,     /* 45 ZFS_IOC_SHARE */
-	44,     /* 46 ZFS_IOC_IHNERIT_PROP */
-	58,     /* 47 ZFS_IOC_JAIL */
-	59,     /* 48 ZFS_IOC_UNJAIL */
-	45,     /* 49 ZFS_IOC_SMB_ACL */
-	46,     /* 50 ZFS_IOC_USERSPACE_ONE */
-	47,     /* 51 ZFS_IOC_USERSPACE_MANY */
-	48,     /* 52 ZFS_IOC_USERSPACE_UPGRADE */
-	17,     /* 53 ZFS_IOC_SETFRU */
+	0,  /*  0 ZFS_IOC_POOL_CREATE */
+	1,  /*  1 ZFS_IOC_POOL_DESTROY */
+	2,  /*  2 ZFS_IOC_POOL_IMPORT */
+	3,  /*  3 ZFS_IOC_POOL_EXPORT */
+	4,  /*  4 ZFS_IOC_POOL_CONFIGS */
+	5,  /*  5 ZFS_IOC_POOL_STATS */
+	6,  /*  6 ZFS_IOC_POOL_TRYIMPORT */
+	7,  /*  7 ZFS_IOC_POOL_SCRUB */
+	8,  /*  8 ZFS_IOC_POOL_FREEZE */
+	9,  /*  9 ZFS_IOC_POOL_UPGRADE */
+	10, /* 10 ZFS_IOC_POOL_GET_HISTORY */
+	11, /* 11 ZFS_IOC_VDEV_ADD */
+	12, /* 12 ZFS_IOC_VDEV_REMOVE */
+	13, /* 13 ZFS_IOC_VDEV_SET_STATE */
+	14, /* 14 ZFS_IOC_VDEV_ATTACH */
+	15, /* 15 ZFS_IOC_VDEV_DETACH */
+	16, /* 16 ZFS_IOC_VDEV_SETPATH */
+	18, /* 17 ZFS_IOC_OBJSET_STATS */
+	19, /* 18 ZFS_IOC_OBJSET_ZPLPROPS */
+	20, /* 19 ZFS_IOC_DATASET_LIST_NEXT */
+	21, /* 20 ZFS_IOC_SNAPSHOT_LIST_NEXT */
+	22, /* 21 ZFS_IOC_SET_PROP */
+	ZFS_IOC_COMPAT_PASS, /* 22 ZFS_IOC_CREATE_MINOR */
+	ZFS_IOC_COMPAT_PASS, /* 23 ZFS_IOC_REMOVE_MINOR */
+	23, /* 24 ZFS_IOC_CREATE */
+	24, /* 25 ZFS_IOC_DESTROY */
+	25, /* 26 ZFS_IOC_ROLLBACK */
+	26, /* 27 ZFS_IOC_RENAME */
+	27, /* 28 ZFS_IOC_RECV */
+	28, /* 29 ZFS_IOC_SEND */
+	29, /* 30 ZFS_IOC_INJECT_FAULT */
+	30, /* 31 ZFS_IOC_CLEAR_FAULT */
+	31, /* 32 ZFS_IOC_INJECT_LIST_NEXT */
+	32, /* 33 ZFS_IOC_ERROR_LOG */
+	33, /* 34 ZFS_IOC_CLEAR */
+	34, /* 35 ZFS_IOC_PROMOTE */
+	35, /* 36 ZFS_IOC_DESTROY_SNAPS */
+	36, /* 37 ZFS_IOC_SNAPSHOT */
+	37, /* 38 ZFS_IOC_DSOBJ_TO_DSNAME */
+	38, /* 39 ZFS_IOC_OBJ_TO_PATH */
+	39, /* 40 ZFS_IOC_POOL_SET_PROPS */
+	40, /* 41 ZFS_IOC_POOL_GET_PROPS */
+	41, /* 42 ZFS_IOC_SET_FSACL */
+	42, /* 43 ZFS_IOC_GET_FSACL */
+	ZFS_IOC_COMPAT_PASS, /* 44 ZFS_IOC_ISCSI_PERM_CHECK */
+	43, /* 45 ZFS_IOC_SHARE */
+	44, /* 46 ZFS_IOC_IHNERIT_PROP */
+	58, /* 47 ZFS_IOC_JAIL */
+	59, /* 48 ZFS_IOC_UNJAIL */
+	45, /* 49 ZFS_IOC_SMB_ACL */
+	46, /* 50 ZFS_IOC_USERSPACE_ONE */
+	47, /* 51 ZFS_IOC_USERSPACE_MANY */
+	48, /* 52 ZFS_IOC_USERSPACE_UPGRADE */
+	17, /* 53 ZFS_IOC_SETFRU */
 };
 
 #ifdef _KERNEL

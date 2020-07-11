@@ -128,7 +128,7 @@ xdr_u_int(XDR *xdrs, unsigned *up)
 static inline bool_t
 xdr_int(XDR *xdrs, int *ip)
 {
-	return (xdrs->x_ops->xdr_u_int(xdrs, (unsigned *) ip));
+	return (xdrs->x_ops->xdr_u_int(xdrs, (unsigned *)ip));
 }
 
 static inline bool_t
@@ -140,7 +140,7 @@ xdr_u_longlong_t(XDR *xdrs, u_longlong_t *ullp)
 static inline bool_t
 xdr_longlong_t(XDR *xdrs, longlong_t *llp)
 {
-	return (xdrs->x_ops->xdr_u_longlong_t(xdrs, (u_longlong_t *) llp));
+	return (xdrs->x_ops->xdr_u_longlong_t(xdrs, (u_longlong_t *)llp));
 }
 
 /*

@@ -70,7 +70,8 @@ struct _handle_vnode {
 #define	LH_VNODE(lhp)	lhp->lh_tsd.vnode_tsd->devvp
 
 void
-handle_free_vnode(struct ldi_handle *lhp) {
+handle_free_vnode(struct ldi_handle *lhp)
+{
 	if (!lhp) {
 		dprintf("%s missing lhp\n", __func__);
 		return;

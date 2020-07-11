@@ -21,6 +21,6 @@
 
 /* Deal with XNU's own boolean_t version */
 
-#define boolean_t xnu_boolean_t
+#define	boolean_t xnu_boolean_t
 #include_next <mach/boolean.h>
 #undef boolean_t

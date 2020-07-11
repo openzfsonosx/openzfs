@@ -6963,7 +6963,7 @@ share_mount(int op, int argc, char **argv)
 		}
 
 	} else {
-#if defined (__APPLE__)
+#if defined(__APPLE__)
 		/*
 		 * OsX can not mount from kernel, users are expected to mount
 		 * by hand using "zfs mount dataset@snapshot".
@@ -6987,8 +6987,8 @@ share_mount(int op, int argc, char **argv)
 
 			} else {
 
-				ret = share_mount_one(zhp, op, flags, NULL, B_TRUE,
-					options);
+				ret = share_mount_one(zhp, op, flags, NULL,
+				    B_TRUE, options);
 			}
 
 			zfs_close(zhp);
@@ -7385,7 +7385,7 @@ unshare_unmount(int op, int argc, char **argv)
 			return (unshare_unmount_path(op, argv[0],
 			    flags, B_FALSE));
 
-#if defined (__APPLE__)
+#if defined(__APPLE__)
 		/* Temporarily, allow mounting snapshots on OS X */
 
 		if ((zhp = zfs_open(g_zfs, argv[0],

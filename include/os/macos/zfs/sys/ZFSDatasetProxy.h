@@ -45,10 +45,10 @@ public:
 	    UInt32) const;
 	virtual IOReturn doFormatMedia(UInt64 byteCapacity);
 	virtual IOReturn doEjectMedia();
-	virtual char * getVendorString();
-	virtual char * getProductString();
-	virtual char * getRevisionString();
-	virtual char * getAdditionalDeviceInfoString();
+	virtual char *getVendorString();
+	virtual char *getProductString();
+	virtual char *getRevisionString();
+	virtual char *getAdditionalDeviceInfoString();
 	virtual IOReturn reportWriteProtection(bool *);
 	virtual IOReturn reportRemovability(bool *);
 	virtual IOReturn reportMediaState(bool *, bool *);

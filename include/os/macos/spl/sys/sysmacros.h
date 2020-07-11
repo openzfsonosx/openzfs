@@ -252,7 +252,7 @@ extern void spl_cleanup(void);
 /*
  * Use the correct builtin mechanism. The Traditional macro is
  * not safe on this platform.
-*/
+ */
 #define	offsetof(s, m)  __builtin_offsetof(s, m)
 #endif
 

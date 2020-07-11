@@ -424,7 +424,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    ks->zfs_vdev_queue_depth_pct.value.ui64;
 
 		zio_dva_throttle_enabled =
-		    (boolean_t) ks->zio_dva_throttle_enabled.value.ui64;
+		    (boolean_t)ks->zio_dva_throttle_enabled.value.ui64;
 
 		zfs_lua_max_instrlimit =
 		    ks->zfs_lua_max_instrlimit.value.ui64;
@@ -729,7 +729,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->zfs_vdev_queue_depth_pct.value.ui64 =
 		    zfs_vdev_queue_depth_pct;
 		ks->zio_dva_throttle_enabled.value.ui64 =
-		    (uint64_t) zio_dva_throttle_enabled;
+		    (uint64_t)zio_dva_throttle_enabled;
 
 		ks->zfs_lua_max_instrlimit.value.ui64 = zfs_lua_max_instrlimit;
 		ks->zfs_lua_max_memlimit.value.ui64 = zfs_lua_max_memlimit;

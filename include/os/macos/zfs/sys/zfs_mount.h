@@ -20,10 +20,10 @@
  */
 
 #ifndef _SYS_ZFS_MOUNT_H_
-#define _SYS_ZFS_MOUNT_H_
+#define	_SYS_ZFS_MOUNT_H_
 
 struct zfs_mount_args {
-	const char	*fspec;			/* block special device to mount */
+	const char	*fspec;
 	int			mflag;
 	char		*optptr;
 	int			optlen;

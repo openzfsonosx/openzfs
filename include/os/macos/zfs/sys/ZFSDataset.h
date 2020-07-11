@@ -33,9 +33,9 @@
 #ifdef super
 #undef super
 #endif
-#define super IOMedia
+#define	super IOMedia
 
-//#define	kZFSContentHint		"6A898CC3-1DD2-11B2-99A6-080020736631"
+// #define	kZFSContentHint		"6A898CC3-1DD2-11B2-99A6-080020736631"
 #define	kZFSContentHint		"ZFS_Dataset"
 
 #define	kZFSIOMediaPrefix	"ZFS "
@@ -88,7 +88,7 @@ public:
 	    IOStorageAttributes *attributes,
 	    IOStorageCompletion *completion);
 
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	virtual IOReturn synchronize(IOService *client,
 	    UInt64 byteStart, UInt64 byteCount,
@@ -99,7 +99,7 @@ public:
 
 	virtual IOReturn unmap(IOService *client,
 	    IOStorageExtent *extents, UInt32 extentsCount,
-#if defined (MAC_OS_X_VERSION_10_11) &&        \
+#if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	    IOStorageUnmapOptions	options = 0);
 #else
@@ -111,7 +111,7 @@ public:
 	    UInt64 *byteStart, UInt64 *byteCount);
 	virtual void unlockPhysicalExtents(IOService *client);
 
-#if defined (MAC_OS_X_VERSION_10_10) &&        \
+#if defined(MAC_OS_X_VERSION_10_10) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10)
 	virtual IOReturn setPriority(IOService *client,
 	    IOStorageExtent *extents, UInt32 extentsCount,
@@ -127,8 +127,8 @@ public:
 	virtual bool isWhole() const;
 	virtual bool isWritable() const;
 
-	virtual const char * getContent() const;
-	virtual const char * getContentHint() const;
+	virtual const char *getContent() const;
+	virtual const char *getContentHint() const;
 	virtual IOMediaAttributeMask getAttributes() const;
 
 protected:

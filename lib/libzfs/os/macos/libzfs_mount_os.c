@@ -62,7 +62,7 @@
  */
 
 /* icon name on root of a mount */
-#define MOUNT_POINT_CUSTOM_ICON ".VolumeIcon.icns"
+#define	MOUNT_POINT_CUSTOM_ICON ".VolumeIcon.icns"
 
 /* source icon name from inside zfs.kext bundle */
 #define	CUSTOM_ICON_PATH \
@@ -109,14 +109,14 @@ zfs_mount_seticon(const char *mountpoint)
 		goto out;
 
 	/* Copy icon */
-	while ((red = fread(buf, 1, sizeof(buf), srcfp)) > 0)
+	while ((red = fread(buf, 1, sizeof (buf), srcfp)) > 0)
 		(void) fwrite(buf, 1, red, dstfp);
 
 	/* We have copied it, set icon */
 	attrsize = getxattr(mountpoint, XATTR_FINDERINFO_NAME, &finderinfo,
 	    sizeof (finderinfo), 0);
 	if (attrsize != sizeof (finderinfo))
-		(void) memset(&finderinfo, 0, sizeof(finderinfo));
+		(void) memset(&finderinfo, 0, sizeof (finderinfo));
 	if ((finderinfo[4] & BE_16(0x0400)) == 0) {
 		finderinfo[4] |= BE_16(0x0400);
 		(void) setxattr(mountpoint, XATTR_FINDERINFO_NAME, &finderinfo,
@@ -377,17 +377,12 @@ is_shared_impl(libzfs_handle_t *hdl, const char *mountpoint,
 }
 
 /*
-  if (zmount(zhp, zfs_get_name(zhp), mountpoint, MS_OPTIONSTR | flags,
-  MNTTYPE_ZFS, NULL, 0, mntopts, sizeof (mntopts)) != 0) {
+ * if (zmount(zhp, zfs_get_name(zhp), mountpoint, MS_OPTIONSTR | flags,
+ * MNTTYPE_ZFS, NULL, 0, mntopts, sizeof (mntopts)) != 0) {
  */
 int
 do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 {
-/*
-int
-	zmount(zfs_handle_t *zhp, const char *spec, const char *dir, int mflag,
-        char *fstype, char *dataptr, int datalen, char *optptr, int optlen)
-*/
 	int rv;
 	const char *spec = zfs_get_name(zhp);
 	const char *fstype = MNTTYPE_ZFS;
@@ -419,7 +414,8 @@ int
 	// Use dataset name by default
 	mnt_args.fspec = spec;
 
-	/* Lookup the dataset property devdisk, and depending on its
+	/*
+	 * Lookup the dataset property devdisk, and depending on its
 	 * setting, we need to create a /dev/diskX for the mount
 	 */
 	if (zhp) {
@@ -431,29 +427,32 @@ int
 			devdisk = zfs_prop_get_int(zhp, ZFS_PROP_DEVDISK);
 
 		if (zhp && zhp->zpool_hdl &&
-			!strcmp(zpool_get_name(zhp->zpool_hdl),
-				zfs_get_name(zhp)))
+		    strcmp(zpool_get_name(zhp->zpool_hdl),
+		    zfs_get_name(zhp)) == 0)
 			ispool = 1;
 
 		if ((devdisk == ZFS_DEVDISK_ON) ||
-			((devdisk == ZFS_DEVDISK_POOLONLY) &&
-				ispool)) {
-			(void)strlcpy(zc.zc_name, zhp->zfs_name, sizeof(zc.zc_name));
+		    ((devdisk == ZFS_DEVDISK_POOLONLY) &&
+		    ispool)) {
+			(void) strlcpy(zc.zc_name, zhp->zfs_name,
+			    sizeof (zc.zc_name));
 			zc.zc_value[0] = 0;
 
-			rv = zfs_ioctl(zhp->zfs_hdl, ZFS_IOC_PROXY_DATASET, &zc);
+			rv = zfs_ioctl(zhp->zfs_hdl, ZFS_IOC_PROXY_DATASET,
+			    &zc);
 
 #ifdef DEBUG
 			if (rv)
-				fprintf(stderr, "proxy dataset returns %d '%s'\n",
-					rv, zc.zc_value);
+				fprintf(stderr,
+				    "proxy dataset returns %d '%s'\n",
+				    rv, zc.zc_value);
 #endif
 
-			// Mount using /dev/diskX, use temporary buffer to give it full
-			// name
+			// Mount using /dev/diskX, use temporary buffer to
+			// give it full name
 			if (rv == 0) {
-				snprintf(zc.zc_name, sizeof(zc.zc_name),
-					"/dev/%s", zc.zc_value);
+				snprintf(zc.zc_name, sizeof (zc.zc_name),
+				    "/dev/%s", zc.zc_value);
 				mnt_args.fspec = zc.zc_name;
 			}
 		}
@@ -462,9 +461,10 @@ int
 	mnt_args.mflag = mflag;
 	mnt_args.optptr = optptr;
 	mnt_args.optlen = optlen;
-	mnt_args.struct_size = sizeof(mnt_args);
+	mnt_args.struct_size = sizeof (mnt_args);
 
-	/* There is a bug in XNU where /var/tmp is resolved as
+	/*
+	 * There is a bug in XNU where /var/tmp is resolved as
 	 * "private/var/tmp" without the leading "/", and both mount(2) and
 	 * diskutil mount avoid this by calling realpath() first. So we will
 	 * do the same.
@@ -472,10 +472,10 @@ int
 	rpath = realpath(dir, NULL);
 
 	dprintf("%s calling mount with fstype %s, %s %s, fspec %s, mflag %d,"
-		" optptr %s, optlen %d, devdisk %d, ispool %d\n",
-		__func__, fstype, (rpath ? "rpath" : "dir"),
-		(rpath ? rpath : dir), mnt_args.fspec, mflag, optptr, optlen,
-		devdisk, ispool);
+	    " optptr %s, optlen %d, devdisk %d, ispool %d\n",
+	    __func__, fstype, (rpath ? "rpath" : "dir"),
+	    (rpath ? rpath : dir), mnt_args.fspec, mflag, optptr, optlen,
+	    devdisk, ispool);
 	rv = mount(fstype, rpath ? rpath : dir, 0, &mnt_args);
 
 	if (rpath) free(rpath);
@@ -484,7 +484,7 @@ int
 	if (rv == 0)
 		zfs_mount_seticon(dir);
 
-	return rv;
+	return (rv);
 }
 
 int
@@ -505,15 +505,16 @@ do_unmount_impl(const char *mntpt, int flags)
 	argv[count] = (char *)mntpt;
 	rc = libzfs_run_process(argv[0], argv, STDOUT_VERBOSE|STDERR_VERBOSE);
 
-	/* There is a bug, where we can not unmount, with the error
+	/*
+	 * There is a bug, where we can not unmount, with the error
 	 * already unmounted, even though it wasn't. But it is easy
 	 * to work around by calling 'umount'. Until a real fix is done...
 	 * re-test this: 202004/lundman
 	 */
 	if (rc != 0) {
 		char *argv[7] = {
-			"/sbin/umount",
-			NULL, NULL, NULL, NULL };
+		    "/sbin/umount",
+		    NULL, NULL, NULL, NULL };
 		int rc, count = 1;
 
 		fprintf(stderr, "Fallback umount called\r\n");
@@ -522,7 +523,8 @@ do_unmount_impl(const char *mntpt, int flags)
 			count++;
 		}
 		argv[count] = (char *)mntpt;
-		rc = libzfs_run_process(argv[0], argv, STDOUT_VERBOSE|STDERR_VERBOSE);
+		rc = libzfs_run_process(argv[0], argv,
+		    STDOUT_VERBOSE|STDERR_VERBOSE);
 	}
 
 	return (rc ? EINVAL : 0);
@@ -541,14 +543,15 @@ do_unmount(libzfs_handle_t *hdl, const char *mntpt, int flags)
 	 */
 	unmount_snapshots(hdl, mntpt, flags);
 
-	return do_unmount_impl(mntpt, flags);
+	return (do_unmount_impl(mntpt, flags));
 }
 
 /*
  * Given "/Volumes/BOOM" look for any lower mounts with ".zfs/snapshot/"
  * in them - issue unmount.
  */
-void unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags)
+void
+unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags)
 {
 	struct mnttab entry;
 	int len = strlen(mntpt);
@@ -558,7 +561,7 @@ void unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags)
 		if (strncmp(mntpt, entry.mnt_mountp, len) == 0) {
 			/* The next part is "/.zfs/snapshot/" ? */
 			if (strncmp("/.zfs/snapshot/", &entry.mnt_mountp[len],
-					15) == 0) {
+			    15) == 0) {
 				/* Unmount it */
 				do_unmount_impl(entry.mnt_mountp, MS_FORCE);
 			}
@@ -599,16 +602,18 @@ zfs_snapshot_mountpoint(zfs_handle_t *zhp)
 
 	/* Open the dataset */
 	if ((parent = zfs_open(hdl, dataset_name,
-		    ZFS_TYPE_FILESYSTEM)) == NULL) {
-		(void) fprintf(stderr, gettext("unable to open parent dataset '%s'\n"
-		    ), dataset_name);
+	    ZFS_TYPE_FILESYSTEM)) == NULL) {
+		(void) fprintf(stderr,
+		    gettext("unable to open parent dataset '%s'\n"),
+		    dataset_name);
 		free(dataset_name);
 		return (NULL);
 	}
 
 	if (!zfs_is_mounted(parent, &parent_mountpoint)) {
-		(void) fprintf(stderr, gettext("parent dataset '%s' must be mounted\n"
-		    ), dataset_name);
+		(void) fprintf(stderr,
+		    gettext("parent dataset '%s' must be mounted\n"),
+		    dataset_name);
 		free(dataset_name);
 		zfs_close(parent);
 		return (NULL);
@@ -617,8 +622,8 @@ zfs_snapshot_mountpoint(zfs_handle_t *zhp)
 	zfs_close(parent);
 
 	snapshot_mountpoint =
-		zfs_asprintf(hdl, "%s/.zfs/snapshot/%s/",
-			parent_mountpoint, &r[1]);
+	    zfs_asprintf(hdl, "%s/.zfs/snapshot/%s/",
+	    parent_mountpoint, &r[1]);
 
 	free(dataset_name);
 	free(parent_mountpoint);
@@ -634,7 +639,7 @@ zfs_snapshot_mountpoint(zfs_handle_t *zhp)
  */
 int
 zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
-	int flags)
+    int flags)
 {
 	int ret = 0;
 	char *mountpoint;
@@ -645,8 +650,8 @@ zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
 	 */
 	uint64_t automount = 0;
 	uint64_t saved_automount = 0;
-	size_t len = sizeof(automount);
-	size_t slen = sizeof(saved_automount);
+	size_t len = sizeof (automount);
+	size_t slen = sizeof (saved_automount);
 
 	/* Remember what the user has it set to */
 	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
@@ -665,15 +670,16 @@ zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
 		return (EINVAL);
 
 	ret = zfs_mount_at(zhp, options, MS_RDONLY | flags,
-		mountpoint);
+	    mountpoint);
 
 	/* If zed is running, it can mount it before us */
 	if (ret == -1 && errno == EINVAL)
 		ret = 0;
 
 	if (ret == 0) {
-		(void) fprintf(stderr, gettext("ZFS: snapshot mountpoint '%s'\n"),
-			mountpoint);
+		(void) fprintf(stderr,
+		    gettext("ZFS: snapshot mountpoint '%s'\n"),
+		    mountpoint);
 	}
 
 	free(mountpoint);
@@ -682,7 +688,7 @@ zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
 	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
 	    NULL, NULL, &saved_automount, len);
 
-	return ret;
+	return (ret);
 }
 
 int
@@ -703,5 +709,5 @@ zfs_snapshot_unmount(zfs_handle_t *zhp, int flags)
 
 	free(mountpoint);
 
-	return ret;
+	return (ret);
 }

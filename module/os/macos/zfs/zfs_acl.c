@@ -930,13 +930,7 @@ zfs_mode_compute(uint64_t fmode, zfs_acl_t *aclp,
 		 * HFS: -rw-r--r--+ 1 root  wheel  0 Nov 12 12:39 file.txt
 		 *       0: user:root allow execute
 		 */
-		if (entry_type == ACE_OWNER ||
-#ifdef __APPLE__
-		    0
-#else
-		    (entry_type == 0 && who == fuid)
-#endif
-		    ) {
+		if (entry_type == ACE_OWNER) {
 			if ((access_mask & ACE_READ_DATA) &&
 			    (!(seen & S_IRUSR))) {
 				seen |= S_IRUSR;
@@ -958,13 +952,7 @@ zfs_mode_compute(uint64_t fmode, zfs_acl_t *aclp,
 					mode |= S_IXUSR;
 				}
 			}
-		} else if (entry_type == OWNING_GROUP ||
-#ifdef __APPLE__
-		    0
-#else
-		    (entry_type == ACE_IDENTIFIER_GROUP && who == fgid)
-#endif
-		    ) {
+		} else if (entry_type == OWNING_GROUP) {
 			if ((access_mask & ACE_READ_DATA) &&
 			    (!(seen & S_IRGRP))) {
 				seen |= S_IRGRP;
@@ -1370,7 +1358,7 @@ zfs_aclset_common(znode_t *zp, zfs_acl_t *aclp, cred_t *cr, dmu_tx_t *tx)
 
 static void
 zfs_acl_chmod(umode_t umode, uint64_t mode, boolean_t split, boolean_t trim,
-	zfs_acl_t *aclp)
+    zfs_acl_t *aclp)
 {
 	void		*acep = NULL;
 	uint64_t	who;
@@ -1853,7 +1841,7 @@ zfs_getacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclcheck,
 	}
 	if ((k_acl = kauth_acl_alloc(aclp->z_acl_count)) == NULL) {
 		mutex_exit(&zp->z_acl_lock);
-		*aclpp = (kauth_acl_t) KAUTH_FILESEC_NONE;
+		*aclpp = (kauth_acl_t)KAUTH_FILESEC_NONE;
 		return (ENOMEM);
 	}
 

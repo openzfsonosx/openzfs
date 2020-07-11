@@ -20,14 +20,14 @@
  * CDDL HEADER END
  */
 #ifndef _ZFS_VDEV_DISK_OS_H
-#define _ZFS_VDEV_DISK_OS_H
+#define	_ZFS_VDEV_DISK_OS_H
 
 #include <sys/ldi_osx.h>
 
 typedef struct vdev_disk {
-	ldi_handle_t    vd_lh;
-	list_t          vd_ldi_cbs;
-	boolean_t       vd_ldi_offline;
+	ldi_handle_t vd_lh;
+	list_t vd_ldi_cbs;
+	boolean_t vd_ldi_offline;
 } vdev_disk_t;
 
 /*

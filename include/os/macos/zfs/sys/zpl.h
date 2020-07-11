@@ -19,7 +19,7 @@
  * CDDL HEADER END
  */
 #ifndef _SYS_ZPL_H
-#define _SYS_ZPL_H
+#define	_SYS_ZPL_H
 
 
 

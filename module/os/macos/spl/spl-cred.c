@@ -115,7 +115,7 @@ crgetngroups(const cred_t *cr)
 	int count = NGROUPS;
 	int ret;
 
-	ret = kauth_cred_getgroups((kauth_cred_t) cr, gids, &count);
+	ret = kauth_cred_getgroups((kauth_cred_t)cr, gids, &count);
 
 	if (!ret)
 		return (count);
@@ -139,7 +139,7 @@ crgetgroups(const cred_t *cr)
 	if (!gids)
 		return (NULL);
 
-	kauth_cred_getgroups((kauth_cred_t) cr, gids, &count);
+	kauth_cred_getgroups((kauth_cred_t)cr, gids, &count);
 
 	return (gids);
 }

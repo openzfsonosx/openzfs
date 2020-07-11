@@ -108,9 +108,9 @@ struct ldi_handle {
 };						/* XXX Currently 96b */
 
 /* Shared functions */
-struct ldi_handle * handle_alloc_common(uint_t, dev_t, int);
-struct ldi_handle * handle_find(dev_t, int, boolean_t);
-struct ldi_handle * handle_add(struct ldi_handle *);
+struct ldi_handle *handle_alloc_common(uint_t, dev_t, int);
+struct ldi_handle *handle_find(dev_t, int, boolean_t);
+struct ldi_handle *handle_add(struct ldi_handle *);
 int handle_status_change(struct ldi_handle *, int);
 void handle_hold(struct ldi_handle *);
 void handle_release(struct ldi_handle *);
@@ -176,16 +176,17 @@ int handle_unmap_vnode(struct ldi_handle *,
 typedef struct ldi_ev_callback_impl {
 	struct ldi_handle	*lec_lhp;
 #ifdef illumos
-	dev_info_t		*lec_dip;
+	dev_info_t	*lec_dip;
 #endif
-	dev_t			lec_dev;
-	int			lec_spec;
-	int			(*lec_notify)(ldi_handle_t, ldi_ev_cookie_t, void *, void *);
-	void			(*lec_finalize)(ldi_handle_t, ldi_ev_cookie_t, int, void *, void *);
-	void			*lec_arg;
-	void			*lec_cookie;
-	void			*lec_id;
-	list_node_t		lec_list;
+	dev_t	lec_dev;
+	int	lec_spec;
+	int	(*lec_notify)(ldi_handle_t, ldi_ev_cookie_t, void *, void *);
+	void	(*lec_finalize)(ldi_handle_t, ldi_ev_cookie_t, int,
+	    void *, void *);
+	void	*lec_arg;
+	void	*lec_cookie;
+	void	*lec_id;
+	list_node_t	lec_list;
 } ldi_ev_callback_impl_t;	/* XXX Currently 72b */
 
 /*

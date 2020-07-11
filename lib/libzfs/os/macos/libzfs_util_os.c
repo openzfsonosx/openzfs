@@ -196,7 +196,7 @@ zfs_version_kernel(char *version, int len)
 	size_t rlen = len;
 
 	if (sysctlbyname("zfs.kext_version",
-			version, &rlen, NULL, 0) == -1)
+	    version, &rlen, NULL, 0) == -1)
 		return (-1);
 
 	return (0);
@@ -256,7 +256,7 @@ execvPe(const char *name, const char *path, char * const *argv,
 			(void) write(STDERR_FILENO, "execvP: ", 8);
 			(void) write(STDERR_FILENO, p, lp);
 			(void) write(STDERR_FILENO, ": path too long\n",
-				16);
+			    16);
 			continue;
 		}
 		bcopy(p, buf, lp);
@@ -264,60 +264,61 @@ execvPe(const char *name, const char *path, char * const *argv,
 		bcopy(name, buf + lp + 1, ln);
 		buf[lp + ln + 1] = '\0';
 
-	  retry:          (void) execve(bp, argv, envp);
+retry:
+		(void) execve(bp, argv, envp);
 		switch (errno) {
-			case E2BIG:
+		case E2BIG:
+			goto done;
+		case ELOOP:
+		case ENAMETOOLONG:
+		case ENOENT:
+			break;
+		case ENOEXEC:
+			for (cnt = 0; argv[cnt]; ++cnt)
+				;
+			memp = alloca((cnt + 2) * sizeof (char *));
+			if (memp == NULL) {
 				goto done;
-			case ELOOP:
-			case ENAMETOOLONG:
-			case ENOENT:
+			}
+			memp[0] = "sh";
+			memp[1] = bp;
+			bcopy(argv + 1, memp + 2, cnt * sizeof (char *));
+			execve(_PATH_BSHELL, __DECONST(char **, memp),
+			    envp);
+			goto done;
+		case ENOMEM:
+			goto done;
+		case ENOTDIR:
+			break;
+		case ETXTBSY:
+			/*
+			 * We used to retry here, but sh(1) doesn't.
+			 */
+			goto done;
+		default:
+			/*
+			 * EACCES may be for an inaccessible directory or
+			 * a non-executable file.  Call stat() to decide
+			 * which.  This also handles ambiguities for EFAULT
+			 * and EIO, and undocumented errors like ESTALE.
+			 * We hope that the race for a stat() is unimportant.
+			 */
+			save_errno = errno;
+			if (stat(bp, &sb) != 0)
 				break;
-			case ENOEXEC:
-				for (cnt = 0; argv[cnt]; ++cnt)
-					;
-				memp = alloca((cnt + 2) * sizeof (char *));
-				if (memp == NULL) {
-					/* errno = ENOMEM; XXX override ENOEXEC? */
-					goto done;
-				}
-				memp[0] = "sh";
-				memp[1] = bp;
-				bcopy(argv + 1, memp + 2, cnt * sizeof (char *));
-				execve(_PATH_BSHELL, __DECONST(char **, memp), envp);
-				goto done;
-			case ENOMEM:
-				goto done;
-			case ENOTDIR:
-				break;
-			case ETXTBSY:
-				/*
-				 * We used to retry here, but sh(1) doesn't.
-				 */
-				goto done;
-			default:
-				/*
-				 * EACCES may be for an inaccessible directory or
-				 * a non-executable file.  Call stat() to decide
-				 * which.  This also handles ambiguities for EFAULT
-				 * and EIO, and undocumented errors like ESTALE.
-				 * We hope that the race for a stat() is unimportant.
-				 */
-				save_errno = errno;
-				if (stat(bp, &sb) != 0)
-					break;
-				if (save_errno == EACCES) {
-					eacces = 1;
-					continue;
-				}
-				errno = save_errno;
-				goto done;
+			if (save_errno == EACCES) {
+				eacces = 1;
+				continue;
+			}
+			errno = save_errno;
+			goto done;
 		}
 	}
 	if (eacces)
 		errno = EACCES;
 	else
 		errno = ENOENT;
-  done:
+done:
 	return (-1);
 }
 
@@ -350,21 +351,24 @@ extern void libzfs_refresh_finder(char *);
  * Has been converted to C to keep autoconf simpler. If in future we have
  * more Obj-C source files, then we should re-address this.
  */
-void libzfs_refresh_finder(char *path)
+void
+libzfs_refresh_finder(char *path)
 {
 	Class NSWorkspace = objc_getClass("NSWorkspace");
 	Class NSString = objc_getClass("NSString");
 	SEL stringWithUTF8String = sel_registerName("stringWithUTF8String:");
 	SEL sharedWorkspace = sel_registerName("sharedWorkspace");
 	SEL noteFileSystemChanged = sel_registerName("noteFileSystemChanged:");
-	id ns_path = ((id(*)(Class,SEL, char*))objc_msgSend)(NSString,
-		stringWithUTF8String, path);
-	id workspace = ((id(*)(Class,SEL))objc_msgSend)(NSWorkspace,
+	id ns_path = ((id(*)(Class, SEL, char *))objc_msgSend)(NSString,
+	    stringWithUTF8String, path);
+	id workspace = ((id(*)(Class, SEL))objc_msgSend)(NSWorkspace,
 	    sharedWorkspace);
-	((id(*)(id,SEL,id))objc_msgSend)(workspace, noteFileSystemChanged, ns_path);
+	((id(*)(id, SEL, id))objc_msgSend)(workspace, noteFileSystemChanged,
+	    ns_path);
 }
 
-void zfs_rollback_os(zfs_handle_t *zhp)
+void
+zfs_rollback_os(zfs_handle_t *zhp)
 {
 	char sourceloc[ZFS_MAX_DATASET_NAME_LEN];
 	char mountpoint[ZFS_MAXPROPLEN];
@@ -373,7 +377,7 @@ void zfs_rollback_os(zfs_handle_t *zhp)
 	if (zfs_prop_valid_for_type(ZFS_PROP_MOUNTPOINT, zhp->zfs_type,
 	    B_FALSE)) {
 		if (zfs_prop_get(zhp, ZFS_PROP_MOUNTPOINT,
-		    mountpoint, sizeof(mountpoint),
+		    mountpoint, sizeof (mountpoint),
 		    &sourcetype, sourceloc, sizeof (sourceloc), B_FALSE) == 0)
 			libzfs_refresh_finder(mountpoint);
 	}
