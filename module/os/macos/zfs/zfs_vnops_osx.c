@@ -143,6 +143,10 @@ static struct vnodeopv_desc *zfs_vnodeop_opv_desc_list[ZFS_VNOP_TBL_CNT] =
 static vfstable_t zfs_vfsconf;
 
 int
+zfs_vnop_removexattr_int(zfsvfs_t *zfsvfs, znode_t *zp, const char *name,
+    cred_t *cr);
+
+int
 zfs_vfs_init(__unused struct vfsconf *vfsp)
 {
 	return (0);
@@ -1787,6 +1791,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	uint_t mask = vap->va_mask;
 	int error = 0;
 	int hfscompression = 0;
+	znode_t *zp = VTOZ(ap->a_vp);
 
 	/* Translate OS X requested mask to ZFS */
 	mask = vap->va_mask;
@@ -1798,7 +1803,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	 */
 	if ((VATTR_IS_ACTIVE(vap, va_flags) || VATTR_IS_ACTIVE(vap, va_acl)) &&
 	    !VATTR_IS_ACTIVE(vap, va_mode)) {
-		znode_t *zp = VTOZ(ap->a_vp);
 		uint64_t mode;
 
 		mask |= ATTR_MODE;
@@ -1812,7 +1816,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 		ZFS_EXIT(zp->z_zfsvfs);
 	}
 	if (VATTR_IS_ACTIVE(vap, va_flags)) {
-		znode_t *zp = VTOZ(ap->a_vp);
 
 		/*
 		 * If TRACKED is wanted, and not previously set,
@@ -1824,10 +1827,12 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 			/* flags updated in vnops */
 			zfs_setattr_set_documentid(zp, B_FALSE);
 		}
-		if ((vap->va_flags & UF_COMPRESSED) &&
-		    !(zp->z_pflags & ZFS_COMPRESSED))
-			hfscompression = 1;
 
+		/* If they are trying to turn on compression.. */
+		if (vap->va_flags & UF_COMPRESSED) {
+			zp->z_skip_truncate_undo_decmpfs = B_TRUE;
+			printf("setattr trying to set COMPRESSED!\n");
+		}
 		/* Map OS X file flags to zfs file flags */
 		zfs_setbsdflags(zp, vap->va_flags);
 		dprintf("OS X flags %08x changed to ZFS %04llx\n",
@@ -1837,6 +1842,32 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	}
 
 	vap->va_mask = mask;
+
+	/*
+	 * If z_skip_truncate_undo_decmpfs is set, and they are trying to
+	 * va_size == 0 (truncate), we undo the decmpfs work here. This is
+	 * because we can not stop (no error, or !feature works) macOS from
+	 * using decmpfs.
+	 */
+#ifndef DECMPFS_XATTR_NAME
+#define	DECMPFS_XATTR_NAME "com.apple.decmpfs"
+#endif
+	if ((VATTR_IS_ACTIVE(vap, va_total_size) ||
+	    VATTR_IS_ACTIVE(vap, va_data_size)) &&
+	    zp->z_skip_truncate_undo_decmpfs) {
+		zp->z_skip_truncate_undo_decmpfs = B_FALSE;
+
+		printf("setattr setsize with compress attempted\n");
+
+		if (zfs_vnop_removexattr_int(zp->z_zfsvfs, zp,
+		    DECMPFS_XATTR_NAME, NULL) == 0) {
+			/* Successfully deleted the XATTR - skip truncate */
+			VATTR_CLEAR_ACTIVE(vap, va_total_size);
+			VATTR_CLEAR_ACTIVE(vap, va_data_size);
+			printf("setattr skipping truncate!\n");
+		}
+	}
+
 	error = zfs_setattr(VTOZ(ap->a_vp), ap->a_vap, /* flag */0, cr);
 
 	dprintf("vnop_setattr: called on vp %p with mask %04x, err=%d\n",
@@ -1870,28 +1901,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 			VATTR_SET_SUPPORTED(vap, va_backup_time);
 		if (VATTR_IS_ACTIVE(vap, va_flags)) {
 			VATTR_SET_SUPPORTED(vap, va_flags);
-		}
-
-		// Get rid of HFS Compression
-		if (hfscompression) {
-			struct decmpfs_cnode *cp;
-			znode_t *zp = VTOZ(ap->a_vp);
-			int iscompressed;
-
-			cp = spl_decmpfs_cnode_alloc();
-			spl_decmpfs_cnode_init(cp);
-			/* _is_compressed() -> getattr to check UF_COMPRESSED */
-			iscompressed =
-			    spl_decmpfs_file_is_compressed(ap->a_vp, cp);
-			if (iscompressed == 1) {
-				dprintf("%s: decompressing HFS+ file '%s'\n",
-				    __func__, zp->z_name_cache);
-				error = spl_decmpfs_decompress_file(ap->a_vp,
-				    cp, /* tosize */ -1, /* truncateok */ 1,
-				    /* skiplock */ 1);
-			}
-			spl_decmpfs_cnode_destroy(cp);
-			spl_decmpfs_cnode_free(cp);
 		}
 
 	}
@@ -3089,8 +3098,6 @@ zfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	struct vnode	*vp = ap->a_vp;
 	znode_t	*zp = NULL;
 	zfsvfs_t *zfsvfs = NULL;
-	boolean_t fastpath;
-
 
 	/* Destroy the vm object and flush associated pages. */
 #ifndef __APPLE__
@@ -3124,30 +3131,18 @@ zfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	vnode_removefsref(vp); /* ADDREF from vnode_create */
 	atomic_dec_64(&vnop_num_vnodes);
 
-	fastpath = zp->z_fastpath;
-
-	dprintf("+vnop_reclaim zp %p/%p fast %d unlinked %d unmount "
-		"%d sa_hdl %p\n", zp, vp, zp->z_fastpath, zp->z_unlinked,
+	dprintf("+vnop_reclaim zp %p/%p unlinked %d unmount "
+		"%d sa_hdl %p\n", zp, vp, zp->z_unlinked,
 	    zfsvfs->z_unmounted, zp->z_sa_hdl);
-	/*
-	 * This will release as much as it can, based on reclaim_reentry,
-	 * if we are from fastpath, we do not call free here, as zfs_remove
-	 * calls zfs_znode_delete() directly.
-	 * zfs_zinactive() will leave earlier if z_reclaim_reentry is true.
-	 */
-	if (fastpath == B_FALSE) {
-		rw_enter(&zfsvfs->z_teardown_inactive_lock, RW_READER);
-		if (zp->z_sa_hdl == NULL) {
-			zfs_znode_free(zp);
-		} else {
-			zfs_zinactive(zp);
-			zfs_znode_free(zp);
-		}
-		rw_exit(&zfsvfs->z_teardown_inactive_lock);
-	}
 
-	/* Direct zfs_remove? We are done */
-	if (fastpath == B_TRUE) goto out;
+	rw_enter(&zfsvfs->z_teardown_inactive_lock, RW_READER);
+	if (zp->z_sa_hdl == NULL) {
+		zfs_znode_free(zp);
+	} else {
+		zfs_zinactive(zp);
+		zfs_znode_free(zp);
+	}
+	rw_exit(&zfsvfs->z_teardown_inactive_lock);
 
 #ifdef _KERNEL
 	atomic_inc_64(&vnop_num_reclaims);
@@ -3777,33 +3772,16 @@ out:
 }
 
 int
-zfs_vnop_removexattr(struct vnop_removexattr_args *ap)
-#if 0
-	struct vnop_removexattr_args {
-		struct vnodeop_desc *a_desc;
-		struct vnode	*a_vp;
-		char		*a_name;
-		int		a_options;
-		vfs_context_t	a_context;
-	};
-#endif
+zfs_vnop_removexattr_int(zfsvfs_t *zfsvfs, znode_t *zp, const char *name,
+	cred_t *cr)
 {
-//	DECLARE_CRED_AND_CONTEXT(ap);
-	DECLARE_CRED(ap);
-	struct vnode *vp = ap->a_vp;
-	znode_t  *zp = VTOZ(vp);
-	zfsvfs_t  *zfsvfs = zp->z_zfsvfs;
+	struct vnode *vp = ZTOV(zp);
 	struct componentname cn = { 0 };
-	int  error;
+	int error;
 	uint64_t xattr;
 	znode_t *xdzp = NULL, *xzp = NULL;
 
-	dprintf("+removexattr vp %p '%s'\n", ap->a_vp, ap->a_name);
-
-	/* xattrs disabled? */
-	if (zfsvfs->z_xattr == B_FALSE) {
-		return (ENOTSUP);
-	}
+	dprintf("+removexattr_int vp %p '%s'\n", vp, name);
 
 	ZFS_ENTER(zfsvfs);
 
@@ -3826,7 +3804,7 @@ zfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		nvl = zp->z_xattr_cached;
 
 		rw_enter(&zp->z_xattr_lock, RW_WRITER);
-		error = -nvlist_remove(nvl, ap->a_name, DATA_TYPE_BYTE_ARRAY);
+		error = -nvlist_remove(nvl, name, DATA_TYPE_BYTE_ARRAY);
 
 		dprintf("ZFS: removexattr nvlist_remove said %d\n", error);
 		if (!error) {
@@ -3849,18 +3827,18 @@ zfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		goto out;
 	}
 
-	cn.cn_namelen = strlen(ap->a_name)+1;
+	cn.cn_namelen = strlen(name)+1;
 	cn.cn_nameptr = (char *)kmem_zalloc(cn.cn_namelen, KM_SLEEP);
 
 	/* Lookup the attribute name. */
-	if ((error = zfs_dirlook(xdzp, (char *)ap->a_name, &xzp, 0, NULL,
+	if ((error = zfs_dirlook(xdzp, (char *)name, &xzp, 0, NULL,
 	    &cn))) {
 		if (error == ENOENT)
 			error = ENOATTR;
 		goto out;
 	}
 
-	error = zfs_remove(xdzp, (char *)ap->a_name, cr, /* flags */0);
+	error = zfs_remove(xdzp, (char *)name, cr, /* flags */0);
 
 out:
 	if (cn.cn_nameptr)
@@ -3874,9 +3852,37 @@ out:
 	}
 
 	ZFS_EXIT(zfsvfs);
-	if (error) dprintf("%s vp %p: error %d\n", __func__, ap->a_vp, error);
+	if (error) dprintf("%s vp %p: error %d\n", __func__, vp, error);
 	return (error);
 }
+
+int
+zfs_vnop_removexattr(struct vnop_removexattr_args *ap)
+#if 0
+	struct vnop_removexattr_args {
+		struct vnodeop_desc *a_desc;
+		struct vnode	*a_vp;
+		char		*a_name;
+		int		a_options;
+		vfs_context_t	a_context;
+	};
+#endif
+{
+	DECLARE_CRED(ap);
+	struct vnode *vp = ap->a_vp;
+	znode_t  *zp = VTOZ(vp);
+	zfsvfs_t  *zfsvfs = zp->z_zfsvfs;
+
+	dprintf("+removexattr vp %p '%s'\n", ap->a_vp, ap->a_name);
+
+	/* xattrs disabled? */
+	if (zfsvfs->z_xattr == B_FALSE) {
+		return (ENOTSUP);
+	}
+
+	return (zfs_vnop_removexattr_int(zfsvfs, zp, ap->a_name, cr));
+}
+
 
 int
 zfs_vnop_listxattr(struct vnop_listxattr_args *ap)

@@ -85,7 +85,7 @@ extern int zfs_zget_ext(zfsvfs_t *zfsvfs, uint64_t obj_num,
 	boolean_t		z_finder_hardlink;			\
 	uint64_t		z_write_gencount;			\
 	char			z_name_cache[MAXPATHLEN];	\
-	boolean_t		z_fastpath;					\
+	boolean_t		z_skip_truncate_undo_decmpfs;	\
 	taskq_ent_t		z_attach_taskq;				\
 	kcondvar_t		z_attach_cv;				\
 	kmutex_t		z_attach_lock;				\
