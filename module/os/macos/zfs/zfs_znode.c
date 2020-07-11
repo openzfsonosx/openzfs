@@ -184,7 +184,7 @@ zfs_znode_cache_constructor(void *buf, void *arg, int kmflags)
 	zp->z_xattr_cached = NULL;
 	zp->z_xattr_parent = 0;
 	zp->z_moved = 0;
-	zp->z_fastpath = B_FALSE;
+	zp->z_skip_truncate_undo_decmpfs = B_FALSE;
 	return (0);
 }
 

@@ -1,4 +1,5 @@
 #include <sys/sysmacros.h>
+
 #include <sys/kernel_map.h>
 
 /* Debug log support enabled */
