@@ -290,7 +290,8 @@ getf(int fd)
 		return (NULL);
 	}
 
-	printf("current_proc %p\n", current_proc());
+	printf("current_proc %p: fd %d fp %p vp %p\n", current_proc(),
+		fd, fp, vp);
 
 	sfp->f_vnode	= vp;
 	sfp->f_fd		= fd;

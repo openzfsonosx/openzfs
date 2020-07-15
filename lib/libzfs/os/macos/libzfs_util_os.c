@@ -378,3 +378,193 @@ void zfs_rollback_os(zfs_handle_t *zhp)
 			libzfs_refresh_finder(mountpoint);
 	}
 }
+
+struct pipe2file {
+	int from;
+	int to;
+};
+typedef struct pipe2file pipe2file_t;
+
+#include <poll.h>
+
+static void *
+pipe_io_relay(void *arg)
+{
+	pipe2file_t *p2f = (pipe2file_t *) arg;
+	int readfd, writefd;
+	unsigned char *buffer;
+	unsigned char space[1024];
+	int size = 1024 * 1024;
+	int red, sent;
+	uint64_t total = 0;
+
+	readfd = p2f->from;
+	writefd = p2f->to;
+	free(p2f);
+	p2f = NULL;
+
+	buffer = malloc(size);
+	if (buffer == NULL) {
+		buffer = space;
+		size = sizeof(space);
+	}
+
+	fprintf(stderr, "%s: thread up: read(%d) write(%d)\r\n", __func__,
+		readfd, writefd);
+
+	for (;;) {
+
+		red = read(readfd, buffer, size);
+		// fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
+		//	readfd, red, errno);
+		if (red == 0)
+			break;
+		if (red < 0 && errno != EWOULDBLOCK)
+			break;
+		sent = write(writefd, buffer, red);
+		// fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
+		//	writefd, sent, errno);
+		if (sent < 0)
+			break;
+		total += red;
+	}
+
+	/*
+	 * It seems unlikely that this code is ever reached, as the process
+	 * calls exit() when done, and this thread is terminated.
+	 */
+
+	fprintf(stderr, "loop exit\r\n");
+
+	close(readfd);
+	close(writefd);
+
+	if (buffer != space)
+		free(buffer);
+
+	fprintf(stderr, "%s: thread done: %llu bytes\r\n", __func__, total);
+	return (NULL);
+}
+
+/*
+ * XNU only lets us do IO on vnodes, not pipes, so create a Unix
+ * Domain socket, open it to get a vnode for the kernel, and spawn
+ * thread to relay IO.
+ */
+void libzfs_macos_wrapfd(int *srcfd, boolean_t send)
+{
+	char template[100];
+	int readfd = -1;
+	int writefd = -1;
+	int error;
+	struct stat sb;
+	pipe2file_t *p2f = NULL;
+
+	fprintf(stderr, "%s: checking if we need pipe wrap\r\n", __func__);
+
+	// Check if it is a pipe
+	error = fstat(*srcfd, &sb);
+
+	if (error != 0)
+		return;
+
+	if (!S_ISFIFO(sb.st_mode))
+		return;
+
+	p2f = (pipe2file_t *)malloc(sizeof (pipe2file_t));
+	if (p2f == NULL)
+		return;
+
+	fprintf(stderr, "%s: is pipe: work on fd %d\r\n", __func__, *srcfd);
+
+	snprintf(template, sizeof (template), "/tmp/.zfs.pipe.XXXXXX");
+
+	mktemp(template);
+
+	mkfifo(template, 0600);
+
+	readfd = open(template, O_RDONLY | O_NONBLOCK );
+
+	fprintf(stderr, "%s: readfd %d (%d)\r\n", __func__, readfd, error);
+
+	writefd = open(template, O_WRONLY | O_NONBLOCK );
+
+	fprintf(stderr, "%s: writefd %d (%d)\r\n", __func__, writefd, error);
+
+	// set it to delete
+	unlink(template);
+
+	// Check delayed so unlink() is always called.
+	if (readfd < 0)
+		goto out;
+	if (writefd < 0)
+		goto out;
+
+	/* Open needs NONBLOCK, so switch back to BLOCK */
+	int flags;
+	flags = fcntl(readfd, F_GETFL);
+	flags &= ~O_NONBLOCK;
+	fcntl(readfd, F_SETFL, flags);
+	flags = fcntl(writefd, F_GETFL);
+	flags &= ~O_NONBLOCK;
+	fcntl(writefd, F_SETFL, flags);
+
+	// create IO thread
+
+	// Send, kernel was to be given *srcfd - to write to.
+	// Instead we give it writefd.
+	// thread then uses read(readfd) -> write(*srcfd)
+	if (send) {
+		p2f->from = readfd;
+		p2f->to = *srcfd;
+	} else {
+		p2f->from = *srcfd;
+		p2f->to = writefd;
+	}
+	fprintf(stderr, "%s: spawning thread\r\n", __func__);
+
+	// pthread kills all threads on exit, and pipe_io_relay may not
+	// have fully completed.
+	error = fork();
+	if (error == 0) {
+
+		// Close the fd we don't need
+		if (send)
+			close(writefd);
+		else
+			close(readfd);
+
+		setsid();
+		pipe_io_relay(p2f);
+		_exit(0);
+	}
+
+	if (error < 0)
+		goto out;
+
+	// Return open(file) fd to kernel only after all error cases
+	if (send) {
+		*srcfd = writefd;
+		close(readfd);
+	} else {
+		*srcfd = readfd;
+		close(writefd);
+	}
+	return;
+
+out:
+	if (p2f != NULL)
+		free(p2f);
+
+	if (readfd >= 0)
+		close(readfd);
+
+	if (writefd >= 0)
+		close(writefd);
+}
+
+void
+libzfs_set_pipe_max(int infd)
+{
+	/* macOS automatically resizes */
+}

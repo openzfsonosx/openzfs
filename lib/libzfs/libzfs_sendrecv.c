@@ -1087,6 +1087,12 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 	}
 
 	if (!sdd->dryrun) {
+
+#if defined(__APPLE__)
+		/* Can't do IO on pipes, possibly wrap fd in domain socket */
+		libzfs_macos_wrapfd(&sdd->outfd, B_TRUE);
+#endif
+
 		/*
 		 * If progress reporting is requested, spawn a new thread to
 		 * poll ZFS_IOC_SEND_PROGRESS at a regular interval.
@@ -2472,6 +2478,11 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 	if (flags->dryrun)
 		return (0);
 
+#if defined(__APPLE__)
+	/* Can't do IO on pipes, possibly wrap fd in domain socket */
+	libzfs_macos_wrapfd(&fd, B_TRUE);
+#endif
+
 	/*
 	 * If progress reporting is requested, spawn a new thread to poll
 	 * ZFS_IOC_SEND_PROGRESS at a regular interval.
@@ -2562,6 +2573,7 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 			return (zfs_standard_error(hdl, errno, errbuf));
 		}
 	}
+
 	return (err != 0);
 }
 
@@ -4627,6 +4639,11 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 		fnvlist_add_uint64(oxprops,
 		    zfs_prop_to_name(ZFS_PROP_ENCRYPTION), ZIO_CRYPT_OFF);
 	}
+
+#if defined(__APPLE__)
+	/* Can't do IO on pipes, possibly wrap fd in domain socket */
+	libzfs_macos_wrapfd(&infd, B_FALSE);
+#endif
 
 	err = ioctl_err = lzc_receive_with_cmdprops(destsnap, rcvprops,
 	    oxprops, wkeydata, wkeylen, origin, flags->force, flags->resumable,
