@@ -113,6 +113,47 @@ int (*REAL_fo_read)(struct fileproc *fp, struct uio *uio, int flags, vfs_context
 int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags, vfs_context_t ctx) = NULL;
 #endif
 
+int
+(*REAL_fd_rdwr)(
+	int fd,
+	enum uio_rw rw,
+	uint64_t base,
+	int64_t len,
+	enum uio_seg segflg,
+	off_t   offset,
+	int     io_flg,
+	int64_t *aresid) = NULL;
+
+int
+(*REAL_fp_lookup)(struct proc *p, int fd, struct fileproc **resultfp,
+	int locked) = NULL;
+
+int
+(*REAL_wr_uio)(struct proc *p, struct fileproc *fp, struct uio *uio,
+    user_ssize_t *retval) = NULL;
+int
+(*REAL_rd_uio)(struct proc *p, int fdes, uio_t uio, user_ssize_t *retval) =
+    NULL;
+
+
+int
+(*REAL_fp_getfvp)(proc_t p, int fd, struct fileproc **resultfp,
+    struct vnode **resultvp) = NULL;
+struct pipe;
+int
+(*REAL_fp_getfpipe)(proc_t p, int fd, struct fileproc **resultfp,
+	struct pipe **resultpipe) = NULL;
+
+int
+(*REAL_fp_get_pipe_id)(struct proc *p, int fd, uint64_t *id) = NULL;
+
+int
+(*REAL_fileport_makefd)(struct proc *p,
+	void *uap, int32_t *retval) = NULL;
+
+
+
+
 utsname_t *
 utsname(void)
 {
@@ -434,7 +475,7 @@ int spl_loadsymbols(void)
 	printf("Kernel slide: %lx\n", vm_kern_slide);
 
     hib_base = KERN_HIB_BASE + vm_kern_slide;
-    kern_base = KERN_TEXT_BASE + vm_kern_slide + 0xc000;
+    kern_base = KERN_TEXT_BASE + vm_kern_slide /* + 0xc000 */;
 
 	mh = (struct mach_header_64 *) kern_base;
 
@@ -491,18 +532,28 @@ int spl_loadsymbols(void)
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_vfs_context_kernel, "_vfs_context_kernel",
 		symbol_found, symbol_failed);
-#if 0
-	LOAD_SYMBOL(REAL_fp_drop, "_fp_drop",
+	LOAD_SYMBOL(REAL_rd_uio, "_rd_uio",
 		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_fp_drop_written, "_fp_drop_written",
+	LOAD_SYMBOL(REAL_wr_uio, "_wr_uio",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_fp_getfvp, "_fp_getfvp",
+		symbol_found, symbol_failed);
+	LOAD_SYMBOL(REAL_fd_rdwr, "_fd_rdwr",
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_fp_lookup, "_fp_lookup",
 		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_fo_read, "_fo_read",
+	LOAD_SYMBOL(REAL_fileport_makefd, "_fileport_makefd",
 		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_fo_write, "_fo_write",
+
+	/* We need at least one of these symbols */
+	LOAD_SYMBOL(REAL_fp_getfpipe, "_fp_getfpipe",
 		symbol_found, symbol_failed);
-#endif
+	if (REAL_fp_getfpipe == NULL) {
+		printf("No _fp_getfpipe, trying for _fp_get_pipe_id\n");
+		symbol_failed--; // The "_fp_getfpipe" failed, remove one
+		LOAD_SYMBOL(REAL_fp_get_pipe_id, "_fp_get_pipe_id",
+			symbol_found, symbol_failed);
+	}
 
 	printf("%s: Loaded %d, "
 #ifdef DEBUG
@@ -517,9 +568,6 @@ int spl_loadsymbols(void)
 		symbol_failed);
 
 	delay(hz);
-
-	if (symbol_failed)
-		panic("Unable to load symbols\n");
 
 	return symbol_failed;
 }
