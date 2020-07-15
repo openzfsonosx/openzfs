@@ -71,7 +71,6 @@ kernel_mach_header_t *REAL__mh_execute_header = NULL;
 #endif
 
 struct fileproc;
-struct decmpfs_cnode;
 
 /* Functions */
 struct vnode *(*REAL_rootvnode) = NULL;
@@ -93,12 +92,6 @@ int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups, int *_group
 struct i386_cpu_info;
 typedef struct i386_cpu_info i386_cpu_info_t;
 i386_cpu_info_t *(*REAL_cpuid_info)(void) = NULL;
-struct decmpfs_cnode *(*REAL_decmpfs_cnode_alloc)(void) = NULL;
-void (*REAL_decmpfs_cnode_free)(struct decmpfs_cnode *dp) = NULL;
-void (*REAL_decmpfs_cnode_init)(struct decmpfs_cnode *cp) = NULL;
-void (*REAL_decmpfs_cnode_destroy)(struct decmpfs_cnode *cp) = NULL;
-int (*REAL_decmpfs_decompress_file)(struct vnode *vp, struct decmpfs_cnode *cp, off_t toSize, int truncate_okay, int skiplock) = NULL;
-int (*REAL_decmpfs_file_is_compressed)(struct vnode *vp, struct decmpfs_cnode *cp) = NULL;
 
 #ifdef __arm64__
 int (*REAL_setjmp)(void *e) = NULL;
@@ -114,45 +107,8 @@ int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags, vfs_contex
 #endif
 
 int
-(*REAL_fd_rdwr)(
-	int fd,
-	enum uio_rw rw,
-	uint64_t base,
-	int64_t len,
-	enum uio_seg segflg,
-	off_t   offset,
-	int     io_flg,
-	int64_t *aresid) = NULL;
-
-int
-(*REAL_fp_lookup)(struct proc *p, int fd, struct fileproc **resultfp,
-	int locked) = NULL;
-
-int
-(*REAL_wr_uio)(struct proc *p, struct fileproc *fp, struct uio *uio,
-    user_ssize_t *retval) = NULL;
-int
-(*REAL_rd_uio)(struct proc *p, int fdes, uio_t uio, user_ssize_t *retval) =
-    NULL;
-
-
-int
 (*REAL_fp_getfvp)(proc_t p, int fd, struct fileproc **resultfp,
     struct vnode **resultvp) = NULL;
-struct pipe;
-int
-(*REAL_fp_getfpipe)(proc_t p, int fd, struct fileproc **resultfp,
-	struct pipe **resultpipe) = NULL;
-
-int
-(*REAL_fp_get_pipe_id)(struct proc *p, int fd, uint64_t *id) = NULL;
-
-int
-(*REAL_fileport_makefd)(struct proc *p,
-	void *uap, int32_t *retval) = NULL;
-
-
-
 
 utsname_t *
 utsname(void)
@@ -518,42 +474,10 @@ int spl_loadsymbols(void)
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_cpuid_info, "_cpuid_info",
 		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_decmpfs_cnode_alloc, "_decmpfs_cnode_alloc",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_decmpfs_cnode_free, "_decmpfs_cnode_free",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_decmpfs_cnode_init, "_decmpfs_cnode_init",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_decmpfs_cnode_destroy, "_decmpfs_cnode_destroy",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_decmpfs_decompress_file, "_decmpfs_decompress_file",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_decmpfs_file_is_compressed, "_decmpfs_file_is_compressed",
-		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_vfs_context_kernel, "_vfs_context_kernel",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_rd_uio, "_rd_uio",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_wr_uio, "_wr_uio",
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_fp_getfvp, "_fp_getfvp",
 		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_fd_rdwr, "_fd_rdwr",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_fp_lookup, "_fp_lookup",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_fileport_makefd, "_fileport_makefd",
-		symbol_found, symbol_failed);
-
-	/* We need at least one of these symbols */
-	LOAD_SYMBOL(REAL_fp_getfpipe, "_fp_getfpipe",
-		symbol_found, symbol_failed);
-	if (REAL_fp_getfpipe == NULL) {
-		printf("No _fp_getfpipe, trying for _fp_get_pipe_id\n");
-		symbol_failed--; // The "_fp_getfpipe" failed, remove one
-		LOAD_SYMBOL(REAL_fp_get_pipe_id, "_fp_get_pipe_id",
-			symbol_found, symbol_failed);
-	}
 
 	printf("%s: Loaded %d, "
 #ifdef DEBUG
