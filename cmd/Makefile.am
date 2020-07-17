@@ -10,6 +10,7 @@ if BUILD_LINUX
 SUBDIRS += mount_zfs zed zgenhostid zvol_id zvol_wait
 endif
 
+# Eventually "os" will be "built" by all platforms?
 if BUILD_MACOS
-SUBDIRS += zed
+SUBDIRS += zed os
 endif
