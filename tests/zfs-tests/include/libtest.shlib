@@ -4387,7 +4387,6 @@ function get_arcstat # stat
 	esac
 }
 
-<<<<<<< HEAD
 #
 # Given an array of pids, wait until all processes
 # have completed and check their return status.
@@ -4406,7 +4405,8 @@ function wait_for_children #children
 		fi
 	done
 	return $rv
-=======
+}
+
 function disable_spotlight # pool
 {
 	if is_macos; then
@@ -4439,5 +4439,4 @@ function enable_mds
 	if is_macos; then
 		launchctl load -w /System/Library/LaunchDaemons/com.apple.metadata.mds.plist
 	fi
->>>>>>> 0a25c67fec... Upstream: zfs-tests to support macOS
 }
