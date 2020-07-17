@@ -85,8 +85,10 @@ libzfs_la_LIBADD += -lm $(LIBCRYPTO_LIBS) $(ZLIB_LIBS) $(LTLIBINTL)
 
 libzfs_la_LDFLAGS = -pthread
 
+if !BUILD_MACOS
 if !ASAN_ENABLED
 libzfs_la_LDFLAGS += -Wl,-z,defs
+endif
 endif
 
 if BUILD_FREEBSD
@@ -99,10 +101,7 @@ libzfs_la_LDFLAGS += -version-info 2:0:0
 endif
 
 if BUILD_MACOS
-libzfs_la_LIBADD += \
-	$(top_builddir)/lib/libshare/libshare.la
-
-libzfs_la_LDFLAGS = -version-info 2:0:0 -framework IOKit -lssl
+libzfs_la_LDFLAGS += -version-info 2:0:0 -framework IOKit -lssl
 endif
 
 # Licensing data

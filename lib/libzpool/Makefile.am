@@ -212,8 +212,10 @@ libzpool_la_LIBADD += $(LIBCLOCK_GETTIME) $(ZLIB_LIBS) -ldl
 
 libzpool_la_LDFLAGS = -pthread
 
+if !BUILD_MACOS
 if !ASAN_ENABLED
 libzpool_la_LDFLAGS += -Wl,-z,defs
+endif
 endif
 
 if BUILD_FREEBSD

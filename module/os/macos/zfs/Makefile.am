@@ -167,6 +167,7 @@ zfs_SOURCES = \
 	../../../zfs/vdev_raidz.c \
 	../../../zfs/vdev_raidz_math.c \
 	../../../zfs/vdev_raidz_math_scalar.c \
+	../../../zfs/vdev_rebuild.c \
 	../../../zfs/vdev_removal.c \
 	../../../zfs/vdev_root.c \
 	../../../zfs/vdev_trim.c \
