@@ -176,3 +176,9 @@ secpolicy_fs_mount(const cred_t *cr, struct vnode *vp, struct mount *mp)
 {
 	return (spl_priv_check_cred((kauth_cred_t)cr, PRIV_VFS_MOUNT, 0));
 }
+
+int
+secpolicy_zfs_proc(cred_t *cr, proc_t *proc)
+{
+	return (spl_priv_check_cred((kauth_cred_t)cr, PRIV_VFS_MOUNT, 0));
+}
