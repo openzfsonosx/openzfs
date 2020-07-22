@@ -738,6 +738,10 @@ elif [ "$UNAME" = "Darwin" ] ; then
 	# Tell ZFS to not to use /Volumes
 	__ZFS_MAIN_MOUNTPOINT_DIR=/
 	export __ZFS_MAIN_MOUNTPOINT_DIR
+	# Catalina and up has root as read/only.
+	# BigSur gets even harder.
+	sudo mount -uw /
+	export SHELL=ksh
 else
 	RESULTS_FILE=$(mktemp -u -t zts-results.XXXX -p "$FILEDIR")
 	REPORT_FILE=$(mktemp -u -t zts-report.XXXX -p "$FILEDIR")
