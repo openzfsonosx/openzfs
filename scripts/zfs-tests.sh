@@ -660,10 +660,11 @@ if [ -z "${DISKS}" ]; then
 					fail "Failed: ${TEST_FILE} -> loopback"
 				fi
 				LOOPBACKS="${LOOPBACKS}${MDDEVICE} "
+				BASEMDDEVICE=$(basename "$MDDEVICE")
 				if [[ "$DISKS" ]]; then
-					DISKS="$DISKS $MDDEVICE"
+					DISKS="$DISKS $BASEMDDEVICE"
 				else
-					DISKS="$MDDEVICE"
+					DISKS="$BASEMDDEVICE"
 				fi
 			else
 				TEST_LOOPBACK=$(sudo "${LOSETUP}" -f)
