@@ -102,6 +102,8 @@ endif
 
 if BUILD_MACOS
 libzfs_la_LDFLAGS += -version-info 2:0:0 -framework IOKit -lssl
+libzfs_la_LIBADD += \
+	$(abs_top_builddir)/lib/libzutil/libzutil.la
 endif
 
 # Licensing data

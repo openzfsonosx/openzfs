@@ -34,3 +34,8 @@ libuutil_la_LDFLAGS += -version-info 3:0:0
 else
 libuutil_la_LDFLAGS += -version-info 1:1:0
 endif
+
+if BUILD_MACOS
+libuutil_la_LIBADD += \
+	$(abs_top_builddir)/lib/libefi/libefi.la
+endif
