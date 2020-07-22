@@ -255,12 +255,8 @@ static char *
 zpool_default_import_path[DEFAULT_IMPORT_PATH_SIZE] = {
 	"/private/var/run/disk/by-id",
 	"/private/var/run/disk/by-path",
-#ifndef __UNSAFE_DEFAULT_IMPORT_PATH__
-	"/private/var/run/disk/by-serial"
-#else
 	"/private/var/run/disk/by-serial",
 	"/dev"	/* UNSAFE device names will change */
-#endif /* !__UNSAFE_DEFAULT_IMPORT_PATH__ */
 };
 
 const char * const *
