@@ -463,17 +463,6 @@ update_vdev_config_dev_strs(nvlist_t *nv)
 			    vds.vds_devphys);
 		}
 
-		/* Add enclosure sysfs path (if disk is in an enclosure). */
-		upath = zfs_get_underlying_path(path);
-		spath = zfs_get_enclosure_sysfs_path(upath);
-		if (spath)
-			nvlist_add_string(nv, ZPOOL_CONFIG_VDEV_ENC_SYSFS_PATH,
-			    spath);
-		else
-			nvlist_remove_all(nv, ZPOOL_CONFIG_VDEV_ENC_SYSFS_PATH);
-
-		free(upath);
-		free(spath);
 	} else {
 		/* Clear out any stale entries. */
 		(void) nvlist_remove_all(nv, ZPOOL_CONFIG_DEVID);
