@@ -131,9 +131,10 @@ function is_physical_device #device
 		    -e '^vtbd[0-9]+$'
 		return $?
 	elif is_macos; then
-		device=$(get_physical_device $1)
-		$ECHO $device | $EGREP "^disk[0-9]+(s[0-9]+)*$" > /dev/null 2>&1
-        return $?
+		is_disk_device "$DEV_DSKDIR/$device" && \
+		echo $device | egrep -q \
+		    -e '^disk[0-9]+$'
+		return $?
 	else
 		echo $device | egrep "^c[0-F]+([td][0-F]+)+$" > /dev/null 2>&1
 		return $?

@@ -328,6 +328,7 @@ constrain_path() {
 		ln -fs /sbin/newfs_hfs "$STF_PATH/newfs"
 		ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
 		ln -fs /usr/sbin/sysctl "$STF_PATH/sysctl"
+		ln -fs /usr/bin/dscl "$STF_PATH/dscl"
 	fi
 }
 

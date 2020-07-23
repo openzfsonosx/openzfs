@@ -271,10 +271,6 @@ tags = ['functional', 'migration']
 tests = ['umount_001', 'umountall_001']
 tags = ['functional', 'mount']
 
-[tests/functional/mv_files]
-tests = ['mv_files_001_pos', 'mv_files_002_pos', 'random_creation']
-tags = ['functional', 'mv_files']
-
 [tests/functional/nestedfs]
 tests = ['nestedfs_001_pos']
 tags = ['functional', 'nestedfs']
@@ -318,10 +314,6 @@ tests = ['redacted_compressed', 'redacted_contents', 'redacted_deleted',
     'redacted_origin', 'redacted_props', 'redacted_resume', 'redacted_size',
     'redacted_volume']
 tags = ['functional', 'redacted_send']
-
-[tests/functional/raidz]
-tests = ['raidz_001_neg', 'raidz_002_pos']
-tags = ['functional', 'raidz']
 
 [tests/functional/redundancy]
 tests = ['redundancy_001_pos', 'redundancy_002_pos', 'redundancy_003_pos',
