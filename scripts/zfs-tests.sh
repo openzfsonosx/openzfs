@@ -329,6 +329,8 @@ constrain_path() {
 		ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
 		ln -fs /usr/sbin/sysctl "$STF_PATH/sysctl"
 		ln -fs /usr/bin/dscl "$STF_PATH/dscl"
+		ln -fs /usr/sbin/dseditgroup "$STF_PATH/dseditgroup"
+		ln -fs /usr/bin/xattr "$STF_PATH/xattr"
 	fi
 }
 

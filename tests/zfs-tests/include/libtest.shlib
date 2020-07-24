@@ -1048,7 +1048,7 @@ function set_partition
 		   log_must gpt destroy $disk
 		   log_must gpt create $disk
 		fi
-		
+
 		typeset size_mb=${size%%[mMgG]}
 
                 size_mb=${size_mb%%[mMgG][bB]}
@@ -2736,18 +2736,18 @@ function add_user_macos #<group_name> <user_name> <basedir>
 	typeset -i userid=$((maxid+1))
 
 	# Create the user account by running dscl.
-	log_must dscl . -create /Users/$uname
-	log_must dscl . -create /Users/$uname UserShell /bin/bash
-	log_must dscl . -create /Users/$uname RealName "$uname"
-	log_must dscl . -create /Users/$uname UniqueID "$userid"
-	log_must dscl . -create /Users/$uname PrimaryGroupID 20
-	log_must dscl . -create /Users/$uname NFSHomeDirectory $basedir/$uname
-	log_must dscl . -passwd /Users/$uname $password
+	log_must dscl . -create /Users/$user
+	log_must dscl . -create /Users/$user UserShell /bin/bash
+	log_must dscl . -create /Users/$user RealName "$user"
+	log_must dscl . -create /Users/$user UniqueID "$userid"
+	log_must dscl . -create /Users/$user PrimaryGroupID 20
+	log_must dscl . -create /Users/$user NFSHomeDirectory $basedir/$user
+	# log_must dscl . -passwd /Users/$user $password
 
-	log_must dseditgroup -o edit -t user -a $uname $gname
+	log_must dseditgroup -o edit -t user -a $user $group
 
 	# Create the home directory
-	log_must createhomedir -l -u $uname 2>&1 | grep -v "shell-init"
+	log_must createhomedir -l -u $user 2>&1 | grep -v "shell-init"
 
 	return 0
 }
