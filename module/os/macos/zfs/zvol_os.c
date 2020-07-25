@@ -646,9 +646,9 @@ static void zvol_os_rename_device_cb(void *param)
 	zvol_state_t *zv = (zvol_state_t *)param;
 	if (zvol_os_verify_and_lock(zv) == 0)
 		return;
-	zvolRenameDevice(zv);
 	mutex_exit(&zv->zv_state_lock);
 	rw_exit(&zv->zv_suspend_lock);
+	zvolRenameDevice(zv);
 }
 
 static void
