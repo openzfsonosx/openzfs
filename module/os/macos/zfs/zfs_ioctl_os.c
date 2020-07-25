@@ -264,10 +264,10 @@ zfs_ioc_osx_proxy_dataset(zfs_cmd_t *zc)
 	/* Create new virtual disk, and return /dev/disk name */
 	error = zfs_osx_proxy_create(osname);
 
-	if (!error)
+	if (error == 0)
 		error = zfs_osx_proxy_get_bsdname(osname,
 		    zc->zc_value, sizeof (zc->zc_value));
-	if (error)
+	if (error == 0)
 		printf("%s: Created virtual disk '%s' for '%s'\n", __func__,
 		    zc->zc_value, osname);
 

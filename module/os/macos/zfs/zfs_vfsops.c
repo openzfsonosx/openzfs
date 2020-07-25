@@ -120,64 +120,6 @@ uint32_t	zfs_active_fs_count = 0;
 extern void zfs_ioctl_init(void);
 extern void zfs_ioctl_fini(void);
 
-static int
-zfsvfs_parse_option(char *option, char *value, vfs_t *vfsp)
-{
-	if (!option || !*option)
-		return (0);
-	dprintf("parse '%s' '%s'\n", option?option:"",
-	    value?value:"");
-	if (!strcasecmp(option, "readonly")) {
-		if (value && *value &&
-		    strcasecmp(value, "off") == 0)
-			vfs_clearflags(vfsp, (uint64_t)MNT_RDONLY);
-		else
-			vfs_setflags(vfsp, (uint64_t)MNT_RDONLY);
-	}
-	return (0);
-}
-
-/*
- * Parse the raw mntopts and return a vfs_t describing the options.
- */
-static int
-zfsvfs_parse_options(char *mntopts, vfs_t *vfsp)
-{
-	int error = 0;
-
-	if (mntopts != NULL) {
-		char *p, *t, *v;
-		char *keep;
-
-		int len = strlen(mntopts) + 1;
-		keep = kmem_alloc(len, KM_SLEEP);
-		t = keep;
-		memcpy(t, mntopts, len);
-
-		while (1) {
-			while (t && *t == ' ') t++;
-
-			p = strpbrk(t, ",");
-			if (p) *p = 0;
-
-			// find "="
-			v = strpbrk(t, "=");
-			if (v) {
-				*v = 0;
-				v++;
-				while (*v == ' ') v++;
-			}
-			error = zfsvfs_parse_option(t, v, vfsp);
-			if (error) break;
-			if (!p) break;
-			t = &p[1];
-		}
-		kmem_free(keep, len);
-	}
-
-	return (error);
-}
-
 int
 zfs_is_readonly(zfsvfs_t *zfsvfs)
 {
@@ -1013,7 +955,7 @@ zfs_set_fuid_feature(zfsvfs_t *zfsvfs)
 
 
 static int
-zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
+zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname,
     vfs_context_t ctx)
 {
 	int error = 0;
@@ -1028,10 +970,6 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname, char *options,
 	if (error)
 		return (error);
 	zfsvfs->z_vfs = vfsp;
-
-	error = zfsvfs_parse_options(options, zfsvfs->z_vfs);
-	if (error)
-		goto out;
 
 	zfsvfs->z_rdev = mount_dev;
 
@@ -1242,7 +1180,7 @@ zfs_vfs_mountroot(struct mount *mp, struct vnode *devvp, vfs_context_t ctx)
 
 	printf("Setting readonly\n");
 
-	if ((error = zfs_domount(mp, dev, zfs_bootfs, NULL, ctx)) != 0) {
+	if ((error = zfs_domount(mp, dev, zfs_bootfs, ctx)) != 0) {
 		printf("zfs_domount: error %d", error);
 		goto out;
 	}
@@ -1289,7 +1227,6 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /* devvp */,
 {
 	char		*osname = NULL;
 	char		*options = NULL;
-	uint64_t	flags = vfs_flags(vfsp);
 	int		error = 0;
 	int		rdonly = 0;
 	int		mflag = 0;
@@ -1352,10 +1289,6 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /* devvp */,
 	}
 
 	proxy = kmem_alloc(MAXPATHLEN, KM_SLEEP);
-	if (!proxy) {
-		dprintf("%s proxy string alloc failed\n", __func__);
-		goto out;
-	}
 	*proxy = 0;
 
 	/*
@@ -1386,25 +1319,25 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /* devvp */,
 
 	if (mflag & MS_RDONLY) {
 		dprintf("%s: adding MNT_RDONLY\n", __func__);
-		flags |= MNT_RDONLY;
+		cmdflags |= MNT_RDONLY;
 	}
 
 	if (mflag & MS_OVERLAY) {
 		dprintf("%s: adding MNT_UNION\n", __func__);
-		flags |= MNT_UNION;
+		cmdflags |= MNT_UNION;
 	}
 
 	if (mflag & MS_FORCE) {
 		dprintf("%s: adding MNT_FORCE\n", __func__);
-		flags |= MNT_FORCE;
+		cmdflags |= MNT_FORCE;
 	}
 
 	if (mflag & MS_REMOUNT) {
 		dprintf("%s: adding MNT_UPDATE on MS_REMOUNT\n", __func__);
-		flags |= MNT_UPDATE;
+		cmdflags |= MNT_UPDATE;
 	}
 
-	vfs_setflags(vfsp, (uint64_t)flags);
+	vfs_setflags(vfsp, (uint64_t)cmdflags);
 
 	/*
 	 * When doing a remount, we simply refresh our temporary properties
@@ -1412,60 +1345,59 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /* devvp */,
 	 */
 	if (cmdflags & MNT_UPDATE) {
 
+		error = 0;
+		// Used after fsck
 		if (cmdflags & MNT_RELOAD) {
-			printf("%s: reload after fsck\n", __func__);
-			error = 0;
 			goto out;
 		}
 
 		/* refresh mount options */
 		zfsvfs_t *zfsvfs = vfs_fsprivate(vfsp);
-		ASSERT(zfsvfs);
 
-		if (zfsvfs->z_rdonly == 0 && (flags & MNT_RDONLY ||
-		    vfs_isrdonly(vfsp))) {
-			/* downgrade */
-			dprintf("%s: downgrade requested\n", __func__);
-			zfsvfs->z_rdonly = 1;
-			readonly_changed_cb(zfsvfs, B_TRUE);
-			zfs_unregister_callbacks(zfsvfs);
-			error = zfs_register_callbacks(vfsp);
-			if (error) {
-				printf("%s: remount returned %d",
-				    __func__, error);
+		if (zfsvfs != NULL) {
+			if (zfsvfs->z_rdonly == 0 &&
+			    (cmdflags & MNT_RDONLY ||
+			    vfs_isrdonly(vfsp))) {
+				/* downgrade */
+				dprintf("%s: downgrade requested\n", __func__);
+				zfsvfs->z_rdonly = 1;
+				readonly_changed_cb(zfsvfs, B_TRUE);
+				zfs_unregister_callbacks(zfsvfs);
+				error = zfs_register_callbacks(vfsp);
+				if (error) {
+					dprintf("%s: remount returned %d",
+					    __func__, error);
+				}
+			}
+
+			if (vfs_iswriteupgrade(vfsp)) {
+				/* upgrade */
+				dprintf("%s: upgrade requested\n", __func__);
+				zfsvfs->z_rdonly = 0;
+				readonly_changed_cb(zfsvfs, B_FALSE);
+				zfs_unregister_callbacks(zfsvfs);
+				error = zfs_register_callbacks(vfsp);
+				if (error) {
+					dprintf("%s: remount returned %d",
+					    __func__, error);
+				}
 			}
 		}
-
-		// if (zfsvfs->z_rdonly != 0 && vfs_iswriteupgrade(vfsp)) {
-		if (vfs_iswriteupgrade(vfsp)) {
-			/* upgrade */
-			dprintf("%s: upgrade requested\n", __func__);
-			zfsvfs->z_rdonly = 0;
-			readonly_changed_cb(zfsvfs, B_FALSE);
-			zfs_unregister_callbacks(zfsvfs);
-			error = zfs_register_callbacks(vfsp);
-			if (error) {
-				printf("%s: remount returned %d",
-				    __func__, error);
-			}
-		}
-
 		goto out;
 	}
 
 	if (vfs_fsprivate(vfsp) != NULL) {
-		printf("already mounted\n");
+		dprintf("already mounted\n");
 		error = 0;
 		goto out;
 	}
 
-	error = zfs_domount(vfsp, 0, osname, options, context);
+	error = zfs_domount(vfsp, 0, osname, context);
 	if (error) {
-		printf("%s: zfs_domount returned %d\n",
+		dprintf("%s: zfs_domount returned %d\n",
 		    __func__, error);
 		goto out;
 	}
-
 
 out:
 
@@ -1480,7 +1412,7 @@ out:
 	}
 
 	if (error)
-		printf("zfs_vfs_mount: error %d\n", error);
+		dprintf("zfs_vfs_mount: error %d\n", error);
 
 	if (osname)
 		kmem_free(osname, MAXPATHLEN);

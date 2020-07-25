@@ -225,6 +225,10 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 		}
 	}
 
+	// Some arguments need to be told to XNU
+	if (strstr(optptr, "remount") != NULL)
+		mflag |= MNT_UPDATE;
+
 	mnt_args.mflag = mflag;
 	mnt_args.optptr = optptr;
 	mnt_args.optlen = optlen;
@@ -243,7 +247,7 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 	    __func__, fstype, (rpath ? "rpath" : "dir"),
 	    (rpath ? rpath : dir), mnt_args.fspec, mflag, optptr, optlen,
 	    devdisk, ispool);
-	rv = mount(fstype, rpath ? rpath : dir, 0, &mnt_args);
+	rv = mount(fstype, rpath ? rpath : dir, mflag, &mnt_args);
 
 	if (rpath) free(rpath);
 
