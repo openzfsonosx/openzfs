@@ -746,7 +746,7 @@ elif [ "$UNAME" = "Darwin" ] ; then
 	export __ZFS_MAIN_MOUNTPOINT_DIR
 	# Catalina and up has root as read/only.
 	# BigSur gets even harder.
-	sudo mount -uw /
+	sudo /sbin/mount -uw /
 	export SHELL=ksh
 else
 	RESULTS_FILE=$(mktemp -u -t zts-results.XXXX -p "$FILEDIR")
