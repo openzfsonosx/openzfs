@@ -225,7 +225,7 @@ function ismounted
 			return $?
 		;;
         hfs)
-			out=$($DF -${DF_FS_TYPE} $fstype $1 | sed -e /^Filesystem/d 2>/dev/null)
+			out=$($DF -T $fstype $1 | sed -e /^Filesystem/d 2>/dev/null)
 			ret=$?
 			(($ret != 0)) && return $ret
 			dir=$(echo $out | awk '{print $9}')
