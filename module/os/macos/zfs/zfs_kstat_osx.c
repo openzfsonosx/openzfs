@@ -41,6 +41,10 @@
 #include <sys/spa.h>
 #include <sys/zap_impl.h>
 #include <sys/zil.h>
+#include <sys/spa_impl.h>
+#include <sys/crypto/icp.h>
+#include <sys/vdev_raidz.h>
+#include <zfs_fletcher.h>
 
 /*
  * In Solaris the tunable are set via /etc/system. Until we have a load
@@ -231,21 +235,10 @@ osx_kstat_t osx_kstat = {
 
 };
 
-
-extern void kstat_named_setstr(kstat_named_t *knp, const char *src);
-extern int zfs_vdev_raidz_impl_set(const char *val);
-extern int zfs_vdev_raidz_impl_get(char *buffer, int max);
-extern int icp_gcm_impl_set(const char *val);
-extern int icp_gcm_impl_get(char *buffer, int max);
-extern int icp_aes_impl_set(const char *val);
-extern int icp_aes_impl_get(char *buffer, int max);
-extern int zfs_fletcher_4_impl_set(const char *val);
-extern int zfs_fletcher_4_impl_get(char *buffer, int max);
-
-static char vdev_raidz_string[80] = { 0 };
-static char icp_gcm_string[80] = { 0 };
-static char icp_aes_string[80] = { 0 };
-static char zfs_fletcher_4_string[80] = { 0 };
+static char vdev_raidz_string[KSTAT_STRLEN] = { 0 };
+static char icp_gcm_string[KSTAT_STRLEN] = { 0 };
+static char icp_aes_string[KSTAT_STRLEN] = { 0 };
+static char zfs_fletcher_4_string[KSTAT_STRLEN] = { 0 };
 
 static kstat_t		*osx_kstat_ksp;
 
@@ -258,6 +251,8 @@ extern kstat_t *arc_ksp;
 static int osx_kstat_update(kstat_t *ksp, int rw)
 {
 	osx_kstat_t *ks = ksp->ks_data;
+
+	printf("%s: ksp %p: ks %p\n", __func__, ksp, ks);
 
 	if (rw == KSTAT_WRITE) {
 
@@ -278,13 +273,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    ks->darwin_skip_unlinked_drain.value.ui64;
 		zfs_vfs_sync_paranoia =
 		    ks->darwin_use_system_sync.value.ui64;
-
-		/* ARC */
-		/* Upstream has this static, but we can find another way ... */
-		/* arc_kstat_update(ksp, rw); */
-		if (arc_ksp != NULL && arc_ksp->ks_update != NULL)
-			arc_ksp->ks_update(ksp, rw);
-		arc_kstat_update_osx(ksp, rw);
 
 		/* L2ARC */
 		l2arc_write_max = ks->l2arc_write_max.value.ui64;
@@ -448,25 +436,23 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    ks->zfs_special_class_metadata_reserve_pct.value.ui64;
 
 		// Check if string has changed (from KREAD), if so, update.
-#if 0
 		if (strcmp(vdev_raidz_string,
-		    ks->zfs_vdev_raidz_impl.value.string.addr.ptr) != 0)
-		zfs_vdev_raidz_impl_set(
-		    ks->zfs_vdev_raidz_impl.value.string.addr.ptr);
+		    KSTAT_NAMED_STR_PTR(&ks->zfs_vdev_raidz_impl)) != 0)
+			vdev_raidz_impl_set(
+			    KSTAT_NAMED_STR_PTR(&ks->zfs_vdev_raidz_impl));
 
 		if (strcmp(icp_gcm_string,
-		    ks->icp_gcm_impl.value.string.addr.ptr) != 0)
-		icp_gcm_impl_set(ks->icp_gcm_impl.value.string.addr.ptr);
+		    KSTAT_NAMED_STR_PTR(&ks->icp_gcm_impl)) != 0)
+			gcm_impl_set(KSTAT_NAMED_STR_PTR(&ks->icp_gcm_impl));
 
 		if (strcmp(icp_aes_string,
-		    ks->icp_aes_impl.value.string.addr.ptr) != 0)
-		icp_aes_impl_set(ks->icp_aes_impl.value.string.addr.ptr);
+		    KSTAT_NAMED_STR_PTR(&ks->icp_aes_impl)) != 0)
+			aes_impl_set(KSTAT_NAMED_STR_PTR(&ks->icp_aes_impl));
 
 		if (strcmp(zfs_fletcher_4_string,
-		    ks->zfs_fletcher_4_impl.value.string.addr.ptr) != 0)
-		zfs_fletcher_4_impl_set(
-		    ks->zfs_fletcher_4_impl.value.string.addr.ptr);
-#endif
+		    KSTAT_NAMED_STR_PTR(&ks->zfs_fletcher_4_impl)) != 0)
+			fletcher_4_impl_set(
+			    KSTAT_NAMED_STR_PTR(&ks->zfs_fletcher_4_impl));
 
 		zfs_expire_snapshot =
 		    ks->zfs_expire_snapshot.value.ui64;
@@ -502,8 +488,20 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    ks->zfs_condense_min_mapping_bytes.value.ui64;
 		zfs_deadman_checktime_ms =
 		    ks->zfs_deadman_checktime_ms.value.ui64;
-		// string zfs_deadman_failmode =
-		// ks->zfs_deadman_failmode.value.ui64;
+
+		if (strcmp(zfs_deadman_failmode,
+		    KSTAT_NAMED_STR_PTR(&ks->zfs_vdev_raidz_impl)) != 0) {
+			char *buf =
+			    KSTAT_NAMED_STR_PTR(&ks->zfs_vdev_raidz_impl);
+			if (strcmp(buf,  "wait") == 0)
+				zfs_deadman_failmode = "wait";
+			if (strcmp(buf,  "continue") == 0)
+				zfs_deadman_failmode = "continue";
+			if (strcmp(buf,  "panic") == 0)
+				zfs_deadman_failmode = "panic";
+			param_set_deadman_failmode_common(buf);
+		}
+
 		zfs_deadman_synctime_ms =
 		    ks->zfs_deadman_synctime_ms.value.ui64;
 		zfs_deadman_ziotime_ms =
@@ -588,11 +586,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->darwin_skip_unlinked_drain.value.ui64 =
 		    zfs_vnop_skip_unlinked_drain;
 		ks->darwin_use_system_sync.value.ui64 = zfs_vfs_sync_paranoia;
-
-		/* ARC */
-		if (arc_ksp != NULL && arc_ksp->ks_update != NULL)
-			arc_ksp->ks_update(ksp, rw);
-		arc_kstat_update_osx(ksp, rw);
 
 		/* L2ARC */
 		ks->l2arc_write_max.value.ui64 = l2arc_write_max;
@@ -749,22 +742,21 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    zfs_send_unmodified_spill_blocks;
 		ks->zfs_special_class_metadata_reserve_pct.value.ui64 =
 		    zfs_special_class_metadata_reserve_pct;
-#if 0
-		zfs_vdev_raidz_impl_get(vdev_raidz_string,
+
+		vdev_raidz_impl_get(vdev_raidz_string,
 		    sizeof (vdev_raidz_string));
 		kstat_named_setstr(&ks->zfs_vdev_raidz_impl, vdev_raidz_string);
 
-		icp_gcm_impl_get(icp_gcm_string, sizeof (icp_gcm_string));
+		gcm_impl_get(icp_gcm_string, sizeof (icp_gcm_string));
 		kstat_named_setstr(&ks->icp_gcm_impl, icp_gcm_string);
 
-		icp_aes_impl_get(icp_aes_string, sizeof (icp_aes_string));
+		aes_impl_get(icp_aes_string, sizeof (icp_aes_string));
 		kstat_named_setstr(&ks->icp_aes_impl, icp_aes_string);
 
-		zfs_fletcher_4_impl_get(zfs_fletcher_4_string,
+		fletcher_4_get(zfs_fletcher_4_string,
 		    sizeof (zfs_fletcher_4_string));
 		kstat_named_setstr(&ks->zfs_fletcher_4_impl,
 		    zfs_fletcher_4_string);
-#endif
 
 		ks->zfs_expire_snapshot.value.ui64 = zfs_expire_snapshot;
 		ks->zfs_admin_snapshot.value.ui64 = zfs_admin_snapshot;

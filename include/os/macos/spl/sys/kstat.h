@@ -32,7 +32,7 @@
 #include <sys/sysctl.h>
 #include <sys/mutex.h>
 
-#define	KSTAT_STRLEN		63
+#define	KSTAT_STRLEN		255
 
 /*
  * For reference valid classes are:
@@ -184,5 +184,6 @@ extern void kstat_runq_exit(kstat_io_t *);
 extern void kstat_named_init(kstat_named_t *, const char *, uchar_t);
 
 #define	kstat_set_raw_ops(k, h, d, a) __kstat_set_raw_ops(k, h, d, a)
+void kstat_named_setstr(kstat_named_t *knp, const char *src);
 
 #endif  /* _SPL_KSTAT_H */

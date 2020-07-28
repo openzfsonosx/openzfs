@@ -19,8 +19,8 @@
  *
  * CDDL HEADER END
  */
-#ifndef _LIBSPL_STDLIB_H
-#define	_LIBSPL_STDLIB_H
+#ifndef _LIBSPL_OSX_STDLIB_H
+#define	_LIBSPL_OSX_STDLIB_H
 
 #include_next <stdlib.h>
 #include <sys/sysmacros.h>

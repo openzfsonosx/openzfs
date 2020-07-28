@@ -60,7 +60,7 @@ SYSCTL_NODE(, OID_AUTO, kstat, CTLFLAG_RW, 0, "kstat tree");
  * location and destruction at shutdown time.
  */
 typedef struct sysctl_tree_node {
-	char			tn_kstat_name[KSTAT_STRLEN];
+	char			tn_kstat_name[KSTAT_STRLEN + 1];
 	struct sysctl_oid_list	tn_children;
 	struct sysctl_oid	tn_oid;
 	struct sysctl_tree_node	*tn_next;
@@ -84,11 +84,11 @@ typedef struct sysctl_tree_node {
  * point to that.
  */
 typedef struct sysctl_leaf {
-	kstat_t			*l_ksp;
-	kstat_named_t		*l_named;
-	struct sysctl_oid	l_oid;		/* kstats are backed w/sysctl */
-	char			l_name[64];	/* Name of the related sysctl */
-	int			l_oid_registered;	/* !0 = registered */
+	kstat_t		*l_ksp;
+	kstat_named_t	*l_named;
+	struct sysctl_oid l_oid;	/* kstats are backed w/sysctl */
+	char	l_name[KSTAT_STRLEN + 1]; /* Name of the related sysctl */
+	int	l_oid_registered;	/* !0 = registered */
 } sysctl_leaf_t;
 
 /*
@@ -209,15 +209,16 @@ kstat_handle_i64 SYSCTL_HANDLER_ARGS
 		lock_needs_release = 1;
 	}
 
+	if (ksp->ks_update) {
+		ksp->ks_update(ksp, KSTAT_READ);
+	}
+
 	if (!error && req->newptr) {
 		/*
 		 * Write request - first read add current values for the kstat
 		 * (remember that is sysctl is likely only one of many
 		 *  values that make up the kstat).
 		 */
-		if (ksp->ks_update) {
-			ksp->ks_update(ksp, KSTAT_READ);
-		}
 
 		/* Copy the new value from user space */
 		(void) copyin(req->newptr, &named->value.i64,
@@ -231,9 +232,6 @@ kstat_handle_i64 SYSCTL_HANDLER_ARGS
 		/*
 		 * Read request
 		 */
-		if (ksp->ks_update) {
-			ksp->ks_update(ksp, KSTAT_READ);
-		}
 		error = SYSCTL_OUT(req, &named->value.i64, sizeof (int64_t));
 	}
 
@@ -259,15 +257,16 @@ kstat_handle_ui64 SYSCTL_HANDLER_ARGS
 		lock_needs_release = 1;
 	}
 
+	if (ksp->ks_update) {
+		ksp->ks_update(ksp, KSTAT_READ);
+	}
+
 	if (!error && req->newptr) {
 		/*
 		 * Write request - first read add current values for the kstat
 		 * (remember that is sysctl is likely only one of many
 		 *  values that make up the kstat).
 		 */
-		if (ksp->ks_update) {
-			ksp->ks_update(ksp, KSTAT_READ);
-		}
 
 		/* Copy the new value from user space */
 		(void) copyin(req->newptr, &named->value.ui64,
@@ -281,9 +280,6 @@ kstat_handle_ui64 SYSCTL_HANDLER_ARGS
 		/*
 		 * Read request
 		 */
-		if (ksp->ks_update) {
-			ksp->ks_update(ksp, KSTAT_READ);
-		}
 		error = SYSCTL_OUT(req, &named->value.ui64, sizeof (uint64_t));
 	}
 
@@ -308,36 +304,23 @@ kstat_handle_string SYSCTL_HANDLER_ARGS
 		mutex_enter(lock);
 		lock_needs_release = 1;
 	}
+
+	if (ksp->ks_update) {
+		ksp->ks_update(ksp, KSTAT_READ);
+	}
+
 	if (!error && req->newptr) {
-		/*
-		 * Write request - first read add current values for the kstat
-		 * (remember that is sysctl is likely only one of many
-		 *  values that make up the kstat).
-		 */
-		if (ksp->ks_update) {
-			ksp->ks_update(ksp, KSTAT_READ);
-		}
 
-		/* Copy the new value from user space */
-		/*
-		 * This should use copyinstr when copying in string from
-		 * userland Fix this before attempting to use type STRING
-		 * with kstat
-		 */
-		named->value.string.addr.ptr = (char *)(req->newptr);
-		named->value.string.len = strlen((char *)(req->newptr))+1;
+		/* Copy the new value from user space (copyin done by XNU) */
+		kstat_named_setstr(named, (const char *)(req->newptr));
 
-		/* and invoke the update operation */
+		/* and invoke the update operation: last call out */
 		if (ksp->ks_update) {
 			error = ksp->ks_update(ksp, KSTAT_WRITE);
 		}
+
 	} else {
-		/*
-		 * Read request
-		 */
-		if (ksp->ks_update) {
-			ksp->ks_update(ksp, KSTAT_READ);
-		}
+
 		error = SYSCTL_OUT(req, named->value.string.addr.ptr,
 		    named->value.string.len);
 	}
@@ -545,6 +528,9 @@ kstat_install(kstat_t *ksp)
 					    oid_permissions | CTLFLAG_OID2;
 					val->l_oid.oid_fmt = "S";
 					val->l_oid.oid_arg1 = (void*)params;
+
+					named->value.string.addr.ptr = NULL;
+					named->value.string.len = 0;
 					break;
 
 				case KSTAT_DATA_CHAR:
@@ -589,6 +575,10 @@ remove_child_sysctls(ekstat_t *e)
 			sysctl_leaf_t *leaf = (sysctl_leaf_t *)
 			    vals_base[i].l_oid.oid_arg1;
 			kfree(leaf, sizeof (sysctl_leaf_t));
+
+			if (named_base[i].data_type == KSTAT_DATA_STRING) {
+				kstat_named_setstr(&named_base[i], NULL);
+			}
 		}
 	}
 }
@@ -631,16 +621,38 @@ kstat_delete(kstat_t *ksp)
 void
 kstat_named_setstr(kstat_named_t *knp, const char *src)
 {
+	void *data;
+	int len;
+
 	if (knp->data_type != KSTAT_DATA_STRING)
 		panic("kstat_named_setstr('%p', '%p'): "
 		    "named kstat is not of type KSTAT_DATA_STRING",
 		    (void *)knp, (void *)src);
 
-	KSTAT_NAMED_STR_PTR(knp) = (char *)src;
-	if (src != NULL)
-		KSTAT_NAMED_STR_BUFLEN(knp) = strlen(src) + 1;
-	else
+	data = KSTAT_NAMED_STR_PTR(knp);
+	len = KSTAT_NAMED_STR_BUFLEN(knp);
+
+	if (data != NULL && len > 0) {
+
+		// If strings are the same, don't bother swapping them
+		if (src != NULL &&
+		    strcmp(src, data) == 0)
+			return;
+
+		kfree(data, len);
+		KSTAT_NAMED_STR_PTR(knp) = NULL;
 		KSTAT_NAMED_STR_BUFLEN(knp) = 0;
+	}
+
+	if (src == NULL)
+		return;
+
+	len = strlen(src) + 1;
+
+	data = kalloc(len);
+	strlcpy(data, src, len);
+	KSTAT_NAMED_STR_PTR(knp) = data;
+	KSTAT_NAMED_STR_BUFLEN(knp) = len;
 }
 
 void
