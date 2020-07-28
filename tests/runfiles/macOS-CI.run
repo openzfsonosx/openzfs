@@ -260,13 +260,6 @@ tags = ['functional', 'limits']
 tests = ['link_count_001', 'link_count_root_inode']
 tags = ['functional', 'link_count']
 
-[tests/functional/migration]
-tests = ['migration_001_pos', 'migration_002_pos', 'migration_003_pos',
-    'migration_004_pos', 'migration_005_pos', 'migration_006_pos',
-    'migration_007_pos', 'migration_008_pos', 'migration_009_pos',
-    'migration_010_pos', 'migration_011_pos', 'migration_012_pos']
-tags = ['functional', 'migration']
-
 [tests/functional/mount]
 tests = ['umount_001', 'umountall_001']
 tags = ['functional', 'mount']
