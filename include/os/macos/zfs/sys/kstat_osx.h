@@ -278,10 +278,10 @@ extern int zfs_send_queue_length;
 extern int zfs_recv_queue_length;
 
 extern uint64_t zvol_inhibit_dev;
-extern uint64_t zfs_send_set_freerecords_bit;
+extern int zfs_send_set_freerecords_bit;
 
 extern uint64_t zfs_write_implies_delete_child;
-extern uint64_t send_holes_without_birth_time;
+extern uint32_t send_holes_without_birth_time;
 extern uint64_t zfs_send_holes_without_birth_time;
 
 extern uint64_t dbuf_cache_max_bytes;
@@ -299,8 +299,8 @@ extern unsigned int zfs_trim_metaslab_skip;
 extern uint64_t  zfs_trim_txg_batch;
 extern uint64_t  zfs_trim_queue_limit;
 
-extern uint64_t  zfs_send_unmodified_spill_blocks;
-extern uint64_t  zfs_special_class_metadata_reserve_pct;
+extern int zfs_send_unmodified_spill_blocks;
+extern int zfs_special_class_metadata_reserve_pct;
 
 extern int zfs_vnop_force_formd_normalized_output;
 
