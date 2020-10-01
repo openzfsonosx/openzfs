@@ -6112,11 +6112,11 @@ spa_import(char *pool, nvlist_t *config, nvlist_t *props, uint64_t flags)
 
 	mutex_exit(&spa_namespace_lock);
 
-	zvol_create_minors_recursive(pool);
-
 #if defined(__APPLE__) && defined(_KERNEL)
 	spa_create_os(spa);
 #endif
+
+	zvol_create_minors_recursive(pool);
 
 	return (0);
 }
