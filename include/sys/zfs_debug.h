@@ -81,19 +81,17 @@ extern void __dprintf(boolean_t dprint, const char *file, const char *func,
 	if (zfs_dbgmsg_enable) \
 		__dprintf(B_FALSE, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
-#ifdef ZFS_DEBUG
 /*
  * To enable this:
  *
  * $ echo 1 >/sys/module/zfs/parameters/zfs_flags
  */
-#define	dprintf(...) \
+#ifdef _KERNEL
+#undef dprintf
+#define	dprintf(...)				   \
 	if (zfs_flags & ZFS_DEBUG_DPRINTF) \
 		__dprintf(B_TRUE, __FILE__, __func__, __LINE__, __VA_ARGS__)
-#else
-#define	dprintf(...) ((void)0)
-#endif /* ZFS_DEBUG */
-
+#endif
 extern void zfs_panic_recover(const char *fmt, ...);
 
 extern void zfs_dbgmsg_init(void);

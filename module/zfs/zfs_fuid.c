@@ -412,7 +412,7 @@ zfs_fuid_map_id(zfsvfs_t *zfsvfs, uint64_t fuid,
 #elif defined(__APPLE__)
 uid_t
 zfs_fuid_map_id(zfsvfs_t *zfsvfs, uint64_t fuid,
-	cred_t *cr, zfs_fuid_type_t type)
+    cred_t *cr, zfs_fuid_type_t type)
 {
 	uint32_t index = FUID_INDEX(fuid);
 	const char *domain;
