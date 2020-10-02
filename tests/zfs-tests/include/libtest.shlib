@@ -4288,7 +4288,8 @@ function get_xattr # name path
 		getextattr -qq user "${name}" "${path}"
 		;;
 	Darwin)
-		xattr -px "${name}" "${path}"
+		xattr -px "${name}" "${path}" > /dev/null &&
+		      xattr -px "${name}" "${path}" | xxd -r -p
 		;;
 	*)
 		attr -qg "${name}" "${path}"
