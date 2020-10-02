@@ -154,9 +154,10 @@ zvol_os_register_device_cb(void *param)
 	if (zvol_os_verify_and_lock(zv) == 0)
 		return;
 
+	mutex_exit(&zv->zv_state_lock);
+
 	zvolRegisterDevice(zv);
 
-	mutex_exit(&zv->zv_state_lock);
 	rw_exit(&zv->zv_suspend_lock);
 }
 
@@ -190,6 +191,8 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	/* Some requests are just for flush and nothing else. */
 	if (count == 0)
 		return (0);
+
+	ssize_t start_count = count;
 
 	volsize = zv->zv_volsize;
 	if (count > 0 &&
@@ -256,6 +259,9 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 			break;
 	}
 	zfs_rangelock_exit(lr);
+
+	int64_t nwritten = start_count - count;
+	dataset_kstats_update_write_kstats(&zv->zv_kstat, nwritten);
 
 	if (sync)
 		zil_commit(zv->zv_zilog, ZVOL_OBJ);
@@ -426,7 +432,7 @@ zvol_os_clear_private(zvol_state_t *zv)
 {
 	void *term;
 
-	printf("%s\n", __func__);
+	dprintf("%s\n", __func__);
 	/* We can do all removal work, except call terminate. */
 	term = zvolRemoveDevice(zv->zv_zso->zvo_iokitdev);
 	if (term == NULL)
@@ -449,8 +455,6 @@ zvol_os_find_by_dev(dev_t dev)
 {
 	zvol_state_t *zv;
 
-	printf("%s\n", __func__);
-
 	rw_enter(&zvol_state_lock, RW_READER);
 	for (zv = list_head(&zvol_state_list); zv != NULL;
 	    zv = list_next(&zvol_state_list, zv)) {
@@ -469,7 +473,6 @@ zvol_os_find_by_dev(dev_t dev)
 void
 zvol_os_validate_dev(zvol_state_t *zv)
 {
-	ASSERT3U(MINOR(zv->zv_zso->zvo_dev) & ZVOL_MINOR_MASK, ==, 0);
 }
 
 /*
@@ -483,19 +486,15 @@ zvol_os_alloc(dev_t dev, const char *name)
 	struct zvol_state_os *zso;
 	uint64_t volmode;
 
-	printf("%s\n", __func__);
 	if (dsl_prop_get_integer(name, "volmode", &volmode, NULL) != 0)
 		return (NULL);
 
-	printf("%s 2\n", __func__);
 	if (volmode == ZFS_VOLMODE_DEFAULT)
 		volmode = zvol_volmode;
 
-	printf("%s 3\n", __func__);
 	if (volmode == ZFS_VOLMODE_NONE)
 		return (NULL);
 
-	printf("%s 4\n", __func__);
 	zv = kmem_zalloc(sizeof (zvol_state_t), KM_SLEEP);
 	zso = kmem_zalloc(sizeof (struct zvol_state_os), KM_SLEEP);
 	zv->zv_zso = zso;
@@ -528,8 +527,6 @@ out_kmem:
 static void
 zvol_os_free(zvol_state_t *zv)
 {
-	printf("%s\n", __func__);
-
 	ASSERT(!RW_LOCK_HELD(&zv->zv_suspend_lock));
 	ASSERT(!MUTEX_HELD(&zv->zv_state_lock));
 	ASSERT(zv->zv_open_count == 0);
@@ -561,7 +558,7 @@ zvol_os_create_minor(const char *name)
 	int error = 0;
 	uint64_t hash = zvol_name_hash(name);
 
-	printf("%s\n", __func__);
+	dprintf("%s\n", __func__);
 
 	if (zvol_inhibit_dev)
 		return (0);
@@ -636,7 +633,7 @@ out_doi:
 
 	}
 
-	printf("%s complete\n", __func__);
+	dprintf("%s complete\n", __func__);
 	return (error);
 }
 
@@ -697,19 +694,22 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
 	int error = 0;
 
-	printf("%s\n", __func__);
-
 	/*
 	 * make sure zvol is not suspended during first open
 	 * (hold zv_suspend_lock) and respect proper lock acquisition
 	 * ordering - zv_suspend_lock before zv_state_lock
 	 */
-	if (zvol_os_verify_and_lock(zv) == 0)
+	if (zvol_os_verify_and_lock(zv) == 0) {
 		return (SET_ERROR(ENOENT));
+	}
 
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
 	ASSERT(zv->zv_open_count != 0 || RW_READ_HELD(&zv->zv_suspend_lock));
 
+	/*
+	 * We often race opens due to DiskArb. So if spa_namespace_lock is
+	 * already held, potentially a zvol_first_open() is already in progress
+	 */
 	if (zv->zv_open_count == 0) {
 		error = zvol_first_open(zv, !(flag & FWRITE));
 		if (error)
@@ -735,8 +735,8 @@ out_open_count:
 
 out_mutex:
 	mutex_exit(&zv->zv_state_lock);
-
 	rw_exit(&zv->zv_suspend_lock);
+
 	if (error == EINTR) {
 		error = ERESTART;
 		schedule();
@@ -749,8 +749,6 @@ zvol_os_open(dev_t devp, int flag, int otyp, struct proc *p)
 {
 	zvol_state_t *zv;
 	int error = 0;
-
-	printf("%s\n", __func__);
 
 	if (!getminor(devp))
 		return (0);
@@ -769,8 +767,6 @@ zvol_os_open(dev_t devp, int flag, int otyp, struct proc *p)
 int
 zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
-	printf("%s\n", __func__);
-
 	if (zvol_os_verify_and_lock(zv) == 0)
 		return (SET_ERROR(ENOENT));
 
@@ -793,8 +789,6 @@ zvol_os_close(dev_t dev, int flag, int otyp, struct proc *p)
 {
 	zvol_state_t *zv;
 	int error = 0;
-
-	printf("%s\n", __func__);
 
 	if (!getminor(dev))
 		return (0);
@@ -832,7 +826,7 @@ zvol_os_ioctl(dev_t dev, unsigned long cmd, caddr_t data, int isblk,
 	u_int64_t *o;
 	zvol_state_t *zv = NULL;
 
-	printf("%s\n", __func__);
+	dprintf("%s\n", __func__);
 
 	if (!getminor(dev))
 		return (ENXIO);

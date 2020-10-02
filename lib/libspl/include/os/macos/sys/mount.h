@@ -79,36 +79,9 @@
 #define	MS_OWNER	(MS_NOSUID|MS_NODEV)
 #define	MS_GROUP	(MS_NOSUID|MS_NODEV)
 #define	MS_COMMENT	0
-
-/*
- * Older glibc <sys/mount.h> headers did not define all the available
- * umount2(2) flags.  Both MNT_FORCE and MNT_DETACH are supported in the
- * kernel back to 2.4.11 so we define them correctly if they are missing.
- */
-#ifdef MNT_FORCE
 #define	MS_FORCE	MNT_FORCE
-#else
-#define	MS_FORCE	0x00000001
-#endif /* MNT_FORCE */
-
-#ifdef MNT_DETACH
 #define	MS_DETACH	MNT_DETACH
-#else
-#define	MS_DETACH	0x00000002
-#endif /* MNT_DETACH */
-
-/*
- * Overlay mount is default in Linux, but for solaris/zfs
- * compatibility, MS_OVERLAY is defined to explicitly have the user
- * provide a flag (-O) to mount over a non empty directory.
- */
-#define	MS_OVERLAY	0x00000004
-
-/*
- * MS_CRYPT indicates that encryption keys should be loaded if they are not
- * already available. This is not defined in glibc, but it is never seen by
- * the kernel so it will not cause any problems.
- */
-#define	MS_CRYPT	0x00000008
+#define	MS_OVERLAY	MNT_UNION
+#define	MS_CRYPT	MNT_CPROTECT
 
 #endif /* _LIBSPL_SYS_MOUNT_H */

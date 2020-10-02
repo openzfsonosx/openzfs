@@ -170,19 +170,6 @@ libzfs_load_module(void)
 int
 find_shares_object(differ_info_t *di)
 {
-	char fullpath[MAXPATHLEN];
-	struct stat64 sb = { 0 };
-
-	(void) strlcpy(fullpath, di->dsmnt, MAXPATHLEN);
-	(void) strlcat(fullpath, ZDIFF_SHARESDIR, MAXPATHLEN);
-
-	if (stat64(fullpath, &sb) != 0) {
-		(void) snprintf(di->errbuf, sizeof (di->errbuf),
-		    dgettext(TEXT_DOMAIN, "Cannot stat %s"), fullpath);
-		return (zfs_error(di->zhp->zfs_hdl, EZFS_DIFF, di->errbuf));
-	}
-
-	di->shares = (uint64_t)sb.st_ino;
 	return (0);
 }
 

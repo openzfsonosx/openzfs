@@ -42,7 +42,6 @@
 #define	_task_user_
 #include <IOKit/IOLib.h>
 
-#include <zfs_config.h>
 #include <sys/systeminfo.h>
 
 extern int system_inshutdown;

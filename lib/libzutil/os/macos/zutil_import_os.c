@@ -74,12 +74,12 @@
 #include <sched.h>
 #endif
 
-/* We allow /dev/ to be search in DEBUG build */
-#ifdef DEBUG
+/*
+ * We allow /dev/ to be search in DEBUG build
+ * DEFAULT_IMPORT_PATH_SIZE is decremented by one to remove /dev!
+ * See below in zpool_find_import_blkid() to skip.
+ */
 #define	DEFAULT_IMPORT_PATH_SIZE	4
-#else
-#define	DEFAULT_IMPORT_PATH_SIZE	3
-#endif
 
 #define	DEV_BYID_PATH "/private/var/run/disk/by-id"
 
@@ -88,9 +88,7 @@ zpool_default_import_path[DEFAULT_IMPORT_PATH_SIZE] = {
 	"/private/var/run/disk/by-id",
 	"/private/var/run/disk/by-path",
 	"/private/var/run/disk/by-serial",
-#ifdef DEBUG
 	"/dev"	/* Only with DEBUG build */
-#endif
 };
 
 static boolean_t
@@ -303,6 +301,18 @@ zpool_find_import_blkid(libpc_handle_t *hdl, pthread_mutex_t *lock,
 		char rdsk[MAXPATHLEN];
 		int dfd;
 		DIR *dirp;
+
+#ifndef DEBUG
+		/*
+		 * We skip imports in /dev/ in release builds, due to the
+		 * danger of cache/log devices and drive renumbering.
+		 * We have it in zpool_default_import_path to allow
+		 * zfs_resolve_shortname() to still work, ie
+		 * "zpool create disk3" to resolve to /dev/disk3.
+		 */
+		if (strncmp("/dev", dir[i], 4) == 0)
+			continue;
+#endif
 
 		/* use realpath to normalize the path */
 		if (realpath(dir[i], path) == 0) {

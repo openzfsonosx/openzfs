@@ -62,6 +62,7 @@ enum vcexcl { NONEXCL, EXCL };
 #define	B_TRUNC		0x02
 
 #define	CREATE_XATTR_DIR	0x04	/* Create extended attr dir */
+#define	ATTR_NOACLCHECK		0x20
 
 #define	IS_DEVVP(vp)    \
 	(vnode_ischr(vp) || vnode_isblk(vp) || vnode_isfifo(vp))
@@ -187,6 +188,8 @@ void spl_rele_async(void *arg);
 void vn_rele_async(struct vnode *vp, void *taskq);
 
 extern int vnode_iocount(struct vnode *);
+
+#define	F_SEEK_HOLE SEEK_HOLE
 
 #define	VN_RELE_ASYNC(vp, tq) vn_rele_async((vp), (tq))
 

@@ -55,6 +55,7 @@ typedef struct krwlock  krwlock_t;
 
 #define	RW_WRITE_HELD(x)	(rw_write_held((x)))
 #define	RW_LOCK_HELD(x)		(rw_lock_held((x)))
+#define	RW_READ_HELD(x)		(rw_read_held((x)))
 
 #ifdef SPL_DEBUG_RWLOCK
 #define	rw_init(A, B, C, D) \
@@ -71,6 +72,7 @@ extern  void  rw_exit(krwlock_t *);
 extern  void  rw_downgrade(krwlock_t *);
 extern  int   rw_tryupgrade(krwlock_t *);
 extern  int   rw_write_held(krwlock_t *);
+extern  int   rw_read_held(krwlock_t *);
 extern  int   rw_lock_held(krwlock_t *);
 extern  int   rw_isinit(krwlock_t *);
 

@@ -407,9 +407,6 @@ nfs_clear_shareopts(sa_share_impl_t impl_share)
 static int
 nfs_commit_shares(void)
 {
-	struct pidfh *pfh;
-	pid_t mountdpid;
-
 	return (SA_OK);
 }
 

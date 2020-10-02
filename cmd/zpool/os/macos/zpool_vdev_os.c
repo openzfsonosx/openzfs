@@ -46,16 +46,6 @@ check_sector_size_database(char *path, int *sector_size)
 	return (B_FALSE);
 }
 
-void
-zpool_vdev_enable_file(struct stat64 *statbuf, boolean_t *wholedisk)
-{
-	if (S_ISCHR(statbuf->st_mode)) {
-		statbuf->st_mode &= ~S_IFCHR;
-		statbuf->st_mode |= S_IFBLK;
-		*wholedisk = B_FALSE;
-	}
-}
-
 int
 check_device(const char *name, boolean_t force,
     boolean_t isspare, boolean_t iswholedisk)

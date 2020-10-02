@@ -179,7 +179,6 @@ zfs_znode_cache_constructor(void *buf, void *arg, int kmflags)
 	zp->z_acl_cached = NULL;
 	zp->z_xattr_cached = NULL;
 	zp->z_xattr_parent = 0;
-	zp->z_moved = 0;
 	zp->z_skip_truncate_undo_decmpfs = B_FALSE;
 	return (0);
 }
@@ -390,7 +389,6 @@ zfs_create_share_dir(zfsvfs_t *zfsvfs, dmu_tx_t *tx)
 	vattr.va_gid = crgetgid(kcred);
 
 	sharezp = kmem_cache_alloc(znode_cache, KM_SLEEP);
-	sharezp->z_moved = 0;
 	sharezp->z_unlinked = 0;
 	sharezp->z_atime_dirty = 0;
 	sharezp->z_zfsvfs = zfsvfs;
@@ -557,7 +555,6 @@ zfs_znode_alloc(zfsvfs_t *zfsvfs, dmu_buf_t *db, int blksz,
 
 	ASSERT(zp->z_dirlocks == NULL);
 	ASSERT(!POINTER_IS_VALID(zp->z_zfsvfs));
-	zp->z_moved = 0;
 
 	/*
 	 * Defer setting z_zfsvfs until the znode is ready to be a candidate for
@@ -1146,7 +1143,7 @@ again:
 
 			// Wait until attached, if we can.
 			if ((flags & ZGET_FLAG_ASYNC) &&
-			    zfs_znode_asyncwait(zp) == 0) {
+			    zfs_znode_asyncwait(zfsvfs, zp) == 0) {
 				dprintf("%s: waited on z_vnode OK\n", __func__);
 			} else {
 				dprintf("%s: async racing attach\n", __func__);
@@ -1992,7 +1989,6 @@ zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)
 
 	rootzp = kmem_cache_alloc(znode_cache, KM_SLEEP);
 	ASSERT(!POINTER_IS_VALID(rootzp->z_zfsvfs));
-	rootzp->z_moved = 0;
 	rootzp->z_unlinked = 0;
 	rootzp->z_atime_dirty = 0;
 	rootzp->z_is_sa = USE_SA(version, os);
@@ -2344,4 +2340,10 @@ zfs_obj_to_stats(objset_t *osp, uint64_t obj, zfs_stat_t *sb,
 
 	zfs_release_sa_handle(hdl, db, FTAG);
 	return (error);
+}
+
+void
+zfs_inode_update(znode_t *zp)
+{
+	ubc_setsize(ZTOV(zp), zp->z_size);
 }

@@ -9,6 +9,8 @@
 
 typedef int clockid_t;
 
+extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
+
 int
 clock_gettime(clockid_t clk_id, struct timespec *tp)
 {

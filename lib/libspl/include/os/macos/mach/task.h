@@ -18,21 +18,12 @@
  *
  * CDDL HEADER END
  */
-/*
- * Copyright (c) 2020, Jorgen Lundman <lundman@lundman.net>
- */
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <sys/systeminfo.h>
+#ifndef _SPL_MACH_TASK_H
+#define	_SPL_MACH_TASK_H
 
-unsigned long
-get_system_hostid(void)
-{
-	size_t len;
-	uint32_t myhostid = 0;
-	len = sizeof (myhostid);
-	sysctlbyname("kern.hostid", &myhostid, &len, NULL, 0);
-	return (myhostid);
-}
+#define	thread_create xnu_thread_create
+#include_next <mach/task.h>
+#undef thread_create
+
+#endif

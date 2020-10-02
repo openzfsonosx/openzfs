@@ -166,7 +166,7 @@ zfsctl_vnode_alloc(zfsvfs_t *zfsvfs, uint64_t id,
 	znode_t *zp = NULL;
 	struct vnode_fsparam vfsp;
 
-	printf("%s\n", __func__);
+	dprintf("%s\n", __func__);
 
 	zp = kmem_cache_alloc(znode_cache, KM_SLEEP);
 
@@ -179,7 +179,6 @@ zfsctl_vnode_alloc(zfsvfs_t *zfsvfs, uint64_t id,
 	zp->z_unlinked = B_FALSE;
 	zp->z_atime_dirty = B_FALSE;
 	zp->z_zn_prefetch = B_FALSE;
-	zp->z_moved = B_FALSE;
 	zp->z_is_sa = B_FALSE;
 	zp->z_is_mapped = B_FALSE;
 	zp->z_is_ctldir = B_TRUE;
@@ -233,7 +232,7 @@ zfsctl_vnode_alloc(zfsvfs_t *zfsvfs, uint64_t id,
 	}
 	atomic_inc_64(&vnop_num_vnodes);
 
-	printf("Assigned zp %p with vp %p zfsvfs %p\n", zp, vp, zp->z_zfsvfs);
+	dprintf("Assigned zp %p with vp %p zfsvfs %p\n", zp, vp, zp->z_zfsvfs);
 
 	vnode_settag(vp, VT_ZFS);
 
@@ -260,7 +259,7 @@ zfsctl_vnode_lookup(zfsvfs_t *zfsvfs, uint64_t id,
 	struct vnode *ip = NULL;
 	int error = 0;
 
-	printf("%s\n", __func__);
+	dprintf("%s\n", __func__);
 
 	while (ip == NULL) {
 

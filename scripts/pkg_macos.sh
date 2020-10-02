@@ -152,18 +152,19 @@ ${WORKDIR}/${bindir}/zfs_ids_to_path
 ${WORKDIR}/${bindir}/InvariantDisks
 ${WORKDIR}/${bindir}/zfs_util
 ${WORKDIR}/${bindir}/zconfigd
+${WORKDIR}/${bindir}/zpool_influxdb
 ${WORKDIR}/${prefix}/lib/libnvpair.a
 ${WORKDIR}/${prefix}/lib/libuutil.a
 ${WORKDIR}/${prefix}/lib/libzfs.a
 ${WORKDIR}/${prefix}/lib/libzpool.a
 ${WORKDIR}/${prefix}/lib/libzfs_core.a
 ${WORKDIR}/${prefix}/lib/librt.so.1
-${WORKDIR}/${prefix}/lib/libnvpair.1.dylib
-${WORKDIR}/${prefix}/lib/libuutil.1.dylib
-${WORKDIR}/${prefix}/lib/libzfs.2.dylib
-${WORKDIR}/${prefix}/lib/libzpool.2.dylib
-${WORKDIR}/${prefix}/lib/libzfs_core.1.dylib
-${WORKDIR}/${prefix}/lib/libzfsbootenv.1.dylib
+${WORKDIR}/${prefix}/lib/libnvpair.?.dylib
+${WORKDIR}/${prefix}/lib/libuutil.?.dylib
+${WORKDIR}/${prefix}/lib/libzfs.?.dylib
+${WORKDIR}/${prefix}/lib/libzpool.?.dylib
+${WORKDIR}/${prefix}/lib/libzfs_core.?.dylib
+${WORKDIR}/${prefix}/lib/libzfsbootenv.?.dylib
 ${WORKDIR}/Library/Filesystems/zfs.fs/Contents/Resources/zfs_util
 ${WORKDIR}/Library/Filesystems/zfs.fs/Contents/Resources/mount_zfs
 "
@@ -250,7 +251,7 @@ function delete_and_keep
 function do_prune
 {
 
-    delete_and_keep "${WORKDIR}/${bindir}/" "(zfs|zpool|zdb|zed|zhack|zinject|zstream|zstreamdump|ztest|InvariantDisks|zfs_util|zconfigd|arc_summary|arcstat|dbufstat|fsck.zfs|raidz_test|zfs_ids_to_path)"
+    delete_and_keep "${WORKDIR}/${bindir}/" "(zfs|zpool|zdb|zed|zhack|zinject|zstream|zstreamdump|ztest|InvariantDisks|zfs_util|zconfigd|arc_summary|arcstat|dbufstat|fsck.zfs|raidz_test|zfs_ids_to_path|zpool_influxdb)"
 
     pushd "${WORKDIR}" || fail "Unable to cd to ${WORKDIR}"
 

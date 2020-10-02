@@ -2154,8 +2154,9 @@ vmem_destroy(vmem_t *vmp)
 		    "identifiers" : "bytes");
 
 	if (vmp->vm_hash_table != vmp->vm_hash0)
-		vmem_free(vmem_hash_arena, vmp->vm_hash_table,
-		    (vmp->vm_hash_mask + 1) * sizeof (void *));
+		if (vmem_hash_arena != NULL)
+			vmem_free(vmem_hash_arena, vmp->vm_hash_table,
+			    (vmp->vm_hash_mask + 1) * sizeof (void *));
 
 	/*
 	 * Give back the segment structures for anything that's left in the
@@ -3602,7 +3603,7 @@ vmem_free_span_list(void)
 }
 
 static void
-vmem_fini_void(void *vmp, void *start, uint32_t size)
+vmem_fini_void(void *vmp, void *start, size_t size)
 {
 }
 

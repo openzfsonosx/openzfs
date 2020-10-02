@@ -1100,7 +1100,7 @@ zfs_vnop_read(struct vnop_read_args *ap)
 	DECLARE_CRED(ap);
 
 	/* resid = uio_resid(ap->a_uio); */
-	error = zfs_read(ap->a_vp, ap->a_uio, ioflag, cr);
+	error = zfs_read(VTOZ(ap->a_vp), ap->a_uio, ioflag, cr);
 
 	if (error) dprintf("vnop_read %d\n", error);
 	return (error);
@@ -1124,7 +1124,7 @@ zfs_vnop_write(struct vnop_write_args *ap)
 	// dprintf("zfs_vnop_write(vp %p, offset 0x%llx size 0x%llx\n",
 	//    ap->a_vp, uio_offset(ap->a_uio), uio_resid(ap->a_uio));
 
-	error = zfs_write(ap->a_vp, ap->a_uio, ioflag, cr);
+	error = zfs_write(VTOZ(ap->a_vp), ap->a_uio, ioflag, cr);
 
 	/*
 	 * Mac OS X: pageout requires that the UBC file size be current.
@@ -1169,7 +1169,7 @@ zfs_vnop_access(struct vnop_access_args *ap)
 		mode |= VEXEC;
 
 	dprintf("vnop_access: action %04x -> mode %04x\n", action, mode);
-	error = zfs_access(ap->a_vp, mode, 0, cr);
+	error = zfs_access(VTOZ(ap->a_vp), mode, 0, cr);
 
 	if (error) dprintf("%s: error %d\n", __func__, error);
 	return (error);
@@ -1785,7 +1785,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	vattr_t *vap = ap->a_vap;
 	uint_t mask = vap->va_mask;
 	int error = 0;
-	int hfscompression = 0;
 	znode_t *zp = VTOZ(ap->a_vp);
 
 	/* Translate OS X requested mask to ZFS */
@@ -2212,7 +2211,6 @@ zfs_vnop_pagein(struct vnop_pagein_args *ap)
 
 	file_sz = zp->z_size;
 
-	ASSERT(vn_has_cached_data(vp));
 	/* ASSERT(zp->z_dbuf_held && zp->z_phys); */
 	/* can't fault passed EOF */
 	if ((off < 0) || (off >= file_sz) ||
@@ -2344,7 +2342,6 @@ zfs_pageout(zfsvfs_t *zfsvfs, znode_t *zp, upl_t upl, vm_offset_t upl_offset,
 	}
 
 
-	ASSERT(vn_has_cached_data(ZTOV(zp)));
 	/* ASSERT(zp->z_dbuf_held); */ /* field no longer present in znode. */
 
 	if (len <= 0) {
@@ -2748,7 +2745,6 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		error = EROFS;
 		goto exit_abort;
 	}
-	ASSERT(vn_has_cached_data(ZTOV(zp)));
 
 	lr = zfs_rangelock_enter(&zp->z_rangelock, ap->a_f_offset, a_size,
 	    RL_WRITER);
@@ -3527,7 +3523,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	} else {
 
 		/* Read xattr */
-		error = zfs_read(ZTOV(xzp), uio, 0, cr);
+		error = zfs_read(xzp, uio, 0, cr);
 
 		if (ap->a_size && uio) {
 			*ap->a_size = (size_t)resid - uio_resid(ap->a_uio);
@@ -3735,7 +3731,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		}
 		uio_addiov(luio, (user_addr_t)&finderinfo, sizeof (finderinfo));
 
-		error = zfs_write(xvp, luio, 0, cr);
+		error = zfs_write(VTOZ(xvp), luio, 0, cr);
 
 		if (uio_resid(luio) != 0)
 			error = ERANGE;
@@ -3746,7 +3742,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	} /* Finderinfo */
 
 	/* Write XATTR to disk */
-	error = zfs_write(xvp, uio, 0, cr);
+	error = zfs_write(VTOZ(xvp), uio, 0, cr);
 
 out:
 
@@ -5073,7 +5069,7 @@ zfs_znode_getvnode(znode_t *zp, zfsvfs_t *zfsvfs)
 	 * the volume finderinfo, XNU checks the tags, and only acts on
 	 * HFS. So we have to set it to HFS on the root. It is pretty gross
 	 * but until XNU adds supporting code..
-	 * The only place we use tags in ZFS is ctldir checking for VT_OTHER
+	 * We no longer use tags in ZFS.
 	 */
 	if (zp->z_id == zfsvfs->z_root)
 		vnode_settag(vp, VT_HFS);
@@ -5127,15 +5123,13 @@ zfs_znode_asyncgetvnode_impl(void *arg)
  * may consider waiting by other means.
  */
 int
-zfs_znode_asyncwait(znode_t *zp)
+zfs_znode_asyncwait(zfsvfs_t *zfsvfs, znode_t *zp)
 {
 	int ret = -1;
-	zfsvfs_t *zfsvfs;
 
 	if (zp == NULL)
 		return (ret);
 
-	zfsvfs = zp->z_zfsvfs;
 	if (zfsvfs == NULL)
 		return (ret);
 
@@ -5170,10 +5164,11 @@ zfs_znode_asyncput_impl(znode_t *zp)
 {
 	// Make sure the other thread finished zfs_znode_getvnode();
 	// This may block, if waiting is required.
-	zfs_znode_asyncwait(zp);
+	zfs_znode_asyncwait(zp->z_zfsvfs, zp);
 
 	// Safe to release now that it is attached.
 	VN_RELE(ZTOV(zp));
+
 }
 
 /*
@@ -5185,8 +5180,15 @@ zfs_znode_asyncput(znode_t *zp)
 {
 	dsl_pool_t *dp = dmu_objset_pool(zp->z_zfsvfs->z_os);
 	taskq_t *tq = dsl_pool_zrele_taskq(dp);
+	vnode_t *vp = ZTOV(zp);
 
 	VERIFY3P(tq, !=, NULL);
+
+	/* If iocount > 1, AND, vp is set (not async_get) */
+	if (vp != NULL && vnode_iocount(vp) > 1) {
+		VN_RELE(vp);
+		return;
+	}
 
 	VERIFY(taskq_dispatch(
 	    (taskq_t *)tq,

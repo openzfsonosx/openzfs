@@ -45,7 +45,6 @@
 #include <libkern/sysctl.h>
 
 #include <zfs_gitrev.h>
-#include <zfs_config.h>
 
 // Define the superclass.
 #define	super IOService

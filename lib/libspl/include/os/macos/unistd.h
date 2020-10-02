@@ -24,6 +24,7 @@
 
 #include_next <unistd.h>
 #include <fcntl.h>
+#include <sys/param.h>
 
 /* Handle Linux use of 64 names */
 

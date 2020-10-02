@@ -25,6 +25,7 @@
 #ifndef	_SYS_FS_ZFS_VFSOPS_H
 #define	_SYS_FS_ZFS_VFSOPS_H
 
+#include <sys/dataset_kstats.h>
 #include <sys/isa_defs.h>
 #include <sys/types32.h>
 #include <sys/list.h>
@@ -102,6 +103,7 @@ struct zfsvfs {
 	boolean_t	z_xattr_sa;	/* allow xattrs to be stores as SA */
 	uint64_t	z_version;
 	uint64_t	z_shares_dir;	/* hidden shares dir */
+	dataset_kstats_t	z_kstat;	/* fs kstats */
 	kmutex_t	z_lock;
 
 	/* for controlling async zfs_unlinked_drain */

@@ -42,9 +42,6 @@
 #include <sys/ZFSPool.h>
 #include <sys/zvolIO.h>
 
-#include <zfs_config.h>
-
-
 /*
  * ZVOL Device
  */
@@ -510,14 +507,13 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 	 * and returned as opened, then it holds an open count and can be
 	 * used.
 	 */
+
+	/* zvol_first_open() checks for spa_namespace_lock */
+	mutex_enter(&spa_namespace_lock);
 	if (zvol_os_open_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL) == 0) {
 		ret = true;
-	} else {
-		openflags = FREAD;
-		if (zvol_os_open_zv(zv, FREAD /* ZVOL_EXCL */, 0, NULL) == 0) {
-			ret = true;
-		}
 	}
+	mutex_exit(&spa_namespace_lock);
 
 	if (ret)
 		zv->zv_zso->zvo_openflags = openflags;
@@ -971,6 +967,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 			return (ENOMEM);
 		}
 	}
+
+
 	matching = IOService::serviceMatching("IOMedia");
 	if (!matching || !matching->setObject(gIONameMatchKey, nameStr)) {
 		dprintf("%s couldn't get matching dictionary\n", __func__);
@@ -1024,7 +1022,7 @@ zvolRegisterDevice(zvol_state_t *zv)
 	/* Release retain held by waitForMatchingService */
 	service->release();
 
-	printf("%s complete\n", __func__);
+	dprintf("%s complete\n", __func__);
 	return (ret);
 }
 
@@ -1065,8 +1063,10 @@ zvolRemoveDeviceTerminate(void *arg)
 {
 	net_lundman_zfs_zvol_device *zvol = (net_lundman_zfs_zvol_device *)arg;
 
+	IOLog("zvolRemoveDeviceTerminate\n");
+
 	/* Terminate */
-	if (zvol->terminate(kIOServiceTerminate|kIOServiceAsynchronous|
+	if (zvol->terminate(kIOServiceTerminate|kIOServiceSynchronous|
 	    kIOServiceRequired) == false) {
 		IOLog("%s terminate failed\n", __func__);
 	}
