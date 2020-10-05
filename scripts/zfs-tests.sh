@@ -333,6 +333,8 @@ constrain_path() {
 		ln -fs /usr/sbin/dseditgroup "$STF_PATH/dseditgroup"
 		ln -fs /usr/bin/xattr "$STF_PATH/xattr"
 		ln -fs /usr/sbin/createhomedir "$STF_PATH/createhomedir"
+		[ -f "/usr/local/bin/gdd" ] && ln -fs /usr/local/bin/gdd "$STF_PATH/dd"
+		[ -f "/usr/local/bin/gsed" ] && ln -fs /usr/local/bin/sed "$STF_PATH/dd"
 	fi
 }
 

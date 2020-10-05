@@ -54,6 +54,7 @@ function cleanup
 	if poolexists $pool; then
 		log_must zpool destroy -f $pool
 	fi
+
 }
 
 log_assert "With ZFS_ABORT set, all zpool commands can abort and generate a core file."
@@ -94,6 +95,12 @@ elif is_freebsd; then
 	ulimit -c unlimited
 	log_must sysctl kern.corefile=$corepath/core.zpool
 	export ASAN_OPTIONS="abort_on_error=1:disable_coredump=0"
+elif is_macos; then
+	ulimit -c unlimited
+	log_must sysctl kern.corefile=$corepath/core.zpool
+	export ASAN_OPTIONS="abort_on_error=1:disable_coredump=0"
+	log_must zfs set quota=1000M $TESTPOOL/$TESTFS
+	# Leaves about 280M to core file.
 else
 	coreadm -p ${corepath}/core.%f
 fi
