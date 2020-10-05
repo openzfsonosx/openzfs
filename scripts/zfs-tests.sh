@@ -662,6 +662,9 @@ if [ -z "${DISKS}" ]; then
 				else
 					DISKS="$BASEMDDEVICE"
 				fi
+				# If we use attached disk, remove the file-vdev
+				# from list.
+				DISKS=${DISKS[@]/$TEST_FILE}
 			else
 				TEST_LOOPBACK=$(sudo "${LOSETUP}" -f)
 				sudo "${LOSETUP}" "${TEST_LOOPBACK}" "${TEST_FILE}" ||
