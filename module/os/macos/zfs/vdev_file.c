@@ -121,15 +121,9 @@ vdev_file_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 
 	vf = vd->vdev_tsd = kmem_zalloc(sizeof (vdev_file_t), KM_SLEEP);
 
-	/*
-	 * We always open the files from the root of the global zone, even if
-	 * we're in a local zone.  If the user has gotten to this point, the
-	 * administrator has already decided that the pool should be available
-	 * to local zone users, so the underlying devices should be as well.
-	 */
 	ASSERT(vd->vdev_path != NULL && vd->vdev_path[0] == '/');
 
-	error = zfs_file_open(vd->vdev_path + 1,
+	error = zfs_file_open(vd->vdev_path,
 	    vdev_file_open_mode(spa_mode(vd->vdev_spa)), 0, &fp);
 
 	if (error) {
