@@ -22,16 +22,6 @@ failsafe = callbacks/zfs_failsafe
 outputdir = /var/tmp/test_results
 tags = ['functional']
 
-[tests/functional/atime]
-tests = ['atime_001_pos', 'atime_002_neg', 'root_atime_off', 'root_atime_on']
-tags = ['functional', 'atime']
-
-[tests/functional/btree]
-tests = ['btree_positive', 'btree_negative']
-tags = ['functional', 'btree']
-pre =
-post =
-
 [tests/functional/cache]
 tests = ['cache_001_pos', 'cache_002_pos', 'cache_003_pos', 'cache_004_neg',
     'cache_005_neg', 'cache_006_pos', 'cache_007_neg', 'cache_008_neg',
@@ -74,10 +64,6 @@ tags = ['functional', 'cli_root', 'zfs_create']
 tests = ['zfs_diff_changes', 'zfs_diff_cliargs', 'zfs_diff_timestamp',
     'zfs_diff_types', 'zfs_diff_encrypted']
 tags = ['functional', 'cli_root', 'zfs_diff']
-
-[tests/functional/cli_root/zfs_ids_to_path]
-tests = ['zfs_ids_to_path_001_pos']
-tags = ['functional', 'cli_root', 'zfs_ids_to_path']
 
 [tests/functional/cli_root/zfs_inherit]
 tests = ['zfs_inherit_001_neg', 'zfs_inherit_002_neg', 'zfs_inherit_003_pos',
@@ -124,10 +110,6 @@ tests = ['zfs_unmount_001_pos', 'zfs_unmount_002_pos', 'zfs_unmount_003_pos',
     'zfs_unmount_007_neg', 'zfs_unmount_008_neg', 'zfs_unmount_009_pos',
     'zfs_unmount_all_001_pos', 'zfs_unmount_nested', 'zfs_unmount_unload_keys']
 tags = ['functional', 'cli_root', 'zfs_unmount']
-
-[tests/functional/cli_root/zfs_wait]
-tests = ['zfs_wait_deleteq']
-tags = ['functional', 'cli_root', 'zfs_wait']
 
 [tests/functional/cli_root/zpool]
 tests = ['zpool_001_neg', 'zpool_002_pos', 'zpool_003_pos', 'zpool_colors']
@@ -208,11 +190,6 @@ tags = ['functional', 'cli_root', 'zpool_status']
 tests = ['zpool_sync_001_pos', 'zpool_sync_002_neg']
 tags = ['functional', 'cli_root', 'zpool_sync']
 
-[tests/functional/cli_root/zpool_wait/scan]
-tests = ['zpool_wait_replace_cancel', 'zpool_wait_resilver', 'zpool_wait_scrub_cancel',
-    'zpool_wait_replace', 'zpool_wait_scrub_basic', 'zpool_wait_scrub_flag']
-tags = ['functional', 'cli_root', 'zpool_wait']
-
 [tests/functional/compression]
 tests = ['compress_001_pos', 'compress_002_pos', 'compress_003_pos']
 tags = ['functional', 'compression']
@@ -230,12 +207,6 @@ tests = ['large_dnode_001_pos', 'large_dnode_003_pos', 'large_dnode_004_neg',
     'large_dnode_005_pos', 'large_dnode_007_neg', 'large_dnode_009_pos']
 tags = ['functional', 'features', 'large_dnode']
 
-[tests/functional/grow]
-pre =
-post =
-tests = ['grow_pool_001_pos', 'grow_replicas_001_pos']
-tags = ['functional', 'grow']
-
 [tests/functional/inuse]
 tests = ['inuse_004_pos', 'inuse_005_pos', 'inuse_008_pos', 'inuse_009_pos']
 post =
@@ -250,15 +221,6 @@ tests = ['largest_pool_001_pos']
 pre =
 post =
 tags = ['functional', 'largest_pool']
-
-[tests/functional/limits]
-tests = ['filesystem_count', 'filesystem_limit', 'snapshot_count',
-    'snapshot_limit']
-tags = ['functional', 'limits']
-
-[tests/functional/link_count]
-tests = ['link_count_001', 'link_count_root_inode']
-tags = ['functional', 'link_count']
 
 [tests/functional/mount]
 tests = ['umount_001', 'umountall_001']
@@ -292,15 +254,6 @@ tags = ['functional', 'poolversion']
 tests = ['quota_001_pos', 'quota_002_pos', 'quota_003_pos',
          'quota_004_pos', 'quota_005_pos', 'quota_006_neg']
 tags = ['functional', 'quota']
-
-[tests/functional/redacted_send]
-tests = ['redacted_compressed', 'redacted_contents', 'redacted_deleted',
-    'redacted_disabled_feature', 'redacted_embedded', 'redacted_holes',
-    'redacted_incrementals', 'redacted_largeblocks', 'redacted_many_clones',
-    'redacted_mixed_recsize', 'redacted_mounts', 'redacted_negative',
-    'redacted_origin', 'redacted_props', 'redacted_resume', 'redacted_size',
-    'redacted_volume']
-tags = ['functional', 'redacted_send']
 
 [tests/functional/redundancy]
 tests = ['redundancy_001_pos', 'redundancy_002_pos', 'redundancy_003_pos',
@@ -385,10 +338,6 @@ tags = ['functional', 'snapshot']
 [tests/functional/threadsappend]
 tests = ['threadsappend_001_pos']
 tags = ['functional', 'threadsappend']
-
-[tests/functional/truncate]
-tests = ['truncate_001_pos', 'truncate_002_pos', 'truncate_timestamps']
-tags = ['functional', 'truncate']
 
 [tests/functional/upgrade]
 tests = ['upgrade_userobj_001_pos', 'upgrade_readonly_pool']
