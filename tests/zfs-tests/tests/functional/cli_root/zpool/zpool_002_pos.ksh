@@ -99,8 +99,10 @@ elif is_macos; then
 	ulimit -c unlimited
 	log_must sysctl kern.corefile=$corepath/core.zpool
 	export ASAN_OPTIONS="abort_on_error=1:disable_coredump=0"
-	log_must zfs set quota=1000M $TESTPOOL/$TESTFS
-	# Leaves about 280M to core file.
+	# cores are always >2g, so this test will not finish in time.
+	set -A cmds "create $pool mirror $vdev1 $vdev2" \
+	"destroy $pool"
+	set -A badparams "" "create"
 else
 	coreadm -p ${corepath}/core.%f
 fi
