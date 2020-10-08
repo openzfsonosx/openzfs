@@ -22,12 +22,6 @@ failsafe = callbacks/zfs_failsafe
 outputdir = /var/tmp/test_results
 tags = ['functional']
 
-[tests/functional/cache]
-tests = ['cache_001_pos', 'cache_002_pos', 'cache_003_pos', 'cache_004_neg',
-    'cache_005_neg', 'cache_006_pos', 'cache_007_neg', 'cache_008_neg',
-    'cache_009_pos', 'cache_010_pos', 'cache_011_pos', 'cache_012_pos']
-tags = ['functional', 'cache']
-
 [tests/functional/checksum]
 tests = ['run_sha2_test', 'run_skein_test', 'filetest_001_pos']
 tags = ['functional', 'checksum']
@@ -52,11 +46,14 @@ tests = ['zfs_change-key', 'zfs_change-key_child', 'zfs_change-key_format',
 tags = ['functional', 'cli_root', 'zfs_change-key']
 
 [tests/functional/cli_root/zfs_create]
-tests = ['zfs_create_001_pos', 'zfs_create_002_pos', 'zfs_create_003_pos',
+tests = ['zfs_create_001_pos',
+# 'zfs_create_002_pos', [02:08]
+  'zfs_create_003_pos',
     'zfs_create_004_pos', 'zfs_create_005_pos', 'zfs_create_006_pos',
     'zfs_create_007_pos', 'zfs_create_008_neg', 'zfs_create_009_neg',
     'zfs_create_010_neg', 'zfs_create_011_pos', 'zfs_create_012_pos',
-    'zfs_create_013_pos', 'zfs_create_014_pos', 'zfs_create_encrypted',
+#    'zfs_create_013_pos', [02:10]
+     'zfs_create_014_pos', 'zfs_create_encrypted',
     'zfs_create_crypt_combos', 'zfs_create_dryrun', 'zfs_create_verbose']
 tags = ['functional', 'cli_root', 'zfs_create']
 
@@ -103,13 +100,6 @@ tags = ['functional', 'cli_root', 'zfs_send']
 [tests/functional/cli_root/zfs_unload-key]
 tests = ['zfs_unload-key', 'zfs_unload-key_all', 'zfs_unload-key_recursive']
 tags = ['functional', 'cli_root', 'zfs_unload-key']
-
-[tests/functional/cli_root/zfs_unmount]
-tests = ['zfs_unmount_001_pos', 'zfs_unmount_002_pos', 'zfs_unmount_003_pos',
-    'zfs_unmount_004_pos', 'zfs_unmount_005_pos', 'zfs_unmount_006_pos',
-    'zfs_unmount_007_neg', 'zfs_unmount_008_neg', 'zfs_unmount_009_pos',
-    'zfs_unmount_all_001_pos', 'zfs_unmount_nested', 'zfs_unmount_unload_keys']
-tags = ['functional', 'cli_root', 'zfs_unmount']
 
 [tests/functional/cli_root/zpool_add]
 tests = ['zpool_add_001_pos', 'zpool_add_002_pos', 'zpool_add_003_pos',

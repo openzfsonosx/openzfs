@@ -1065,8 +1065,10 @@ zvolRemoveDeviceTerminate(void *arg)
 {
 	net_lundman_zfs_zvol_device *zvol = (net_lundman_zfs_zvol_device *)arg;
 
+	IOLog("zvolRemoveDeviceTerminate\n");
+
 	/* Terminate */
-	if (zvol->terminate(kIOServiceTerminate|kIOServiceAsynchronous|
+	if (zvol->terminate(kIOServiceTerminate|kIOServiceSynchronous|
 	    kIOServiceRequired) == false) {
 		IOLog("%s terminate failed\n", __func__);
 	}
