@@ -1124,7 +1124,7 @@ zfs_vnop_write(struct vnop_write_args *ap)
 	// dprintf("zfs_vnop_write(vp %p, offset 0x%llx size 0x%llx\n",
 	//    ap->a_vp, uio_offset(ap->a_uio), uio_resid(ap->a_uio));
 
-	error = zfs_write(ap->a_vp, ap->a_uio, ioflag, cr);
+	error = zfs_write(VTOZ(ap->a_vp), ap->a_uio, ioflag, cr);
 
 	/*
 	 * Mac OS X: pageout requires that the UBC file size be current.
@@ -3735,7 +3735,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		}
 		uio_addiov(luio, (user_addr_t)&finderinfo, sizeof (finderinfo));
 
-		error = zfs_write(xvp, luio, 0, cr);
+		error = zfs_write(VTOZ(xvp), luio, 0, cr);
 
 		if (uio_resid(luio) != 0)
 			error = ERANGE;
@@ -3746,7 +3746,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	} /* Finderinfo */
 
 	/* Write XATTR to disk */
-	error = zfs_write(xvp, uio, 0, cr);
+	error = zfs_write(VTOZ(xvp), uio, 0, cr);
 
 out:
 

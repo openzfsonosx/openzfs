@@ -83,6 +83,7 @@ extern "C" {
 
 extern int cpu_number(void);
 #define	CPU_SEQID			(cpu_number())
+#define	CPU_SEQID_UNSTABLE	(cpu_number())
 #define	is_system_labeled()		0
 
 extern unsigned int max_ncpus;

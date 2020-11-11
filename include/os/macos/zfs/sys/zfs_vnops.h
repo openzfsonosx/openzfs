@@ -164,7 +164,7 @@ extern int zfs_write_simple(znode_t *zp, const void *data, size_t len,
 extern int zfs_open(struct vnode *ip, int mode, int flag, cred_t *cr);
 extern int zfs_close(struct vnode *ip, int flag, cred_t *cr);
 extern int zfs_read(struct vnode *ip, uio_t *uio, int ioflag, cred_t *cr);
-extern int zfs_write(struct vnode *ip, uio_t *uio, int ioflag, cred_t *cr);
+extern int zfs_write(struct znode *zp, uio_t *uio, int ioflag, cred_t *cr);
 extern int zfs_lookup(znode_t *dzp, char *nm, znode_t **zpp,
     int flags, cred_t *cr, int *direntflags, struct componentname *realpnp);
 extern int zfs_ioctl(vnode_t *vp, ulong_t com, intptr_t data, int flag,
