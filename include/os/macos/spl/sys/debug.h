@@ -66,6 +66,9 @@ extern int zfs_flags;
 		printf(__VA_ARGS__)
 #endif
 
+#define	__printflike(a, b) __attribute__((__format__ (__printf__, a, b)))
+
+
 /*
  * Common DEBUG functionality.
  */
