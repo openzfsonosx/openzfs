@@ -67,7 +67,7 @@ extern int zfs_flags;
 #endif
 
 #ifndef __printflike
-#define	__printflike(a, b) __attribute__((__format__ (__printf__, a, b)))
+#define	__printflike(a, b)	__attribute__((__format__(__printf__, a, b)))
 #endif
 
 /*
