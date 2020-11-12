@@ -58,6 +58,7 @@
 
 static ulong_t zfs_fsync_sync_cnt = 4;
 
+#ifndef __APPLE__
 int
 zfs_fsync(znode_t *zp, int syncflag, cred_t *cr)
 {
@@ -75,7 +76,7 @@ zfs_fsync(znode_t *zp, int syncflag, cred_t *cr)
 
 	return (0);
 }
-
+#endif
 
 #if defined(SEEK_HOLE) && defined(SEEK_DATA)
 /*
@@ -210,7 +211,7 @@ zfs_read(struct znode *zp, uio_t *uio, int ioflag, cred_t *cr)
 	/*
 	 * Validate file offset
 	 */
-	if (uio->uio_loffset < (offset_t)0) {
+    if (uio_offset(uio) < (offset_t)0) {
 		ZFS_EXIT(zfsvfs);
 		return (SET_ERROR(EINVAL));
 	}
@@ -218,7 +219,7 @@ zfs_read(struct znode *zp, uio_t *uio, int ioflag, cred_t *cr)
 	/*
 	 * Fasttrack empty reads
 	 */
-	if (uio->uio_resid == 0) {
+	if (uio_resid(uio) == 0) {
 		ZFS_EXIT(zfsvfs);
 		return (0);
 	}
@@ -242,24 +243,24 @@ zfs_read(struct znode *zp, uio_t *uio, int ioflag, cred_t *cr)
 	 * Lock the range against changes.
 	 */
 	zfs_locked_range_t *lr = zfs_rangelock_enter(&zp->z_rangelock,
-	    uio->uio_loffset, uio->uio_resid, RL_READER);
+	    uio_offset(uio), uio_resid(uio), RL_READER);
 
 	/*
 	 * If we are reading past end-of-file we can skip
 	 * to the end; but we might still need to set atime.
 	 */
-	if (uio->uio_loffset >= zp->z_size) {
+	if (uio_offset(uio) >= zp->z_size) {
 		error = 0;
 		goto out;
 	}
 
-	ASSERT(uio->uio_loffset < zp->z_size);
-	ssize_t n = MIN(uio->uio_resid, zp->z_size - uio->uio_loffset);
+	ASSERT(uio_offset(uio) < zp->z_size);
+    ssize_t n = MIN(uio_resid(uio), zp->z_size - uio_offset(uio));
 	ssize_t start_resid = n;
 
 	while (n > 0) {
 		ssize_t nbytes = MIN(n, zfs_vnops_read_chunk_size -
-		    P2PHASE(uio->uio_loffset, zfs_vnops_read_chunk_size));
+		    P2PHASE(uio_offset(uio), zfs_vnops_read_chunk_size));
 #ifdef UIO_NOCOPY
 		if (uio->uio_segflg == UIO_NOCOPY)
 			error = mappedread_sf(zp, nbytes, uio);
@@ -317,7 +318,7 @@ int
 zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 {
 	int error = 0;
-	ssize_t start_resid = uio->uio_resid;
+	ssize_t start_resid = uio_resid(uio);
 
 	/*
 	 * Fasttrack empty write
@@ -354,7 +355,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 	 */
 	if ((zp->z_pflags & (ZFS_IMMUTABLE | ZFS_READONLY)) ||
 	    ((zp->z_pflags & ZFS_APPENDONLY) && !(ioflag & O_APPEND) &&
-	    (uio->uio_loffset < zp->z_size))) {
+	    (uio_offset(uio) < zp->z_size))) {
 		ZFS_EXIT(zfsvfs);
 		return (SET_ERROR(EPERM));
 	}
@@ -362,7 +363,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 	/*
 	 * Validate file offset
 	 */
-	offset_t woff = ioflag & O_APPEND ? zp->z_size : uio->uio_loffset;
+	offset_t woff = ioflag & O_APPEND ? zp->z_size : uio_offset(uio);
 	if (woff < 0) {
 		ZFS_EXIT(zfsvfs);
 		return (SET_ERROR(EINVAL));
@@ -399,7 +400,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 			 */
 			woff = zp->z_size;
 		}
-		uio->uio_loffset = woff;
+		uio_setoffset(uio, woff);
 	} else {
 		/*
 		 * Note that if the file block size will change as a result of
@@ -439,7 +440,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 	 * and allows us to do more fine-grained space accounting.
 	 */
 	while (n > 0) {
-		woff = uio->uio_loffset;
+		woff = uio_offset(uio);
 
 		if (zfs_id_overblockquota(zfsvfs, DMU_USERUSED_OBJECT, uid) ||
 		    zfs_id_overblockquota(zfsvfs, DMU_GROUPUSED_OBJECT, gid) ||
@@ -527,7 +528,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 
 		ssize_t tx_bytes;
 		if (abuf == NULL) {
-			tx_bytes = uio->uio_resid;
+			tx_bytes = uio_resid(uio);
 			uio_fault_disable(uio, B_TRUE);
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
 			    uio, nbytes, tx);
@@ -554,7 +555,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 				dmu_tx_commit(tx);
 				break;
 			}
-			tx_bytes -= uio->uio_resid;
+			tx_bytes -= uio_resid(uio);
 		} else {
 			/*
 			 * Is this block ever reached?
@@ -576,7 +577,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 					break;
 				}
 			}
-			ASSERT(tx_bytes <= uio->uio_resid);
+			ASSERT(tx_bytes <= uio_resid(uio));
 			uioskip(uio, tx_bytes);
 		}
 		if (tx_bytes && zn_has_cached_data(zp) &&
@@ -626,9 +627,9 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 		 * Update the file size (zp_size) if it has changed;
 		 * account for possible concurrent updates.
 		 */
-		while ((end_size = zp->z_size) < uio->uio_loffset) {
+		while ((end_size = zp->z_size) < uio_offset(uio)) {
 			(void) atomic_cas_64(&zp->z_size, end_size,
-			    uio->uio_loffset);
+			    uio_offset(uio));
 			ASSERT(error == 0);
 		}
 		/*
@@ -665,7 +666,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 	 * If we're in replay mode, or we made no progress, return error.
 	 * Otherwise, it's at least a partial write, so it's successful.
 	 */
-	if (zfsvfs->z_replay || uio->uio_resid == start_resid) {
+	if (zfsvfs->z_replay || uio_resid(uio) == start_resid) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -674,7 +675,7 @@ zfs_write(znode_t *zp, uio_t *uio, int ioflag, cred_t *cr)
 	    zfsvfs->z_os->os_sync == ZFS_SYNC_ALWAYS)
 		zil_commit(zilog, zp->z_id);
 
-	const int64_t nwritten = start_resid - uio->uio_resid;
+	const int64_t nwritten = start_resid - uio_resid(uio);
 	dataset_kstats_update_write_kstats(&zfsvfs->z_kstat, nwritten);
 	task_io_account_write(nwritten);
 
