@@ -45,6 +45,7 @@
 #include <sys/zfs_dir.h>
 #include <sys/zfs_acl.h>
 #include <sys/zfs_vnops.h>
+#include <sys/zfs_vfsops.h>
 #include <sys/fs/zfs.h>
 #include <sys/zap.h>
 #include <sys/dmu.h>
@@ -463,11 +464,11 @@ zfs_unlinked_add(znode_t *zp, dmu_tx_t *tx)
 	zfsvfs_t *zfsvfs = ZTOZSB(zp);
 
 	ASSERT(zp->z_unlinked);
-	ASSERT(ZTOI(zp)->i_nlink == 0);
 
 	VERIFY3U(0, ==,
 	    zap_add_int(zfsvfs->z_os, zfsvfs->z_unlinkedobj, zp->z_id, tx));
 
+	dataset_kstats_update_nunlinks_kstat(&zfsvfs->z_kstat, 1);
 }
 
 /*
@@ -483,8 +484,6 @@ zfs_unlinked_drain_task(void *arg)
 	dmu_object_info_t doi;
 	znode_t		*zp;
 	int		error;
-
-	ASSERT3B(zfsvfs->z_draining, ==, B_TRUE);
 
 	/*
 	 * Iterate over the contents of the unlinked set.
@@ -611,9 +610,6 @@ zfs_purgedir(znode_t *dzp)
 			skipped += 1;
 			continue;
 		}
-
-		ASSERT(S_ISREG(ZTOI(xzp)->i_mode) ||
-		    S_ISLNK(ZTOI(xzp)->i_mode));
 
 		tx = dmu_tx_create(zfsvfs->z_os);
 		dmu_tx_hold_sa(tx, dzp->z_sa_hdl, B_FALSE);
@@ -760,6 +756,8 @@ zfs_rmnode(znode_t *zp)
 	}
 
 	mutex_exit(&os->os_dsl_dataset->ds_dir->dd_activity_lock);
+
+	dataset_kstats_update_nunlinked_kstat(&zfsvfs->z_kstat, 1);
 
 	zfs_znode_delete(zp, tx);
 

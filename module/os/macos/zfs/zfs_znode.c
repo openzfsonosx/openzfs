@@ -2341,3 +2341,9 @@ zfs_obj_to_stats(objset_t *osp, uint64_t obj, zfs_stat_t *sb,
 	zfs_release_sa_handle(hdl, db, FTAG);
 	return (error);
 }
+
+void
+zfs_inode_update(znode_t *zp)
+{
+	ubc_setsize(ZTOV(zp), zp->z_size);
+}

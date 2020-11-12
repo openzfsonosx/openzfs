@@ -42,8 +42,6 @@
 #include <sys/ZFSPool.h>
 #include <sys/zvolIO.h>
 
-#include <zfs_config.h>
-
 
 /*
  * ZVOL Device

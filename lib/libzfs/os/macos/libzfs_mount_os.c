@@ -164,11 +164,6 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 	assert(dir != NULL);
 	assert(fstype != NULL);
 	assert(mflag >= 0);
-	assert(strcmp(fstype, MNTTYPE_ZFS) == 0);
-	assert(dataptr == NULL);
-	assert(datalen == 0);
-	assert(optptr != NULL);
-	assert(optlen > 0);
 
 	if (optptr != NULL)
 		optlen = strlen(optptr);
@@ -260,7 +255,7 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 	return (rv);
 }
 
-int
+static int
 do_unmount_impl(const char *mntpt, int flags)
 {
 	char force_opt[] = "force";

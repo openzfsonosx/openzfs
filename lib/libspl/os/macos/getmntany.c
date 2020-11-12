@@ -203,7 +203,7 @@ optadd(char *mntopts, size_t size, const char *opt)
 #include <IOKit/IOBSD.h>
 
 
-char *
+static char *
 MYCFStringCopyUTF8String(CFStringRef aString)
 {
 	if (aString == NULL)
@@ -225,7 +225,7 @@ MYCFStringCopyUTF8String(CFStringRef aString)
  * Given "/dev/disk6" connect to IOkit and fetch the dataset
  * name "BOOM/lower", and use it instead.
  */
-void
+static void
 expand_disk_to_zfs(char *devname, int len)
 {
 	char *result = NULL;

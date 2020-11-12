@@ -2212,7 +2212,6 @@ zfs_vnop_pagein(struct vnop_pagein_args *ap)
 
 	file_sz = zp->z_size;
 
-	ASSERT(vn_has_cached_data(vp));
 	/* ASSERT(zp->z_dbuf_held && zp->z_phys); */
 	/* can't fault passed EOF */
 	if ((off < 0) || (off >= file_sz) ||
@@ -2344,7 +2343,6 @@ zfs_pageout(zfsvfs_t *zfsvfs, znode_t *zp, upl_t upl, vm_offset_t upl_offset,
 	}
 
 
-	ASSERT(vn_has_cached_data(ZTOV(zp)));
 	/* ASSERT(zp->z_dbuf_held); */ /* field no longer present in znode. */
 
 	if (len <= 0) {
@@ -2748,7 +2746,6 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		error = EROFS;
 		goto exit_abort;
 	}
-	ASSERT(vn_has_cached_data(ZTOV(zp)));
 
 	lr = zfs_rangelock_enter(&zp->z_rangelock, ap->a_f_offset, a_size,
 	    RL_WRITER);

@@ -191,6 +191,8 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	if (count == 0)
 		return (0);
 
+	ssize_t start_count = count;
+
 	volsize = zv->zv_volsize;
 	if (count > 0 &&
 	    (position >= volsize))
@@ -256,6 +258,9 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 			break;
 	}
 	zfs_rangelock_exit(lr);
+
+	int64_t nwritten = start_count - count;
+	dataset_kstats_update_write_kstats(&zv->zv_kstat, nwritten);
 
 	if (sync)
 		zil_commit(zv->zv_zilog, ZVOL_OBJ);
@@ -469,7 +474,6 @@ zvol_os_find_by_dev(dev_t dev)
 void
 zvol_os_validate_dev(zvol_state_t *zv)
 {
-	ASSERT3U(MINOR(zv->zv_zso->zvo_dev) & ZVOL_MINOR_MASK, ==, 0);
 }
 
 /*

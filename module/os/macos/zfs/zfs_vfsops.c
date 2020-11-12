@@ -815,6 +815,9 @@ zfsvfs_setup(zfsvfs_t *zfsvfs, boolean_t mounting)
 	 */
 	if (mounting) {
 
+		ASSERT3P(zfsvfs->z_kstat.dk_kstats, ==, NULL);
+		dataset_kstats_create(&zfsvfs->z_kstat, zfsvfs->z_os);
+
 		/*
 		 * During replay we remove the read only flag to
 		 * allow replays to succeed.
@@ -822,9 +825,22 @@ zfsvfs_setup(zfsvfs_t *zfsvfs, boolean_t mounting)
 
 		if (readonly != 0)
 			readonly_changed_cb(zfsvfs, B_FALSE);
-		else
+		else {
+			zap_stats_t zs;
+			if (zap_get_stats(zfsvfs->z_os, zfsvfs->z_unlinkedobj,
+			    &zs) == 0) {
+				dataset_kstats_update_nunlinks_kstat(
+				    &zfsvfs->z_kstat, zs.zs_num_entries);
+				dprintf_ds(zfsvfs->z_os->os_dsl_dataset,
+				    "num_entries in unlinked set: %llu",
+				    zs.zs_num_entries);
+			}
+
 			if (!zfs_vnop_skip_unlinked_drain)
 				zfs_unlinked_drain(zfsvfs);
+			dsl_dir_t *dd = zfsvfs->z_os->os_dsl_dataset->ds_dir;
+			dd->dd_activity_cancelled = B_FALSE;
+		}
 
 		/*
 		 * Parse and replay the intent log.
@@ -886,8 +902,6 @@ zfsvfs_free(zfsvfs_t *zfsvfs)
 {
 	int i, size = zfsvfs->z_hold_size;
 
-	dprintf("+zfsvfs_free\n");
-
 	zfs_fuid_destroy(zfsvfs);
 
 	cv_destroy(&zfsvfs->z_drain_cv);
@@ -921,6 +935,7 @@ zfsvfs_free(zfsvfs_t *zfsvfs)
 	avl_destroy(&zfsvfs->z_hardlinks);
 	avl_destroy(&zfsvfs->z_hardlinks_linkid);
 
+	dataset_kstats_destroy(&zfsvfs->z_kstat);
 	kmem_free(zfsvfs, sizeof (zfsvfs_t));
 	dprintf("-zfsvfs_free\n");
 }

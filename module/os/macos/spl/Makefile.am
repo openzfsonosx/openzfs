@@ -11,6 +11,7 @@ libspl_la_CPPFLAGS= \
 	-DDRIVER_PRIVATE \
 	-DAPPLE \
 	-DNeXT \
+	-include $(top_builddir)/zfs_config.h \
 	-I$(top_srcdir)/include/os/macos/spl \
 	-I$(top_srcdir)/include \
 	-I@KERNEL_HEADERS@/Headers \

@@ -18,6 +18,7 @@ zfs_CPPFLAGS = \
 	-DNAMEDSTREAMS=1 \
 	-DAPPLE \
 	-DNeXT \
+	-include $(top_builddir)/zfs_config.h \
 	-I$(top_srcdir)/include/os/macos/spl \
 	-I$(top_srcdir)/include/os/macos/zfs \
 	-I$(top_srcdir)/module/icp/include \
@@ -67,10 +68,13 @@ zfs_ASM_SOURCES_C = \
 zfs_ASM_SOURCES_AS = \
 	../../../icp/asm-x86_64/os/macos/aes/aes_amd64.S \
 	../../../icp/asm-x86_64/os/macos/aes/aes_aesni.S \
+	../../../icp/asm-x86_64/os/macos/modes/aesni-gcm-x86_64.S \
+	../../../icp/asm-x86_64/os/macos/modes/ghash-x86_64.S \
 	../../../icp/asm-x86_64/os/macos/modes/gcm_pclmulqdq.S \
 	../../../icp/asm-x86_64/os/macos/sha1/sha1-x86_64.S \
 	../../../icp/asm-x86_64/os/macos/sha2/sha256_impl.S \
 	../../../icp/asm-x86_64/os/macos/sha2/sha512_impl.S
+
 else
 zfs_ASM_SOURCES_C =
 zfs_ASM_SOURCES_AS =
@@ -90,6 +94,7 @@ zfs_SOURCES = \
 	../../../zfs/bqueue.c \
 	../../../zfs/btree.c \
 	../../../zcommon/cityhash.c \
+	../../../zfs/dataset_kstats.c \
 	../../../zfs/dbuf.c \
 	../../../zfs/dbuf_stats.c \
 	../../../zfs/ddt.c \
@@ -205,7 +210,8 @@ zfs_SOURCES = \
 	../../../zfs/zfs_rlock.c \
 	../../../zfs/zfs_sa.c \
 	zfs_vfsops.c \
-	zfs_vnops.c \
+	../../../zfs/zfs_vnops.c \
+	zfs_vnops_os.c \
 	zfs_vnops_osx.c \
 	zfs_vnops_osx_lib.c \
 	zfs_znode.c \

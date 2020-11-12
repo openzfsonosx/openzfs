@@ -3603,7 +3603,7 @@ vmem_free_span_list(void)
 }
 
 static void
-vmem_fini_void(void *vmp, void *start, uint32_t size)
+vmem_fini_void(void *vmp, void *start, size_t size)
 {
 }
 

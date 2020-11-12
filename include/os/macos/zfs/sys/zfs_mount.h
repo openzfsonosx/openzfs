@@ -22,6 +22,8 @@
 #ifndef _SYS_ZFS_MOUNT_H_
 #define	_SYS_ZFS_MOUNT_H_
 
+#include <sys/mount.h>
+
 struct zfs_mount_args {
 	const char	*fspec;
 	int			mflag;
@@ -30,44 +32,36 @@ struct zfs_mount_args {
 	int			struct_size;
 };
 
-/*
- * Flag bits passed to mount(2).
- */
-#define	MS_RDONLY	0x0001	/* Read-only */
-#define	MS_FSS		0x0002	/* Old (4-argument) mount (compatibility) */
-#define	MS_DATA		0x0004	/* 6-argument mount */
-#define	MS_NOSUID	0x0010	/* Setuid programs disallowed */
-#define	MS_REMOUNT	0x0020	/* Remount */
-#define	MS_NOTRUNC	0x0040	/* Return ENAMETOOLONG for long filenames */
-#define	MS_OVERLAY	0x0080	/* Allow overlay mounts */
-#define	MS_OPTIONSTR	0x0100	/* Data is a an in/out option string */
-#define	MS_GLOBAL	0x0200	/* Clustering: Mount into global name space */
-#define	MS_FORCE	0x0400	/* Forced unmount */
-#define	MS_NOMNTTAB	0x0800	/* Don't show mount in mnttab */
-/*
- * Additional flag bits that domount() is prepared to interpret, but that
- * can't be passed through mount(2).
- */
-#define	MS_SYSSPACE	0x0008	/* Mounta already in kernel space */
-#define	MS_NOSPLICE	0x1000	/* Don't splice fs instance into name space */
-#define	MS_NOCHECK	0x2000	/* Clustering: suppress mount busy checks */
-/*
- * Mask to sift out flag bits allowable from mount(2).
- */
-#define	MS_MASK	\
-	(MS_RDONLY|MS_FSS|MS_DATA|MS_NOSUID|MS_REMOUNT|MS_NOTRUNC|MS_OVERLAY|\
-	    MS_OPTIONSTR|MS_GLOBAL|MS_NOMNTTAB)
-
-/*
- * Mask to sift out flag bits allowable from umount2(2).
- */
-
-#define	MS_UMOUNT_MASK	(MS_FORCE)
 
 /*
  * Maximum option string length accepted or returned by mount(2).
  */
 #define	MAX_MNTOPT_STR	1024	/* max length of mount options string */
 
+#ifdef _KERNEL
+#define	MS_RDONLY MNT_RDONLY
+#define	MS_NOEXEC MNT_NOEXEC
+#define	MS_NOSUID MNT_NOSUID
+#define	MS_NODEV  MNT_NODEV
+#define	MS_BIND         0
+#define	MS_REMOUNT      MNT_UPDATE
+#define	MS_SYNCHRONOUS  MNT_SYNCHRONOUS
+#define	MS_USERS        (MS_NOEXEC|MS_NOSUID|MS_NODEV)
+#define	MS_OWNER        (MS_NOSUID|MS_NODEV)
+#define	MS_GROUP        (MS_NOSUID|MS_NODEV)
+#define	MS_COMMENT      0
+#ifdef MNT_FORCE
+#define	MS_FORCE        MNT_FORCE
+#else
+#define	MS_FORCE        0x00000001
+#endif /* MNT_FORCE */
+#ifdef MNT_DETACH
+#define	MS_DETACH       MNT_DETACH
+#else
+#define	MS_DETACH       0x00000002
+#endif /* MNT_DETACH */
+#define	MS_OVERLAY      0x00000004
+#define	MS_CRYPT        0x00000008
+#endif
 
 #endif	/* _SYS_ZFS_IOCTL_H */

@@ -72,14 +72,14 @@ secpolicy_zinject(const cred_t *cr)
 }
 
 int
-secpolicy_vnode_any_access(const cred_t *cr, vnode_t *vp, uid_t owner)
+secpolicy_vnode_any_access(const cred_t *cr, struct vnode *vp, uid_t owner)
 {
 	// FIXME
 	return (0);
 }
 
 int
-secpolicy_vnode_access2(const cred_t *cr, vnode_t *vp, uid_t owner,
+secpolicy_vnode_access2(const cred_t *cr, struct vnode *vp, uid_t owner,
     mode_t curmode, mode_t wantmode)
 {
 	// FIXME
@@ -142,7 +142,8 @@ secpolicy_vnode_chown(struct vnode *vp, const cred_t *cr, uid_t u)
 }
 
 int
-secpolicy_vnode_setid_retain(const cred_t *cr, int fal)
+secpolicy_vnode_setid_retain(struct znode *zp, const cred_t *cr,
+    boolean_t issuidroot)
 {
 	return (0);
 }
@@ -178,7 +179,7 @@ secpolicy_fs_mount(const cred_t *cr, struct vnode *vp, struct mount *mp)
 }
 
 int
-secpolicy_zfs_proc(cred_t *cr, proc_t *proc)
+secpolicy_zfs_proc(const cred_t *cr, proc_t *proc)
 {
 	return (spl_priv_check_cred((kauth_cred_t)cr, PRIV_VFS_MOUNT, 0));
 }

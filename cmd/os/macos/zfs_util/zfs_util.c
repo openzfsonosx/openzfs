@@ -551,7 +551,7 @@ zfs_probe_iokit(const char *devpath, probe_args_t *args)
 		cfstr = IORegistryEntryCreateCFProperty(service,
 		    CFSTR("ZFS Dataset"), kCFAllocatorDefault, 0);
 		if (cfstr != NULL) {
-			char *str;
+			const char *str;
 
 			str = CFStringGetCStringPtr(cfstr,
 			    kCFStringEncodingUTF8);
@@ -666,10 +666,15 @@ zfs_util_uuid_gen(probe_args_t *probe, char *uuid_str)
 	 * UUID version 3 (MD5) namespace variant:
 	 * hash namespace (uuid) together with name
 	 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 	CC_MD5_Init(&md5c);
 	CC_MD5_Update(&md5c, &namespace, sizeof (namespace));
 	CC_MD5_Update(&md5c, &probe->vdev_guid, sizeof (probe->vdev_guid));
 	CC_MD5_Final(uuid, &md5c);
+
+#pragma GCC diagnostic pop
 
 	/*
 	 * To make UUID version 3, twiddle a few bits:

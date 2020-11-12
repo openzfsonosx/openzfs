@@ -166,6 +166,7 @@ uiocopy(const char *p, size_t n, enum uio_rw rw, struct uio *uio,
 #define	uioskip(A, B)		uio_update((A), (B))
 
 extern int uio_prefaultpages(ssize_t, uio_t *);
+#define	uio_fault_disable(uio, set)
 
 #ifdef  __cplusplus
 }
