@@ -43,25 +43,25 @@ struct zfs_mount_args {
 #define	MS_NOEXEC MNT_NOEXEC
 #define	MS_NOSUID MNT_NOSUID
 #define	MS_NODEV  MNT_NODEV
-#define	MS_BIND         0
-#define	MS_REMOUNT      MNT_UPDATE
-#define	MS_SYNCHRONOUS  MNT_SYNCHRONOUS
-#define	MS_USERS        (MS_NOEXEC|MS_NOSUID|MS_NODEV)
-#define	MS_OWNER        (MS_NOSUID|MS_NODEV)
-#define	MS_GROUP        (MS_NOSUID|MS_NODEV)
-#define	MS_COMMENT      0
+#define	MS_BIND   0
+#define	MS_REMOUNT MNT_UPDATE
+#define	MS_SYNCHRONOUS MNT_SYNCHRONOUS
+#define	MS_USERS (MS_NOEXEC|MS_NOSUID|MS_NODEV)
+#define	MS_OWNER (MS_NOSUID|MS_NODEV)
+#define	MS_GROUP (MS_NOSUID|MS_NODEV)
+#define	MS_COMMENT 0
 #ifdef MNT_FORCE
-#define	MS_FORCE        MNT_FORCE
+#define	MS_FORCE MNT_FORCE
 #else
-#define	MS_FORCE        0x00000001
+#define	MS_FORCE 0x00000001
 #endif /* MNT_FORCE */
 #ifdef MNT_DETACH
-#define	MS_DETACH       MNT_DETACH
+#define	MS_DETACH MNT_DETACH
 #else
-#define	MS_DETACH       0x00000002
+#define	MS_DETACH 0x00000002
 #endif /* MNT_DETACH */
-#define	MS_OVERLAY      0x00000004
-#define	MS_CRYPT        0x00000008
+#define	MS_OVERLAY 0x00000004
+#define	MS_CRYPT 0x00000008
 #endif
 
 #endif	/* _SYS_ZFS_IOCTL_H */

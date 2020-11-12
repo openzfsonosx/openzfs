@@ -211,7 +211,7 @@ zfs_read(struct znode *zp, uio_t *uio, int ioflag, cred_t *cr)
 	/*
 	 * Validate file offset
 	 */
-    if (uio_offset(uio) < (offset_t)0) {
+	if (uio_offset(uio) < (offset_t)0) {
 		ZFS_EXIT(zfsvfs);
 		return (SET_ERROR(EINVAL));
 	}
@@ -255,7 +255,7 @@ zfs_read(struct znode *zp, uio_t *uio, int ioflag, cred_t *cr)
 	}
 
 	ASSERT(uio_offset(uio) < zp->z_size);
-    ssize_t n = MIN(uio_resid(uio), zp->z_size - uio_offset(uio));
+	ssize_t n = MIN(uio_resid(uio), zp->z_size - uio_offset(uio));
 	ssize_t start_resid = n;
 
 	while (n > 0) {

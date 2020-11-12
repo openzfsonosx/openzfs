@@ -103,7 +103,7 @@ struct zfsvfs {
 	boolean_t	z_xattr_sa;	/* allow xattrs to be stores as SA */
 	uint64_t	z_version;
 	uint64_t	z_shares_dir;	/* hidden shares dir */
-	dataset_kstats_t	z_kstat;        /* fs kstats */
+	dataset_kstats_t	z_kstat;	/* fs kstats */
 	kmutex_t	z_lock;
 
 	/* for controlling async zfs_unlinked_drain */

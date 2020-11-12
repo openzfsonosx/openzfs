@@ -170,8 +170,8 @@ void spa_export_os(void *spa);
 void spa_activate_os(void *spa);
 void spa_deactivate_os(void *spa);
 
-#define task_io_account_read(n)
-#define task_io_account_write(n)
+#define	task_io_account_read(n)
+#define	task_io_account_write(n)
 
 #endif // _KERNEL
 

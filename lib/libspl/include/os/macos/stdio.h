@@ -27,7 +27,7 @@
 #ifndef _LIBSPL_OSX_STDIO_H
 #define	_LIBSPL_OSX_STDIO_H
 
-#define dprintf xnu_dprintf
+#define	dprintf xnu_dprintf
 #include_next <stdio.h>
 #undef dprintf
 #define	dprintf printf
