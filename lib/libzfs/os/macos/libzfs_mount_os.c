@@ -220,6 +220,9 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 		}
 	}
 
+	// We don't pass flags to XNU, we use optstr
+	mflag = 0;
+
 	// Some arguments need to be told to XNU
 	if (strstr(optptr, "remount") != NULL)
 		mflag |= MNT_UPDATE;
@@ -237,13 +240,13 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 	 */
 	rpath = realpath(dir, NULL);
 
-#ifdef ZFS_DEBUG
+//#ifdef ZFS_DEBUG
 	printf("%s calling mount with fstype %s, %s %s, fspec %s, mflag %d,"
 	    " optptr %s, optlen %d, devdisk %d, ispool %d\n",
 	    __func__, fstype, (rpath ? "rpath" : "dir"),
 	    (rpath ? rpath : dir), mnt_args.fspec, mflag, optptr, optlen,
 	    devdisk, ispool);
-#endif
+//#endif
 	rv = mount(fstype, rpath ? rpath : dir, mflag, &mnt_args);
 
 	if (rpath) free(rpath);

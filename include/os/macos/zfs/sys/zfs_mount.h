@@ -50,18 +50,10 @@ struct zfs_mount_args {
 #define	MS_OWNER (MS_NOSUID|MS_NODEV)
 #define	MS_GROUP (MS_NOSUID|MS_NODEV)
 #define	MS_COMMENT 0
-#ifdef MNT_FORCE
 #define	MS_FORCE MNT_FORCE
-#else
-#define	MS_FORCE 0x00000001
-#endif /* MNT_FORCE */
-#ifdef MNT_DETACH
 #define	MS_DETACH MNT_DETACH
-#else
-#define	MS_DETACH 0x00000002
-#endif /* MNT_DETACH */
-#define	MS_OVERLAY 0x00000004
-#define	MS_CRYPT 0x00000008
+#define	MS_OVERLAY MNT_UNION
+#define	MS_CRYPT MNT_CPROTECT
 #endif
 
 #endif	/* _SYS_ZFS_IOCTL_H */

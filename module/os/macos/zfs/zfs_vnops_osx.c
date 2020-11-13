@@ -1100,7 +1100,7 @@ zfs_vnop_read(struct vnop_read_args *ap)
 	DECLARE_CRED(ap);
 
 	/* resid = uio_resid(ap->a_uio); */
-	error = zfs_read(ap->a_vp, ap->a_uio, ioflag, cr);
+	error = zfs_read(VTOZ(ap->a_vp), ap->a_uio, ioflag, cr);
 
 	if (error) dprintf("vnop_read %d\n", error);
 	return (error);
@@ -1169,7 +1169,7 @@ zfs_vnop_access(struct vnop_access_args *ap)
 		mode |= VEXEC;
 
 	dprintf("vnop_access: action %04x -> mode %04x\n", action, mode);
-	error = zfs_access(ap->a_vp, mode, 0, cr);
+	error = zfs_access(VTOZ(ap->a_vp), mode, 0, cr);
 
 	if (error) dprintf("%s: error %d\n", __func__, error);
 	return (error);
@@ -3524,7 +3524,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	} else {
 
 		/* Read xattr */
-		error = zfs_read(ZTOV(xzp), uio, 0, cr);
+		error = zfs_read(xzp, uio, 0, cr);
 
 		if (ap->a_size && uio) {
 			*ap->a_size = (size_t)resid - uio_resid(ap->a_uio);
