@@ -58,8 +58,6 @@ extern addr64_t  (*REAL_kvtophys)(vm_offset_t va);
 
 extern kern_return_t (*REAL_kernel_memory_allocate)(vm_map_t map, void **addrp,
 		vm_size_t size, vm_offset_t mask, int flags, int tag);
-extern void (*REAL_kx_qsort)(void *array, size_t nm, size_t member_size,
-		int (*cmpf)(const void *, const void *));
 extern int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups, int *_groupcount);
 
 //extern i386_cpu_info_t *(*REAL_cpuid_info)(void);
@@ -109,7 +107,6 @@ extern int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags, vfs
 //#define	build_path (*REAL_build_path)
 #define	kvtophys  (*REAL_kvtophys)
 #define	kernel_memory_allocate (*REAL_kernel_memory_allocate)
-#define	kx_qsort (*REAL_kx_qsort)
 #define	kauth_cred_getgroups (*REAL_kauth_cred_getgroups)
 
 #define	cpuid_info (*REAL_cpuid_info)

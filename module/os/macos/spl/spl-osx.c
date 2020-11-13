@@ -25,8 +25,6 @@
  *
  */
 
-#define	KERNEL_MAP_NO_LOAD
-
 #include <sys/debug.h>
 #include <sys/kmem.h>
 #include <sys/systm.h>
@@ -84,8 +82,6 @@ int (*REAL_build_path)(struct vnode *vp, char *buff, int buflen, int *outlen,
 addr64_t  (*REAL_kvtophys)(vm_offset_t va) = NULL;
 kern_return_t (*REAL_kernel_memory_allocate)(vm_map_t map, void **addrp,
 		vm_size_t size, vm_offset_t mask, int flags, int tag) = NULL;
-void (*REAL_kx_qsort)(void *array, size_t nm, size_t member_size,
-		int (*cmpf)(const void *, const void *)) = NULL;
 int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups, int *_groupcount) = NULL;
 
 struct i386_cpu_info;
@@ -440,8 +436,6 @@ int spl_loadsymbols(void)
 	LOAD_SYMBOL(REAL_vnode_iocount, "_vnode_iocount",
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_cache_purgevfs, "_cache_purgevfs",
-		symbol_found, symbol_failed);
-	LOAD_SYMBOL(REAL_kx_qsort, "_kx_qsort",
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_vm_page_free_wanted, "_vm_page_free_wanted",
 		symbol_found, symbol_failed);
