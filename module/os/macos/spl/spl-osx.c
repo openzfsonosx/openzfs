@@ -426,7 +426,7 @@ int spl_loadsymbols(void)
 	printf("Kernel slide: %lx\n", vm_kern_slide);
 
     hib_base = KERN_HIB_BASE + vm_kern_slide;
-    kern_base = KERN_TEXT_BASE + vm_kern_slide /* + 0xc000 */;
+    kern_base = KERN_TEXT_BASE + vm_kern_slide + 0xc000;
 
 	mh = (struct mach_header_64 *) kern_base;
 
