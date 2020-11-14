@@ -36,6 +36,7 @@
 #        "Developer ID Installer: Joergen  Lundman (735AM5QEU3)"
 #
 
+ALTOOL=/Applications/Xcode.app/Contents/Developer/usr/bin/altool
 BASE_DIR=$(dirname "$0")
 SCRIPT_COMMON=common.sh
 if [ -f "${BASE_DIR}/${SCRIPT_COMMON}" ]; then
@@ -135,7 +136,6 @@ bindir=$(dirname "$file")
 popd || fail "failed to popd"
 
 codesign_dirs="
-${WORKDIR}/Library/Extensions/zfs.kext/Contents/PlugIns/KernelExports.kext/
 ${WORKDIR}/Library/Extensions/zfs.kext/
 "
 codesign_files="
@@ -152,22 +152,24 @@ ${WORKDIR}/${bindir}/zfs_ids_to_path
 ${WORKDIR}/${bindir}/InvariantDisks
 ${WORKDIR}/${bindir}/zfs_util
 ${WORKDIR}/${bindir}/zconfigd
-${WORKDIR}/${bindir}/zpool_influxdb
 ${WORKDIR}/${prefix}/lib/libnvpair.a
 ${WORKDIR}/${prefix}/lib/libuutil.a
 ${WORKDIR}/${prefix}/lib/libzfs.a
 ${WORKDIR}/${prefix}/lib/libzpool.a
 ${WORKDIR}/${prefix}/lib/libzfs_core.a
 ${WORKDIR}/${prefix}/lib/librt.so.1
-${WORKDIR}/${prefix}/lib/libnvpair.1.dylib
-${WORKDIR}/${prefix}/lib/libuutil.1.dylib
-${WORKDIR}/${prefix}/lib/libzfs.2.dylib
-${WORKDIR}/${prefix}/lib/libzpool.2.dylib
-${WORKDIR}/${prefix}/lib/libzfs_core.1.dylib
-${WORKDIR}/${prefix}/lib/libzfsbootenv.1.dylib
+${WORKDIR}/${prefix}/lib/libnvpair.?.dylib
+${WORKDIR}/${prefix}/lib/libuutil.?.dylib
+${WORKDIR}/${prefix}/lib/libzfs.?.dylib
+${WORKDIR}/${prefix}/lib/libzpool.?.dylib
+${WORKDIR}/${prefix}/lib/libzfs_core.?.dylib
+${WORKDIR}/${prefix}/lib/libzfsbootenv.?.dylib
 ${WORKDIR}/Library/Filesystems/zfs.fs/Contents/Resources/zfs_util
 ${WORKDIR}/Library/Filesystems/zfs.fs/Contents/Resources/mount_zfs
 "
+
+# ${WORKDIR}/Library/Extensions/zfs.kext/Contents/PlugIns/KernelExports.kext/
+# ${WORKDIR}/${bindir}/zpool_influxdb
 
 codesign_all="$codesign_files $codesign_dirs"
 
@@ -292,6 +294,8 @@ function copy_fix_libraries
     echo "${fixlib_relative}"
 
     # Add new libraries
+    echo "Adding to codesign: ${fixlib_relative} ${WORKDIR}/${prefix}/lib/${name}.dylib"
+    
     codesign_files="${codesign_files} ${fixlib_relative}"
     codesign_all="${codesign_all} ${fixlib_relative}"
 
@@ -321,7 +325,7 @@ function do_notarize
 
     TFILE="out-altool.xml"
     RFILE="req-altool.xml"
-    xcrun altool --notarize-app -f my_package.pkg --primary-bundle-id net.lundman.zfs -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${TFILE}
+    xcrun $ALTOOL --notarize-app -f my_package.pkg --primary-bundle-id net.lundman.zfs -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${TFILE}
 
     GUID=$(/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" ${TFILE})
     echo "Uploaded. GUID ${GUID}"
@@ -331,7 +335,7 @@ function do_notarize
 	sleep 10
 	echo "Querying Apple."
 
-	xcrun altool --notarization-info "${GUID}" -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${RFILE}
+	xcrun $ALTOOL --notarization-info "${GUID}" -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${RFILE}
 	status=$(/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" ${RFILE})
 	if [ "$status" != "in progress" ]; then
 	    echo "Status: $status ."
