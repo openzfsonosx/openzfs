@@ -426,11 +426,19 @@ int spl_loadsymbols(void)
 	printf("Kernel slide: %lx\n", vm_kern_slide);
 
     hib_base = KERN_HIB_BASE + vm_kern_slide;
-    kern_base = KERN_TEXT_BASE + vm_kern_slide + 0xc000;
+    kern_base = KERN_TEXT_BASE + vm_kern_slide + 0x10000;
 
 	mh = (struct mach_header_64 *) kern_base;
 
-	printf("Kernel base: %llx\n", (uint64_t)mh);
+	printf("Kernel base: %x%x\n",
+		((uint64_t)mh)>>32,
+		((uint64_t)mh)&0xffffffff);
+
+	if (mh->magic != MH_MAGIC_64) {
+		printf("mach header magic does not match - aborting\n");
+		return (-1);
+	}
+
 	LOAD_SYMBOL(REAL_vm_page_speculative_count, "_vm_page_speculative_count",
 		symbol_found, symbol_failed);
 	LOAD_SYMBOL(REAL_vnode_iocount, "_vnode_iocount",
