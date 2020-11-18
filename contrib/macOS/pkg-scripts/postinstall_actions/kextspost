@@ -36,3 +36,6 @@ else
 	printf "\nLoading zfs.kext...\n"
 	/sbin/kextload "${kernelextensionsdir}/zfs.kext"
 fi
+
+exit 0
+
