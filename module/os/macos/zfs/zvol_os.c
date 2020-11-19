@@ -154,10 +154,11 @@ zvol_os_register_device_cb(void *param)
 	if (zvol_os_verify_and_lock(zv) == 0)
 		return;
 
-	zvolRegisterDevice(zv);
-
 	mutex_exit(&zv->zv_state_lock);
 	rw_exit(&zv->zv_suspend_lock);
+
+	zvolRegisterDevice(zv);
+
 }
 
 int

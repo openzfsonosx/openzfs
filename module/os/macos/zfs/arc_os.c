@@ -443,6 +443,7 @@ arc_reclaim_thread(void *unused)
 				const int64_t huge_amount =
 				    128LL * 1024LL * 1024LL;
 
+#if 0 // very noisy
 				if (to_free > large_amount ||
 				    evicted > huge_amount)
 					dprintf("SPL: %s: post-reap %lld "
@@ -452,6 +453,7 @@ arc_reclaim_thread(void *unused)
 					    __func__, free_memory, d_adj,
 					    evicted, pre_adjust_free_memory,
 					    to_free, manual_pressure);
+#endif
 				to_free = MAX(to_free, manual_pressure);
 
 				int64_t old_arc_size =
