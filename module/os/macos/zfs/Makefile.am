@@ -347,4 +347,4 @@ uninstall-am:
 
 clean:
 	rm -rf zfs.kext/
-	rm -f *.o *.lo zfs
+	rm -f *.o *.lo zfs $(zfs_OBJECTS)
