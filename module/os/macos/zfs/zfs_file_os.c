@@ -316,7 +316,18 @@ zfs_file_fsync(zfs_file_t *filp, int flags)
 int
 zfs_file_fallocate(zfs_file_t *fp, int mode, loff_t offset, loff_t len)
 {
-	return (0);
+	int rc;
+	struct flock flck = { 0 } ;
+
+	flck.l_type = F_FREESP;
+	flck.l_start = offset;
+	flck.l_len = len;
+	flck.l_whence = 0;
+
+	rc = VOP_SPACE(fp->f_vnode, F_FREESP, &flck,
+	    0, 0, kcred, NULL);
+
+	return (rc);
 }
 
 /*
