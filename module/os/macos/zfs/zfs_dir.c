@@ -604,8 +604,9 @@ zfs_purgedir(znode_t *dzp)
 	for (zap_cursor_init(&zc, zfsvfs->z_os, dzp->z_id);
 	    (error = zap_cursor_retrieve(&zc, &zap)) == 0;
 	    zap_cursor_advance(&zc)) {
-		error = zfs_zget(zfsvfs,
-		    ZFS_DIRENT_OBJ(zap.za_first_integer), &xzp);
+		error = zfs_zget_ext(zfsvfs,
+		    ZFS_DIRENT_OBJ(zap.za_first_integer), &xzp,
+		    ZGET_FLAG_ASYNC);
 		if (error) {
 			skipped += 1;
 			continue;
@@ -695,7 +696,8 @@ zfs_rmnode(znode_t *zp)
 	error = sa_lookup(zp->z_sa_hdl, SA_ZPL_XATTR(zfsvfs),
 	    &xattr_obj, sizeof (xattr_obj));
 	if (error == 0 && xattr_obj) {
-		error = zfs_zget(zfsvfs, xattr_obj, &xzp);
+		error = zfs_zget_ext(zfsvfs, xattr_obj, &xzp,
+		    ZGET_FLAG_ASYNC);
 		ASSERT(error == 0);
 	}
 
