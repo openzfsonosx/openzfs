@@ -423,7 +423,7 @@ macho_find_symbol(mach_header_t *header, const char *name)
 	do { \
 		(data) = macho_find_symbol(mh, (str));	\
 		if ((data) == NULL) { \
-			printf("%s: failed to locate '%s'\n", __func__,
+			printf("%s: failed to locate '%s'\n", __func__, \
 			    (str));		\
 			(failed)++;	\
 		} else \
