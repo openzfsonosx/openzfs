@@ -114,7 +114,7 @@ typedef uint8_t vm_tag_t;
 /*
  * In kernel lowlevel form of malloc.
  */
-//extern kern_return_t kernel_memory_allocate(vm_map_t map, void **addrp,
+// extern kern_return_t kernel_memory_allocate(vm_map_t map, void **addrp,
 //    vm_size_t size, vm_offset_t mask, int flags, vm_tag_t tag);
 
 /*

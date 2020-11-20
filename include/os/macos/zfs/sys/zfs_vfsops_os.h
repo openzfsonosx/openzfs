@@ -286,7 +286,7 @@ extern int zfs_get_temporary_prop(dsl_dataset_t *ds, zfs_prop_t zfs_prop,
 
 extern int zfs_end_fs(zfsvfs_t *zfsvfs, struct dsl_dataset *ds);
 extern void zfsvfs_update_fromname(const char *oldname, const char *newname);
-  
+
 #ifdef	__cplusplus
 }
 #endif

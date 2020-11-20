@@ -71,7 +71,7 @@ typedef struct zfs_kernel_param_s zfs_kernel_param_t;
 static inline int
 param_set_uint(char *v, zfs_kernel_param_t *kp)
 {
-	return 0;
+	return (0);
 }
 
 #ifdef __cplusplus

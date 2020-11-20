@@ -52,22 +52,16 @@ extern void (*REAL_cache_purgevfs)(mount_t mp);
 extern int (*REAL_VFS_ROOT)(mount_t mp, struct vnode **vpp, vfs_context_t ctx);
 extern errno_t (*REAL_VNOP_LOOKUP)(struct vnode *dvp, struct vnode **vpp,
 		struct componentname *cnp, vfs_context_t ctx);
-extern int (*REAL_build_path)(struct vnode *vp, char *buff, int buflen, int *outlen,
-		int flags, vfs_context_t ctx);
+extern int (*REAL_build_path)(struct vnode *vp, char *buff, int buflen,
+    int *outlen, int flags, vfs_context_t ctx);
 extern addr64_t  (*REAL_kvtophys)(vm_offset_t va);
 
 extern kern_return_t (*REAL_kernel_memory_allocate)(vm_map_t map, void **addrp,
 		vm_size_t size, vm_offset_t mask, int flags, int tag);
-extern int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups, int *_groupcount);
+extern int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups,
+    int *_groupcount);
 
-//extern i386_cpu_info_t *(*REAL_cpuid_info)(void);
-
-extern struct decmpfs_cnode *(*REAL_decmpfs_cnode_alloc)(void);
-extern void (*REAL_decmpfs_cnode_free)(struct decmpfs_cnode *dp);
-extern void (*REAL_decmpfs_cnode_init)(struct decmpfs_cnode *cp);
-extern void (*REAL_decmpfs_cnode_destroy)(struct decmpfs_cnode *cp);
-extern int (*REAL_decmpfs_decompress_file)(struct vnode *vp, struct decmpfs_cnode *cp, off_t toSize, int truncate_okay, int skiplock);
-extern int (*REAL_decmpfs_file_is_compressed)(struct vnode *vp, struct decmpfs_cnode *cp);
+// extern i386_cpu_info_t *(*REAL_cpuid_info)(void);
 
 #ifdef __arm64__
 extern int (*REAL_setjmp)(void *e);
@@ -75,11 +69,16 @@ extern void (*longjmp)(void *e, int val);
 #endif
 
 #if 0
-extern int (*REAL_fp_drop)(struct proc *p, int fd, struct fileproc *fp, int locked);
-extern int (*REAL_fp_drop_written)(struct proc *p, int fd, struct fileproc *fp, int locked);
-extern int (*REAL_fp_lookup)(struct proc *p, int fd, struct fileproc **resultfp, int locked);
-extern int (*REAL_fo_read)(struct fileproc *fp, struct uio *uio, int flags, vfs_context_t ctx);
-extern int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags, vfs_context_t ctx);
+extern int (*REAL_fp_drop)(struct proc *p, int fd, struct fileproc *fp,
+    int locked);
+extern int (*REAL_fp_drop_written)(struct proc *p, int fd, struct fileproc *fp,
+    int locked);
+extern int (*REAL_fp_lookup)(struct proc *p, int fd, struct fileproc **resultfp,
+    int locked);
+extern int (*REAL_fo_read)(struct fileproc *fp, struct uio *uio, int flags,
+    vfs_context_t ctx);
+extern int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags,
+    vfs_context_t ctx);
 #endif
 
 /* Make consumers use the pointers */
@@ -102,9 +101,9 @@ extern int (*REAL_fo_write)(struct fileproc *fp, struct uio *uio, int flags, vfs
 #define	vfs_context_kernel (*REAL_vfs_context_kernel)
 #define	vnode_iocount (*REAL_vnode_iocount)
 #define	cache_purgevfs (*REAL_cache_purgevfs)
-//#define	VFS_ROOT (*REAL_VFS_ROOT)
+// #define	VFS_ROOT (*REAL_VFS_ROOT)
 #define	VNOP_LOOKUP (*REAL_VNOP_LOOKUP)
-//#define	build_path (*REAL_build_path)
+// #define	build_path (*REAL_build_path)
 #define	kvtophys  (*REAL_kvtophys)
 #define	kernel_memory_allocate (*REAL_kernel_memory_allocate)
 #define	kauth_cred_getgroups (*REAL_kauth_cred_getgroups)

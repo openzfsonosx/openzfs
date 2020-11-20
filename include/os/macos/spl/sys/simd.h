@@ -391,7 +391,7 @@ static inline boolean_t
 zfs_avx_available(void)
 {
 	boolean_t has_avx;
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 	return (!!(spl_cpuid_features() & CPUID_FEATURE_AVX1_0));
 #elif !defined(_KERNEL)
@@ -408,7 +408,7 @@ static inline boolean_t
 zfs_avx2_available(void)
 {
 	boolean_t has_avx2;
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX2)
 	has_avx2 = (!!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_AVX2));
@@ -526,7 +526,7 @@ zfs_avx512f_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512F) && defined(CPUID_LEAF7_FEATURE_AVX512F)
 	return (!!(spl_cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_AVX512F));
@@ -546,7 +546,7 @@ zfs_avx512cd_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512F) && defined(HAVE_AVX512CD) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
@@ -570,7 +570,7 @@ zfs_avx512er_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512F) && defined(HAVE_AVX512ER) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512ER)
@@ -593,7 +593,7 @@ zfs_avx512pf_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512PF) && defined(HAVE_AVX512F) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512PF)
@@ -616,7 +616,7 @@ zfs_avx512bw_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512BW) && defined(HAVE_AVX512F) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
@@ -640,7 +640,7 @@ zfs_avx512dq_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512DQ) && defined(HAVE_AVX512F) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
@@ -664,7 +664,7 @@ zfs_avx512vl_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512VL) && defined(HAVE_AVX512F) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
@@ -688,7 +688,7 @@ zfs_avx512ifma_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512IFMA) && defined(HAVE_AVX512F) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512F) && \
@@ -712,7 +712,7 @@ zfs_avx512vbmi_available(void)
 {
 	boolean_t has_avx512 = B_FALSE;
 
-	return FALSE; // Currently broken on macOS
+	return (FALSE); // Currently broken on macOS
 #if defined(_KERNEL)
 #if defined(HAVE_AVX512VBMI) && defined(HAVE_AVX512F) && \
 	defined(CPUID_LEAF7_FEATURE_AVX512F) && \

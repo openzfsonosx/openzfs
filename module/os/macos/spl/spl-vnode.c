@@ -194,7 +194,7 @@ VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4)
 	return (error);
 }
 
-//errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
+// errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
 //    struct componentname *, vfs_context_t);
 
 errno_t
@@ -206,7 +206,7 @@ VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
 
 #undef VFS_ROOT
 
-//extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
+// extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
 int
 spl_vfs_root(mount_t mount, struct vnode **vp)
 {
@@ -315,7 +315,7 @@ getf(int fd)
 struct vnode *
 getf_vnode(void *fp)
 {
-	struct spl_fileproc *sfp = (struct spl_fileproc *) fp;
+	struct spl_fileproc *sfp = (struct spl_fileproc *)fp;
 
 	return (sfp->f_vnode);
 }
@@ -366,7 +366,7 @@ int spl_vn_rdwr(enum uio_rw rw,	struct spl_fileproc *sfp,
 
 	if (sfp->f_vnode != NULL)
 		return zfs_vn_rdwr(rw, sfp->f_vnode, base, len, offset, seg,
-			ioflag, ulimit, cr, residp);
+		    ioflag, ulimit, cr, residp);
 
 	printf("bad call in spl_vn_rdwr\n");
 	return (error);

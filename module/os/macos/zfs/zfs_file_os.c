@@ -317,7 +317,7 @@ int
 zfs_file_fallocate(zfs_file_t *fp, int mode, loff_t offset, loff_t len)
 {
 	int rc;
-	struct flock flck = { 0 } ;
+	struct flock flck = { 0 };
 
 	flck.l_type = F_FREESP;
 	flck.l_start = offset;
