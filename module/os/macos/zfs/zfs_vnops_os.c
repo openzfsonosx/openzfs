@@ -446,15 +446,15 @@ void
 zfs_zrele_async(znode_t *zp)
 {
 	struct vnode *vp = ZTOV(zp);
-	objset_t *os = ITOZSB(vp)->z_os;
+	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
+	objset_t *os = zfsvfs->z_os;
 
 	ASSERT(os != NULL);
 
-	if (vnode_iocount(vp) == 1)
+	if (vp != NULL) {
 		VERIFY(taskq_dispatch(dsl_pool_zrele_taskq(dmu_objset_pool(os)),
 		    (task_func_t *)vnode_put, vp, TQ_SLEEP) != TASKQID_INVALID);
-	else
-		zrele(zp);
+	}
 }
 
 /*
