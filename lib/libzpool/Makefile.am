@@ -4,19 +4,17 @@ VPATH = \
 	$(top_srcdir)/module/zfs \
 	$(top_srcdir)/module/zcommon \
 	$(top_srcdir)/module/lua \
+	$(top_srcdir)/module/os/linux/zfs \
 	$(top_srcdir)/lib/libzpool
 
 if BUILD_FREEBSD
 DEFAULT_INCLUDES += -I$(top_srcdir)/include/os/freebsd/zfs
-VPATH += $(top_srcdir)/module/os/freebsd/zfs
 endif
 if BUILD_LINUX
 DEFAULT_INCLUDES += -I$(top_srcdir)/include/os/linux/zfs
-VPATH += $(top_srcdir)/module/os/linux/zfs
 endif
 if BUILD_MACOS
 DEFAULT_INCLUDES += -I$(top_srcdir)/include/os/macos/zfs
-VPATH += $(top_srcdir)/module/os/macos/zfs
 endif
 
 # Unconditionally enable debugging for libzpool
