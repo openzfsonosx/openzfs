@@ -623,7 +623,8 @@ zfs_purgedir(znode_t *dzp)
 		error = dmu_tx_assign(tx, TXG_WAIT);
 		if (error) {
 			dmu_tx_abort(tx);
-			zfs_zrele_async(xzp);
+			/* Be aware this is not the "normal" zfs_zrele_async */
+			zfs_znode_asyncput(xzp);
 			skipped += 1;
 			continue;
 		}
@@ -636,7 +637,8 @@ zfs_purgedir(znode_t *dzp)
 			skipped += 1;
 		dmu_tx_commit(tx);
 
-		zfs_zrele_async(xzp);
+		/* Be aware this is not the "normal" zfs_zrele_async() */
+		zfs_znode_asyncput(xzp);
 	}
 	zap_cursor_fini(&zc);
 	if (error != ENOENT)
@@ -765,8 +767,10 @@ zfs_rmnode(znode_t *zp)
 
 	dmu_tx_commit(tx);
 out:
+
+	/* Be aware this is not the "normal" zfs_zrele_async() */
 	if (xzp)
-		zfs_zrele_async(xzp);
+		zfs_znode_asyncput(xzp);
 }
 
 static uint64_t

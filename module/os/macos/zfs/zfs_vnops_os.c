@@ -451,10 +451,16 @@ zfs_zrele_async(znode_t *zp)
 
 	ASSERT(os != NULL);
 
-	if (vp != NULL) {
-		VERIFY(taskq_dispatch(dsl_pool_zrele_taskq(dmu_objset_pool(os)),
-		    (task_func_t *)vnode_put, vp, TQ_SLEEP) != TASKQID_INVALID);
+	/* If iocount > 1, AND, vp is set (not async_get) */
+	if (vp != NULL && vnode_iocount(vp) > 1) {
+		VN_RELE(vp);
+		return;
 	}
+
+	ASSERT3P(vp, !=, NULL);
+
+	VERIFY(taskq_dispatch(dsl_pool_zrele_taskq(dmu_objset_pool(os)),
+	    (task_func_t *)vnode_put, vp, TQ_SLEEP) != TASKQID_INVALID);
 }
 
 /*

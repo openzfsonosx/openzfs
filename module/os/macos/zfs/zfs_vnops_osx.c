@@ -1785,7 +1785,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	vattr_t *vap = ap->a_vap;
 	uint_t mask = vap->va_mask;
 	int error = 0;
-	int hfscompression = 0;
 	znode_t *zp = VTOZ(ap->a_vp);
 
 	/* Translate OS X requested mask to ZFS */
@@ -5070,7 +5069,7 @@ zfs_znode_getvnode(znode_t *zp, zfsvfs_t *zfsvfs)
 	 * the volume finderinfo, XNU checks the tags, and only acts on
 	 * HFS. So we have to set it to HFS on the root. It is pretty gross
 	 * but until XNU adds supporting code..
-	 * The only place we use tags in ZFS is ctldir checking for VT_OTHER
+	 * We no longer use tags in ZFS.
 	 */
 	if (zp->z_id == zfsvfs->z_root)
 		vnode_settag(vp, VT_HFS);
@@ -5171,6 +5170,7 @@ zfs_znode_asyncput_impl(znode_t *zp)
 
 	// Safe to release now that it is attached.
 	VN_RELE(ZTOV(zp));
+
 }
 
 /*
@@ -5182,8 +5182,15 @@ zfs_znode_asyncput(znode_t *zp)
 {
 	dsl_pool_t *dp = dmu_objset_pool(zp->z_zfsvfs->z_os);
 	taskq_t *tq = dsl_pool_zrele_taskq(dp);
+	vnode_t *vp = ZTOV(zp);
 
 	VERIFY3P(tq, !=, NULL);
+
+	/* If iocount > 1, AND, vp is set (not async_get) */
+	if (vp != NULL && vnode_iocount(vp) > 1) {
+		VN_RELE(vp);
+		return;
+	}
 
 	VERIFY(taskq_dispatch(
 	    (taskq_t *)tq,
