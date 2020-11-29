@@ -60,6 +60,7 @@ extern kern_return_t (*REAL_kernel_memory_allocate)(vm_map_t map, void **addrp,
 		vm_size_t size, vm_offset_t mask, int flags, int tag);
 extern int (*REAL_kauth_cred_getgroups)(kauth_cred_t _cred, gid_t *_groups,
     int *_groupcount);
+extern int (*REAL_vnode_iocount)(struct vnode *vp);
 
 // extern i386_cpu_info_t *(*REAL_cpuid_info)(void);
 

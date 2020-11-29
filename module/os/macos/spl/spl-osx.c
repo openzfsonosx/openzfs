@@ -355,7 +355,8 @@ macho_find_segment(mach_header_t *header, const char *segname)
 	    i++, cur += cur_seg_cmd->cmdsize) {
 		cur_seg_cmd = (segment_command_t *)cur;
 		if (cur_seg_cmd->cmd == LC_SGMT) {
-			if (strcmp(segname, cur_seg_cmd->segname) == 0) {
+			if (cur_seg_cmd->segname != NULL &&
+			    strcmp(segname, cur_seg_cmd->segname) == 0) {
 				return (cur_seg_cmd);
 			}
 		}
@@ -373,12 +374,14 @@ macho_find_section(mach_header_t *header, const char *segname,
 	    i++, cur += cur_seg_cmd->cmdsize) {
 		cur_seg_cmd = (segment_command_t *)cur;
 		if (cur_seg_cmd->cmd == LC_SGMT) {
-			if (strcmp(segname, cur_seg_cmd->segname) == 0) {
+			if (cur_seg_cmd->segname != NULL &&
+			    strcmp(segname, cur_seg_cmd->segname) == 0) {
 				for (uint_t j = 0; j < cur_seg_cmd->nsects;
 				    j++) {
 					section_t *sect = (section_t *)(cur +
 					    sizeof (segment_command_t)) + j;
-					if (strcmp(secname,
+					if (sect->sectname != NULL &&
+					    strcmp(secname,
 					    sect->sectname) == 0) {
 						return (sect);
 					}
@@ -394,10 +397,16 @@ macho_find_symbol(mach_header_t *header, const char *name)
 {
 	segment_command_t *first =
 	    (segment_command_t *)macho_find_load_command(header, LC_SGMT);
+	if (first == NULL)
+	  return (NULL);
 	segment_command_t *linkedit_segment =
 	    macho_find_segment(header, SEG_LINKEDIT);
+	if (linkedit_segment == NULL)
+	  return (NULL);
 	struct symtab_command *symtab_cmd =
 	    (struct symtab_command *)macho_find_load_command(header, LC_SYMTAB);
+	if (symtab_cmd == NULL)
+	  return (NULL);
 
 	vm_address_t vmaddr_slide =
 	    (vm_address_t)header - (vm_address_t)first->vmaddr;
@@ -408,6 +417,14 @@ macho_find_symbol(mach_header_t *header, const char *name)
 	nlist_t *symtab = (nlist_t *)(linkedit_base + symtab_cmd->symoff);
 	char *strtab = (char *)(linkedit_base + symtab_cmd->stroff);
 
+	typedef struct pmap *pmap_t;
+	extern pmap_t kernel_pmap;
+	extern ppnum_t pmap_find_phys(pmap_t map, addr64_t va);
+
+	if (!pmap_find_phys(kernel_pmap, strtab)) {
+	  return NULL;
+	}
+	
 	for (int i = 0; i < symtab_cmd->nsyms; i++) {
 		if (symtab[i].n_value &&
 		    strcmp(name, &strtab[symtab[i].n_un.n_strx]) == 0) {
@@ -461,6 +478,12 @@ spl_loadsymbols(void)
 	    ((uint64_t)mh)>>32,
 	    ((uint64_t)mh)&0xffffffff);
 
+	boolean_t keepsyms = FALSE;
+	PE_parse_boot_argn("keepsyms", &keepsyms, sizeof(keepsyms));
+	if (!keepsyms)
+	  printf("%s: keepsyms=1 missing, probably unable to locate symbols\n",
+		 __func__);
+	
 	if (mh->magic != MH_MAGIC_64) {
 		printf("mach header magic does not match. Aborting\n");
 		return (-1);
