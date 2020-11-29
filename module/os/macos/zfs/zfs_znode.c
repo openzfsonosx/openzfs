@@ -1143,7 +1143,7 @@ again:
 
 			// Wait until attached, if we can.
 			if ((flags & ZGET_FLAG_ASYNC) &&
-			    zfs_znode_asyncwait(zp) == 0) {
+			    zfs_znode_asyncwait(zfsvfs, zp) == 0) {
 				dprintf("%s: waited on z_vnode OK\n", __func__);
 			} else {
 				dprintf("%s: async racing attach\n", __func__);

@@ -5123,15 +5123,13 @@ zfs_znode_asyncgetvnode_impl(void *arg)
  * may consider waiting by other means.
  */
 int
-zfs_znode_asyncwait(znode_t *zp)
+zfs_znode_asyncwait(zfsvfs_t *zfsvfs, znode_t *zp)
 {
 	int ret = -1;
-	zfsvfs_t *zfsvfs;
 
 	if (zp == NULL)
 		return (ret);
 
-	zfsvfs = zp->z_zfsvfs;
 	if (zfsvfs == NULL)
 		return (ret);
 
@@ -5166,7 +5164,7 @@ zfs_znode_asyncput_impl(znode_t *zp)
 {
 	// Make sure the other thread finished zfs_znode_getvnode();
 	// This may block, if waiting is required.
-	zfs_znode_asyncwait(zp);
+	zfs_znode_asyncwait(zp->z_zfsvfs, zp);
 
 	// Safe to release now that it is attached.
 	VN_RELE(ZTOV(zp));
