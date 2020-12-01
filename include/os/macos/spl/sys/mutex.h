@@ -64,7 +64,9 @@ typedef struct {
  * define this debug variable.
  */
 
+#ifdef ZFS_DEBUG
 #define	SPL_DEBUG_MUTEX
+#endif
 
 #ifdef SPL_DEBUG_MUTEX
 #define	SPL_MUTEX_WATCHDOG_SLEEP   10 /* How long to sleep between checking */
