@@ -78,6 +78,12 @@ AC_CONFIG_FILES([
 	cmd/dbufstat/Makefile
 	cmd/fsck_zfs/Makefile
 	cmd/mount_zfs/Makefile
+	cmd/os/Makefile
+	cmd/os/macos/Makefile
+	cmd/os/macos/InvariantDisks/Makefile
+	cmd/os/macos/InvariantDisks/InvariantDisks/Makefile
+	cmd/os/macos/zconfigd/Makefile
+	cmd/os/macos/zfs_util/Makefile
 	cmd/raidz_test/Makefile
 	cmd/vdev_id/Makefile
 	cmd/zdb/Makefile
@@ -113,7 +119,11 @@ AC_CONFIG_FILES([
 	etc/Makefile
 	etc/default/Makefile
 	etc/init.d/Makefile
+	etc/launchd/Makefile
+	etc/launchd/daemons/Makefile
+	etc/launchd/launchd.d/Makefile
 	etc/modules-load.d/Makefile
+	etc/paths.d/Makefile
 	etc/sudoers.d/Makefile
 	etc/systemd/Makefile
 	etc/systemd/system-generators/Makefile
@@ -168,8 +178,8 @@ AC_CONFIG_FILES([
 	lib/libspl/include/os/linux/sys/Makefile
 	lib/libspl/include/os/macos/Makefile
 	lib/libspl/include/os/macos/sys/Makefile
-	lib/libspl/include/os/macos/ia32/Makefile
-	lib/libspl/include/os/macos/ia32/sys/Makefile
+	lib/libspl/include/os/macos/mach/Makefile
+	lib/libspl/include/os/macos/rpc/Makefile
 	lib/libspl/include/rpc/Makefile
 	lib/libspl/include/sys/Makefile
 	lib/libspl/include/sys/dktp/Makefile
