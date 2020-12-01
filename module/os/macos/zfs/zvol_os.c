@@ -540,7 +540,10 @@ zvol_os_free(zvol_state_t *zv)
 	kmem_free(zv, sizeof (zvol_state_t));
 }
 
-
+void
+zvol_wait_close(zvol_state_t *zv)
+{
+}
 
 /*
  * Create a block device minor node and setup the linkage between it

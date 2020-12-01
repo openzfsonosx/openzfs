@@ -210,8 +210,7 @@ zfs_SOURCES = \
 	../../../zfs/zfs_rlock.c \
 	../../../zfs/zfs_sa.c \
 	zfs_vfsops.c \
-	../../../zfs/zfs_vnops.c \
-	zfs_vnops_os.c \
+	zfs_vnops.c \
 	zfs_vnops_osx.c \
 	zfs_vnops_osx_lib.c \
 	zfs_znode.c \
