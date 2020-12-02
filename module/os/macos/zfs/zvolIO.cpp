@@ -508,12 +508,9 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 	 * used.
 	 */
 
-	/* zvol_first_open() checks for spa_namespace_lock */
-	mutex_enter(&spa_namespace_lock);
 	if (zvol_os_open_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL) == 0) {
 		ret = true;
 	}
-	mutex_exit(&spa_namespace_lock);
 
 	if (ret)
 		zv->zv_zso->zvo_openflags = openflags;

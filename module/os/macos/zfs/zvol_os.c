@@ -65,6 +65,9 @@ int
 dmu_write_iokit_dnode(dnode_t *dn, uint64_t *offset, uint64_t position,
     uint64_t *size, struct iomem *iomem, dmu_tx_t *tx);
 
+#define	ZVOL_LOCK_HELD		(1<<0)
+#define	ZVOL_LOCK_SPA		(1<<1)
+#define	ZVOL_LOCK_SUSPEND	(1<<2)
 
 static void
 zvol_os_spawn_cb(void *param)
@@ -120,45 +123,113 @@ zvol_os_is_zvol(const char *device)
  * Make sure zv is still in the list (not freed) and if it is
  * grab the locks in the correct order.
  * Can we rely on list_link_active() instead of looping list?
+ * Return value:
+ *        0           : not found. No locks.
+ *  ZVOL_LOCK_HELD    : found and zv->zv_state_lock held
+ * |ZVOL_LOCK_SPA     : spa_namespace_lock held
+ * |ZVOL_LOCK_SUSPEND : zv->zv_state_lock held
+ * call zvol_os_verify_lock_exit() to release
  */
 static int
-zvol_os_verify_and_lock(zvol_state_t *node)
+zvol_os_verify_and_lock(zvol_state_t *node, boolean_t takesuspend)
 {
 	zvol_state_t *zv;
+	int ret = ZVOL_LOCK_HELD;
 
+retry:
 	rw_enter(&zvol_state_lock, RW_READER);
 	for (zv = list_head(&zvol_state_list); zv != NULL;
 	    zv = list_next(&zvol_state_list, zv)) {
-		mutex_enter(&zv->zv_state_lock);
-		if (zv == node) {
 
+		/* Until we find the node ... */
+		if (zv != node)
+			continue;
+
+		/* If this is to be first open, deal with spa_namespace */
+		if (zv->zv_open_count == 0 &&
+		    !mutex_owned(&spa_namespace_lock)) {
+			/*
+			 * We need to guarantee that the namespace lock is held
+			 * to avoid spurious failures in zvol_first_open.
+			 */
+			ret |= ZVOL_LOCK_SPA;
+			if (!mutex_tryenter(&spa_namespace_lock)) {
+				rw_exit(&zvol_state_lock);
+				mutex_enter(&spa_namespace_lock);
+				/* Sadly, this will restart for loop */
+				goto retry;
+			}
+		}
+
+		mutex_enter(&zv->zv_state_lock);
+
+		/*
+		 * make sure zvol is not suspended during first open
+		 * (hold zv_suspend_lock) and respect proper lock acquisition
+		 * ordering - zv_suspend_lock before zv_state_lock
+		 */
+		if (zv->zv_open_count == 0 || takesuspend) {
+			ret |= ZVOL_LOCK_SUSPEND;
 			if (!rw_tryenter(&zv->zv_suspend_lock, RW_READER)) {
 				mutex_exit(&zv->zv_state_lock);
+
+				/* If we hold spa_namespace_lock here, we can deadlock */
+				if (ret & ZVOL_LOCK_SPA) {
+					rw_exit(&zvol_state_lock);
+					mutex_exit(&spa_namespace_lock);
+					ret &= ~ZVOL_LOCK_SPA;
+					dprintf("%s: spa_namespace loop\n", __func__);
+					/* Let's not busy loop */
+					delay(hz>>2);
+					goto retry;
+				}
 				rw_enter(&zv->zv_suspend_lock, RW_READER);
 				mutex_enter(&zv->zv_state_lock);
+				/* check to see if zv_suspend_lock is needed */
+				if (zv->zv_open_count != 0) {
+					rw_exit(&zv->zv_suspend_lock);
+					ret &= ~ZVOL_LOCK_SUSPEND;
+				}
 			}
-			rw_exit(&zvol_state_lock);
-			return (1);
 		}
-		mutex_exit(&zv->zv_state_lock);
-	}
+		rw_exit(&zvol_state_lock);
+
+		/* Success */
+		return (ret);
+
+	} /* for */
+
+	/* Not found */
 	rw_exit(&zvol_state_lock);
+
+	/* It's possible we grabbed spa, but then didn't re-find zv */
+	if (ret & ZVOL_LOCK_SPA)
+		mutex_exit(&spa_namespace_lock);
 	return (0);
+}
+
+static void
+zvol_os_verify_lock_exit(zvol_state_t *zv, int locks)
+{
+	if (locks & ZVOL_LOCK_SPA)
+		mutex_exit(&spa_namespace_lock);
+	mutex_exit(&zv->zv_state_lock);
+	if (locks & ZVOL_LOCK_SUSPEND)
+		rw_exit(&zv->zv_suspend_lock);
 }
 
 static void
 zvol_os_register_device_cb(void *param)
 {
 	zvol_state_t *zv = (zvol_state_t *)param;
+	int locks;
 
-	if (zvol_os_verify_and_lock(zv) == 0)
+	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
-
-	mutex_exit(&zv->zv_state_lock);
 
 	zvolRegisterDevice(zv);
 
-	rw_exit(&zv->zv_suspend_lock);
+	zvol_os_verify_lock_exit(zv, locks);
 }
 
 int
@@ -644,10 +715,10 @@ out_doi:
 static void zvol_os_rename_device_cb(void *param)
 {
 	zvol_state_t *zv = (zvol_state_t *)param;
-	if (zvol_os_verify_and_lock(zv) == 0)
+	int locks;
+	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
-	mutex_exit(&zv->zv_state_lock);
-	rw_exit(&zv->zv_suspend_lock);
+	zvol_os_verify_lock_exit(zv, locks);
 	zvolRenameDevice(zv);
 }
 
@@ -696,13 +767,14 @@ int
 zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
 	int error = 0;
+	int locks;
 
 	/*
 	 * make sure zvol is not suspended during first open
 	 * (hold zv_suspend_lock) and respect proper lock acquisition
 	 * ordering - zv_suspend_lock before zv_state_lock
 	 */
-	if (zvol_os_verify_and_lock(zv) == 0) {
+	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0) {
 		return (SET_ERROR(ENOENT));
 	}
 
@@ -726,10 +798,7 @@ zvol_os_open_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 
 	zv->zv_open_count++;
 
-	mutex_exit(&zv->zv_state_lock);
-
-	rw_exit(&zv->zv_suspend_lock);
-
+	zvol_os_verify_lock_exit(zv, locks);
 	return (0);
 
 out_open_count:
@@ -737,8 +806,7 @@ out_open_count:
 		zvol_last_close(zv);
 
 out_mutex:
-	mutex_exit(&zv->zv_state_lock);
-	rw_exit(&zv->zv_suspend_lock);
+	zvol_os_verify_lock_exit(zv, locks);
 
 	if (error == EINTR) {
 		error = ERESTART;
@@ -770,7 +838,9 @@ zvol_os_open(dev_t devp, int flag, int otyp, struct proc *p)
 int
 zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 {
-	if (zvol_os_verify_and_lock(zv) == 0)
+	int locks;
+
+	if ((locks = zvol_os_verify_and_lock(zv, TRUE)) == 0)
 		return (SET_ERROR(ENOENT));
 
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
@@ -781,8 +851,7 @@ zvol_os_close_zv(zvol_state_t *zv, int flag, int otyp, struct proc *p)
 	if (zv->zv_open_count == 0)
 		zvol_last_close(zv);
 
-	mutex_exit(&zv->zv_state_lock);
-	rw_exit(&zv->zv_suspend_lock);
+	zvol_os_verify_lock_exit(zv, locks);
 
 	return (0);
 }
