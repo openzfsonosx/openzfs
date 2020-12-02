@@ -229,9 +229,11 @@ zvol_os_register_device_cb(void *param)
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
 
+	zvol_os_verify_lock_exit(zv, locks);
+
+	/* This is a bit racy? */
 	zvolRegisterDevice(zv);
 
-	zvol_os_verify_lock_exit(zv, locks);
 }
 
 int
@@ -727,8 +729,10 @@ static void zvol_os_rename_device_cb(void *param)
 	int locks;
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
+
 	zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname + 1,
 	    zv->zv_zso->zvo_bsdname);
+
 	zvol_os_verify_lock_exit(zv, locks);
 	zvolRenameDevice(zv);
 }
