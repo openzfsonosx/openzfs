@@ -50,11 +50,6 @@ libspl_la_SOURCES = $(USER_C)
 libspl_la_LIBADD = \
 	libspl_assert.la
 
-
 libspl_la_LIBADD += $(LIBATOMIC_LIBS) $(LIBCLOCK_GETTIME)
-
-if !BUILD_MACOS
-libspl_la_LIBADD += -lrt $(LIBTIRPC_LIBS)
-endif
 
 include $(top_srcdir)/config/CppCheck.am
