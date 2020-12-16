@@ -69,7 +69,7 @@ extern "C" {
 
 #define	ZFS_MODULE_VIRTUAL_PARAM_CALL ZFS_MODULE_PARAM_CALL
 #define	module_init_early(fn)	\
-static void \
+void \
 wrap_ ## fn(void *dummy __unused) \
 {								 \
 	fn();						 \

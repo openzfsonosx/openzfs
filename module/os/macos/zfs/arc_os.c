@@ -882,6 +882,16 @@ arc_free_memory(void)
 	return (spa_get_random(arc_all_memory() * 20 / 100));
 }
 
+void
+arc_register_hotplug(void)
+{
+}
+
+void
+arc_unregister_hotplug(void)
+{
+}
+
 #endif /* KERNEL */
 
 void
