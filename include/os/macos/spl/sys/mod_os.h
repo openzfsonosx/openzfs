@@ -68,13 +68,12 @@ extern "C" {
 #define	module_param_named(a, b, c, d)
 
 #define	ZFS_MODULE_VIRTUAL_PARAM_CALL ZFS_MODULE_PARAM_CALL
-
-#define	module_init_early(fn)		\
+#define	module_init_early(fn)	\
 static void \
 wrap_ ## fn(void *dummy __unused) \
-{	 \
-	fn();	 \
-}	\
+{								 \
+	fn();						 \
+}
 
 kern_return_t spl_start(kmod_info_t *ki, void *d);
 kern_return_t spl_stop(kmod_info_t *ki, void *d);
