@@ -208,7 +208,6 @@ AC_CONFIG_FILES([
 	module/os/linux/spl/Makefile
 	module/os/linux/zfs/Makefile
 	module/os/macos/Makefile
-	module/os/macos/kernel/Makefile
 	module/os/macos/spl/Makefile
 	module/os/macos/zfs/Makefile
 	module/spl/Makefile

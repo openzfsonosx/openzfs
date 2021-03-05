@@ -2,5 +2,5 @@
 # other platforms.
 
 if BUILD_MACOS
-SUBDIRS=kernel spl zfs
+SUBDIRS=spl zfs
 endif
