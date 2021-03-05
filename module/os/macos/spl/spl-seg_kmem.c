@@ -26,10 +26,6 @@
 
 #include <sys/vmem.h>
 #include <sys/vmem_impl.h>
-// ugly: smd
-#ifdef kmem_free
-#undef kmem_free
-#endif
 
 #include <sys/time.h>
 #include <sys/timer.h>
@@ -109,15 +105,19 @@ typedef uint8_t vm_tag_t;
  */
 #define	SPL_TAG 6
 
+
+
+
 /*
  * In kernel lowlevel form of malloc.
  */
-extern kern_return_t kernel_memory_allocate(vm_map_t map, void **addrp,
-    vm_size_t size, vm_offset_t mask, int flags, vm_tag_t tag);
+#undef kmem_alloc /* Remove SPL macro to call XNU */
+kern_return_t kmem_alloc(vm_map_t map, vm_offset_t *addrp, vm_size_t size);
 
 /*
  * Free memory
  */
+#undef kmem_free /* Remove SPL macro to call XNU */
 extern void kmem_free(vm_map_t map, void *addr, vm_size_t size);
 
 #endif /* _KERNEL */
@@ -154,16 +154,15 @@ void *
 osif_malloc(uint64_t size)
 {
 #ifdef _KERNEL
-	void *tr;
+	vm_offset_t tr;
 
-	kern_return_t kr = kernel_memory_allocate(kernel_map,
-	    &tr, size, PAGESIZE, 0, SPL_TAG);
+	kern_return_t kr = kmem_alloc(kernel_map, &tr, size);
 
 	if (kr == KERN_SUCCESS) {
 		atomic_inc_64(&stat_osif_malloc_success);
 		atomic_add_64(&segkmem_total_mem_allocated, size);
 		atomic_add_64(&stat_osif_malloc_bytes, size);
-		return (tr);
+		return ((void *)tr);
 	} else {
 		// well, this can't really happen, kernel_memory_allocate
 		// would panic instead
