@@ -245,7 +245,7 @@ int  spl_vnode_init(void);
 extern int spl_vfs_root(mount_t mount, struct vnode **vp);
 #define	VFS_ROOT(V, L, VP) spl_vfs_root((V), (VP))
 
-extern void cache_purgevfs(mount_t mp);
+#define	cache_purgevfs spl_cache_purgevfs
 
 vfs_context_t vfs_context_kernel(void);
 vfs_context_t spl_vfs_context_kernel(void);

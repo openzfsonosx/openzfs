@@ -1288,15 +1288,15 @@ vmem_canalloc_atomic(vmem_t *vmp, size_t size)
 static inline uint64_t
 spl_vmem_xnu_useful_bytes_free(void)
 {
-	extern volatile unsigned int vm_page_free_wanted;
-	extern volatile unsigned int vm_page_free_count;
-	extern volatile unsigned int vm_page_free_min;
+	extern volatile unsigned int spl_vm_page_free_wanted;
+	extern volatile unsigned int spl_vm_page_free_count;
+	extern volatile unsigned int spl_vm_page_free_min;
 
-	if (vm_page_free_wanted > 0)
+	if (spl_vm_page_free_wanted > 0)
 		return (0);
 
-	uint64_t bytes_free = (uint64_t)vm_page_free_count * (uint64_t)PAGESIZE;
-	uint64_t bytes_min = (uint64_t)vm_page_free_min * (uint64_t)PAGESIZE;
+	uint64_t bytes_free = (uint64_t)spl_vm_page_free_count * (uint64_t)PAGESIZE;
+	uint64_t bytes_min = (uint64_t)spl_vm_page_free_min * (uint64_t)PAGESIZE;
 
 	if (bytes_free <= bytes_min)
 		return (0);
@@ -2604,7 +2604,7 @@ xnu_alloc_throttled(vmem_t *bvmp, size_t size, int vmflag)
 				vmem_bucket_wake_all_waiters();
 				return (a);
 			} else {
-				// Probably vm_page_free_count changed while
+				// Probably spl_vm_page_free_count changed while
 				// we were in the mutex queue in
 				// spl_vmem_malloc_if_no_pressure(). There is
 				// therefore no point in doing the bail-out
@@ -2670,7 +2670,7 @@ xnu_free_throttled(vmem_t *vmp, void *vaddr, size_t size)
 	// The osif_free() is not protected by the vmem_xnu_alloc_lock
 	// mutex; that is just used for implementing the delay.   Consequently,
 	// the waiters on the same lock in spl_vmem_malloc_if_no_pressure may
-	// falsely see too small a value for vm_page_free_count.   We don't
+	// falsely see too small a value for spl_vm_page_free_count.   We don't
 	// care in part because xnu performs poorly when doing
 	// free-then-allocate anwyay.
 

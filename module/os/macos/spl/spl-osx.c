@@ -44,8 +44,6 @@
 
 #include <sys/systeminfo.h>
 
-extern int system_inshutdown;
-
 static utsname_t utsname_static = { { 0 } };
 
 unsigned int max_ncpus = 0;
@@ -55,7 +53,8 @@ uint64_t  real_total_memory = 0;
 // Size in bytes of the memory allocated in seg_kmem
 extern uint64_t		segkmem_total_mem_allocated;
 
-extern char hostname[MAXHOSTNAMELEN];
+extern int bsd_hostname(char *, size_t, size_t *);
+static char spl_hostname[MAXHOSTNAMELEN];
 
 utsname_t *
 utsname(void)
@@ -112,10 +111,12 @@ spl_panicstr(void)
 	return (NULL);
 }
 
+extern int get_system_inshutdown(void);
+
 int
 spl_system_inshutdown(void)
 {
-	return (system_inshutdown);
+	return (get_system_inshutdown());
 }
 
 #include <mach-o/loader.h>
@@ -144,7 +145,7 @@ typedef struct _loaded_kext_summary_header {
     OSKextLoadedKextSummary summaries[0];
 } OSKextLoadedKextSummaryHeader;
 
-extern OSKextLoadedKextSummaryHeader * gLoadedKextSummaries;
+extern OSKextLoadedKextSummaryHeader *gLoadedKextSummaries;
 
 typedef struct _cframe_t {
 	struct _cframe_t	*prev;
@@ -242,8 +243,8 @@ panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
 static void
 panic_print_kmod_symbol_name(vm_address_t search)
 {
+#if 0	// gLoadedKextSummaries is no longer available
 	uint_t i;
-
 	if (gLoadedKextSummaries == NULL)
 		return;
 	for (i = 0; i < gLoadedKextSummaries->numSummaries; ++i) {
@@ -262,6 +263,7 @@ panic_print_kmod_symbol_name(vm_address_t search)
 			break;
 		}
 	}
+#endif
 }
 
 
@@ -302,11 +304,15 @@ spl_backtrace(char *thesignal)
 			printf("SPL: Unaligned frame\n");
 			break;
 		}
+#if 0
+		// no kvtophys() available now. Used to verify only?
+		// pmap_find_phys(kernel_pmap, curframep) ?
 		if (!kvtophys(curframep) ||
 		    !kvtophys(curframep + sizeof (cframe_t) - 1)) {
 			printf("SPL: No mapping exists for frame pointer\n");
 			break;
 		}
+#endif
 		printf("SPL: %p : 0x%lx ", frame, frame->caller);
 		panic_print_symbol_name((vm_address_t)frame->caller);
 		printf("\n");
@@ -337,10 +343,12 @@ getpcstack(uintptr_t *pcstack, int pcstack_limit)
 		if (curframep & 0x3) {
 			break;
 		}
+#if 0
 		if (!kvtophys(curframep) ||
 		    !kvtophys(curframep + sizeof (cframe_t) - 1)) {
 			break;
 		}
+#endif
 		pcstack[depth++] = frame->caller;
 		frame = frame->prev;
 	}
@@ -459,7 +467,10 @@ spl_start(kmod_info_t *ki, void *d)
 	len = sizeof (utsname_static.version);
 	sysctlbyname("kern.version", &utsname_static.version, &len, NULL, 0);
 
-	strlcpy(utsname_static.nodename, hostname,
+	strlcpy(spl_hostname, "noname", sizeof (spl_hostname));
+	bsd_hostname(spl_hostname, sizeof (spl_hostname), &len);
+
+	strlcpy(utsname_static.nodename, spl_hostname,
 	    sizeof (utsname_static.nodename));
 
 	spl_mutex_subsystem_init();

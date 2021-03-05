@@ -36,6 +36,7 @@
 
 #include <sys/taskq.h>
 
+
 int
 VOP_SPACE(struct vnode *vp, int cmd, struct flock *fl, int flags, offset_t off,
     cred_t *cr, void *ctx)
@@ -81,23 +82,28 @@ VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4)
 	return (error);
 }
 
-errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
-    struct componentname *, vfs_context_t);
+extern errno_t vnode_lookupat(const char *path, int flags, struct vnode **vpp,
+    vfs_context_t ctx, struct vnode *start_dvp);
 
 errno_t
-VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
+VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
     struct componentname *cn, vfs_context_t ct)
 {
-	return (VNOP_LOOKUP(vp, vpp, cn, ct));
+	return (vnode_lookupat(cn->cn_nameptr, 0, vpp, ct, dvp));
 }
 
-#undef VFS_ROOT
+extern struct vnode *vfs_vnodecovered(mount_t mp);
 
-extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
 int
-spl_vfs_root(mount_t mount, struct vnode **vp)
+spl_vfs_root(mount_t mount, struct vnode **vpp)
 {
-	return (VFS_ROOT(mount, vp, vfs_context_current()));
+	struct vnode *vp;
+	vp = vfs_vnodecovered(mount);
+	if (vp != NULL) {
+		*vpp = vp;
+		return (0);
+	}
+	return (-1);
 }
 
 void
@@ -365,21 +371,31 @@ spl_vfs_get_notify_attributes(struct vnode_attr *vap)
  * vnode_put() to release it
  */
 
-extern struct vnode *rootvnode;
-
 struct vnode *
 getrootdir(void)
 {
 	struct vnode *rvnode;
 
-	// Unfortunately, Apple's vfs_rootvnode() fails to check for
-	// NULL rootvp, and just panics. We aren't technically allowed to
-	// see rootvp, but in the interest of avoiding a panic...
-	if (rootvnode == NULL)
-		return (NULL);
-
 	rvnode = vfs_rootvnode();
 	if (rvnode)
 		vnode_put(rvnode);
 	return (rvnode);
+}
+
+
+static inline int
+spl_cache_purgevfs_impl(struct vnode *vp, void *arg)
+{
+	cache_purge(vp);
+	cache_purge_negatives(vp);
+	return (VNODE_RETURNED);
+}
+
+/*
+ * Apple won't let us call cache_purgevfs() so let's try to get
+ * as close as possible
+ */
+void spl_cache_purgevfs(mount_t mp)
+{
+	(void) vnode_iterate(mp, 0, spl_cache_purgevfs_impl, NULL);
 }
