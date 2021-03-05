@@ -45,9 +45,17 @@
 
 // Be aware that Apple defines "typedef struct vnode *vnode_t" and
 // ZFS uses "typedef struct vnode vnode_t".
+// uio and vnode wrappers can be removed now.
+// uio_t -> zfs_uio_t
+// vnode_t -> struct vnode (as it is only used in os/macos/
+// proc_t is to work around vn_rdwr( ..., proc_t p)
 #undef uio_t
 #undef vnode_t
+#undef proc_t
+#define	proc_t struct proc *
 #include_next <sys/vnode.h>
+#undef proc_t
+#define	proc_t struct proc
 #define	vnode_t struct vnode
 #define	uio_t struct uio
 
@@ -241,11 +249,8 @@ extern errno_t VOP_SYMLINK  (struct vnode *, struct vnode **,
 void spl_vnode_fini(void);
 int  spl_vnode_init(void);
 
-
-extern int spl_vfs_root(mount_t mount, struct vnode **vp);
-#define	VFS_ROOT(V, L, VP) spl_vfs_root((V), (VP))
-
-extern void cache_purgevfs(mount_t mp);
+extern void spl_cache_purgevfs(struct mount *mp);
+#define	cache_purgevfs spl_cache_purgevfs
 
 vfs_context_t vfs_context_kernel(void);
 vfs_context_t spl_vfs_context_kernel(void);

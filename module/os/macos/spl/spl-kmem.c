@@ -62,17 +62,17 @@
 // proxy to the machine experiencing memory pressure.
 //
 // xnu vm variables
+volatile unsigned int spl_vm_page_free_wanted = 0;
 
-// 0 by default smd
-extern volatile unsigned int vm_page_free_wanted;
+// 3500 kern.spl_vm_page_free_min, rarely changes
+unsigned int spl_vm_page_free_min = 3500;
 
-// 3500 kern.vm_page_free_min, rarely changes
-extern unsigned int vm_page_free_min;
+// will tend to spl_vm_page_free_min smd
+volatile unsigned int spl_vm_page_free_count = 4000;
 
-// will tend to vm_page_free_min smd
-extern volatile unsigned int vm_page_free_count;
+volatile unsigned int spl_vm_page_speculative_count = 4000;
 
-#define	SMALL_PRESSURE_INCURSION_PAGES (vm_page_free_min >> 5)
+#define	SMALL_PRESSURE_INCURSION_PAGES (spl_vm_page_free_min >> 5)
 
 static kcondvar_t spl_free_thread_cv;
 static kmutex_t spl_free_thread_lock;
@@ -1015,7 +1015,7 @@ kmem_log_enter(kmem_log_header_t *lhp, void *data, size_t size)
 {
 	void *logspace;
 
-	kmem_cpu_log_header_t *clhp = &lhp->lh_cpu[cpu_number()];
+	kmem_cpu_log_header_t *clhp = &lhp->lh_cpu[CPU_SEQID];
 
 	//    if (lhp == NULL || kmem_logging == 0 || panicstr)
 	if (lhp == NULL || kmem_logging == 0)
@@ -3255,10 +3255,10 @@ static inline bool
 spl_minimal_physmem_p_logic()
 {
 	// do we have enough memory to avoid throttling?
-	if (vm_page_free_wanted > 0)
+	if (spl_vm_page_free_wanted > 0)
 		return (false);
-	if (vm_page_free_count < (vm_page_free_min + 512))
-		// 512 pages above 3500 (normal vm_page_free_min)
+	if (spl_vm_page_free_count < (spl_vm_page_free_min + 512))
+		// 512 pages above 3500 (normal spl_vm_page_free_min)
 		// 2MiB above 13 MiB
 		return (false);
 	return (true);
@@ -4400,7 +4400,7 @@ spl_free_thread()
 	CALLB_CPR_INIT(&cpr, &spl_free_thread_lock, callb_generic_cpr, FTAG);
 
 	spl_free = (int64_t)PAGESIZE *
-	    (int64_t)(vm_page_free_count - vm_page_free_min);
+	    (int64_t)(spl_vm_page_free_count - spl_vm_page_free_min);
 
 	mutex_enter(&spl_free_thread_lock);
 
@@ -4529,10 +4529,10 @@ spl_free_thread()
 		 * is not very predictable, but generally it should be
 		 * taken seriously when it's positive (it is often falsely 0)
 		 */
-		if ((vm_page_free_wanted > 0 && reserve_low &&
+		if ((spl_vm_page_free_wanted > 0 && reserve_low &&
 		    !early_lots_free && !memory_equilibrium &&
-		    !just_alloced) || vm_page_free_wanted >= 1024) {
-			int64_t bminus = (int64_t)vm_page_free_wanted *
+		    !just_alloced) || spl_vm_page_free_wanted >= 1024) {
+			int64_t bminus = (int64_t)spl_vm_page_free_wanted *
 			    (int64_t)PAGESIZE * -16LL;
 			if (bminus > -16LL*1024LL*1024LL)
 				bminus = -16LL*1024LL*1024LL;
@@ -4545,14 +4545,16 @@ spl_free_thread()
 			previous_highest_pressure = spl_free_manual_pressure;
 			if (new_p > previous_highest_pressure || new_p <= 0) {
 				boolean_t fast = FALSE;
-				if (vm_page_free_wanted > vm_page_free_min / 8)
+				if (spl_vm_page_free_wanted >
+				    spl_vm_page_free_min / 8)
 					fast = TRUE;
 				spl_free_set_pressure_both(-16LL * new_spl_free,
 				    fast);
 			}
 			last_disequilibrium = time_now_seconds;
-		} else if (vm_page_free_wanted > 0) {
-			int64_t bytes_wanted = (int64_t)vm_page_free_wanted *
+		} else if (spl_vm_page_free_wanted > 0) {
+			int64_t bytes_wanted =
+			    (int64_t)spl_vm_page_free_wanted *
 			    (int64_t)PAGESIZE;
 			new_spl_free -= bytes_wanted;
 			if (reserve_low && !early_lots_free) {
@@ -4568,18 +4570,18 @@ spl_free_thread()
 
 		/*
 		 * these variables are reliably maintained by XNU
-		 * if vm_page_free_count > vm_page_free_min, then XNU
+		 * if spl_vm_page_free_count > spl_vm_page_free_min, then XNU
 		 * is scanning pages and we may want to try to free some memory
 		 */
-		int64_t above_min_free_pages = (int64_t)vm_page_free_count -
-		    (int64_t)vm_page_free_min;
+		int64_t above_min_free_pages = (int64_t)spl_vm_page_free_count -
+		    (int64_t)spl_vm_page_free_min;
 		int64_t above_min_free_bytes = (int64_t)PAGESIZE *
 		    above_min_free_pages;
 
 		/*
-		 * vm_page_free_min normally 3500, page free target
+		 * spl_vm_page_free_min normally 3500, page free target
 		 * normally 4000 but not exported so we are not scanning
-		 * if we are 500 pages above vm_page_free_min. even if
+		 * if we are 500 pages above spl_vm_page_free_min. even if
 		 * we're scanning we may have plenty of space in the
 		 * reserve arena, in which case we should not react too strongly
 		 */
@@ -4590,7 +4592,6 @@ spl_free_thread()
 			lowmem = true;
 		}
 
-		extern volatile unsigned int vm_page_speculative_count;
 		if ((above_min_free_bytes < 0LL && reserve_low &&
 		    !early_lots_free &&	!memory_equilibrium && !just_alloced) ||
 		    above_min_free_bytes <= -4LL*1024LL*1024LL) {
@@ -4600,9 +4601,10 @@ spl_free_thread()
 			lowmem = true;
 			recent_lowmem = time_now;
 			last_disequilibrium = time_now_seconds;
-			int64_t spec_bytes = (int64_t)vm_page_speculative_count
+			int64_t spec_bytes =
+			    (int64_t)spl_vm_page_speculative_count
 			    * (int64_t)PAGESIZE;
-			if (vm_page_free_wanted > 0 || new_p > spec_bytes) {
+			if (spl_vm_page_free_wanted > 0 || new_p > spec_bytes) {
 				// force a stronger reaction from ARC if we are
 				// also low on speculative pages (xnu prefetched
 				// file blocks with no clients yet)
@@ -4674,19 +4676,21 @@ spl_free_thread()
 			spl_free_fast_pressure = FALSE;
 		}
 
-		if (vm_page_speculative_count > 0) {
+		if (spl_vm_page_speculative_count > 0) {
 			/*
 			 * speculative memory can be squeezed a bit; it is
 			 * file blocks that have been prefetched by xnu but
 			 * are not (yet) in use by any consumer
 			 */
-			if (vm_page_speculative_count / 4 + vm_page_free_count >
-			    vm_page_free_min) {
+			if (spl_vm_page_speculative_count / 4 +
+			    spl_vm_page_free_count >
+			    spl_vm_page_free_min) {
 				emergency_lowmem = false;
 				spl_free_fast_pressure = FALSE;
 			}
-			if (vm_page_speculative_count / 2 + vm_page_free_count >
-			    vm_page_free_min) {
+			if (spl_vm_page_speculative_count / 2 +
+			    spl_vm_page_free_count >
+			    spl_vm_page_free_min) {
 				lowmem = false;
 				spl_free_fast_pressure = FALSE;
 			}

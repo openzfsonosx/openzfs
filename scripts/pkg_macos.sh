@@ -135,7 +135,6 @@ bindir=$(dirname "$file")
 popd || fail "failed to popd"
 
 codesign_dirs="
-${WORKDIR}/Library/Extensions/zfs.kext/Contents/PlugIns/KernelExports.kext/
 ${WORKDIR}/Library/Extensions/zfs.kext/
 "
 codesign_files="
@@ -152,7 +151,7 @@ ${WORKDIR}/${bindir}/zfs_ids_to_path
 ${WORKDIR}/${bindir}/InvariantDisks
 ${WORKDIR}/${bindir}/zfs_util
 ${WORKDIR}/${bindir}/zconfigd
-${WORKDIR}/${bindir}/zpool_influxdb
+${WORKDIR}/${prefix}/libexec/zfs/zpool_influxdb
 ${WORKDIR}/${prefix}/lib/libnvpair.a
 ${WORKDIR}/${prefix}/lib/libuutil.a
 ${WORKDIR}/${prefix}/lib/libzfs.a
@@ -180,6 +179,8 @@ function fail
 function do_unlock
 {
     cert=$1
+
+    echo "Looking for certificate ${cert} ..."
 
     keychain=$(security find-certificate -c "${cert}" | awk '{if ($1 == "keychain:") print $2;}'|tr -d '"')
 
@@ -273,7 +274,7 @@ function do_prune
 function copy_fix_libraries
 {
     echo "Fixing external libraries ... "
-    fixlib=$(otool -L ${codesign_files} | grep '/usr/local/opt/' |awk '{print $1;}' | grep '\.dylib$' | sort | uniq)
+    fixlib=$(otool -L ${codesign_files} | egrep '/usr/local/opt/|/opt/local/lib/' |awk '{print $1;}' | grep '\.dylib$' | sort | uniq)
 
     # Add the libs into codesign list - both to be codesigned, and updated
     # between themselves (libssl depends on libcrypt)
@@ -359,6 +360,7 @@ do_prune
 
 if [ -n "$fix_libraries" ]; then
     copy_fix_libraries
+    copy_fix_libraries
 fi
 
 if [ -n "$PKG_CODESIGN_KEY" ]; then
@@ -374,6 +376,7 @@ sign=()
 if [ -n "$PKG_INSTALL_KEY" ]; then
     do_unlock "${PKG_INSTALL_KEY}"
     #sign=(--sign "$PKG_INSTALL_KEY" --keychain "$retval" --keychain ~/Library/Keychains/login.keychain-db)
+    echo sign=--sign "$PKG_INSTALL_KEY" --keychain "$retval"
     sign=(--sign "$PKG_INSTALL_KEY" --keychain "$retval")
 fi
 

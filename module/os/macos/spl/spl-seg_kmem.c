@@ -26,10 +26,6 @@
 
 #include <sys/vmem.h>
 #include <sys/vmem_impl.h>
-// ugly: smd
-#ifdef kmem_free
-#undef kmem_free
-#endif
 
 #include <sys/time.h>
 #include <sys/timer.h>
@@ -109,16 +105,20 @@ typedef uint8_t vm_tag_t;
  */
 #define	SPL_TAG 6
 
+
+
+
 /*
  * In kernel lowlevel form of malloc.
  */
-extern kern_return_t kernel_memory_allocate(vm_map_t map, void **addrp,
-    vm_size_t size, vm_offset_t mask, int flags, vm_tag_t tag);
+void *IOMalloc(vm_size_t size);
+void *IOMallocAligned(vm_size_t size, vm_offset_t alignment);
 
 /*
  * Free memory
  */
-extern void kmem_free(vm_map_t map, void *addr, vm_size_t size);
+void IOFree(void *address, vm_size_t size);
+void IOFreeAligned(void * address, vm_size_t size);
 
 #endif /* _KERNEL */
 
@@ -154,16 +154,42 @@ void *
 osif_malloc(uint64_t size)
 {
 #ifdef _KERNEL
-	void *tr;
+	// vm_offset_t tr = NULL;
+	void *tr = NULL;
+	kern_return_t kr = -1;
 
-	kern_return_t kr = kernel_memory_allocate(kernel_map,
-	    &tr, size, PAGESIZE, 0, SPL_TAG);
+	// kern_return_t kr = kmem_alloc(kernel_map, &tr, size);
+	// tr = IOMalloc(size);
+
+	/*
+	 * align small allocations on PAGESIZE
+	 * and larger ones on the enclosing power of two
+	 * but drop to PAGESIZE for huge allocations
+	 */
+	uint64_t align = PAGESIZE;
+	if (size > PAGESIZE && !ISP2(size) && size < UINT32_MAX) {
+		uint64_t v = size;
+		v--;
+		v |= v >> 1;
+		v |= v >> 2;
+		v |= v >> 4;
+		v |= v >> 8;
+		v |= v >> 16;
+		v++;
+		align = v;
+	} else if (size > PAGESIZE && ISP2(size)) {
+		align = size;
+	}
+
+	tr = IOMallocAligned(size, MAX(PAGESIZE, align));
+	if (tr != NULL)
+		kr = KERN_SUCCESS;
 
 	if (kr == KERN_SUCCESS) {
 		atomic_inc_64(&stat_osif_malloc_success);
 		atomic_add_64(&segkmem_total_mem_allocated, size);
 		atomic_add_64(&stat_osif_malloc_bytes, size);
-		return (tr);
+		return ((void *)tr);
 	} else {
 		// well, this can't really happen, kernel_memory_allocate
 		// would panic instead
@@ -175,10 +201,10 @@ osif_malloc(uint64_t size)
 }
 
 void
-osif_free(void* buf, uint64_t size)
+osif_free(void *buf, uint64_t size)
 {
 #ifdef _KERNEL
-	kmem_free(kernel_map, buf, size);
+	IOFreeAligned(buf, size);
 	atomic_inc_64(&stat_osif_free);
 	atomic_sub_64(&segkmem_total_mem_allocated, size);
 	atomic_add_64(&stat_osif_free_bytes, size);

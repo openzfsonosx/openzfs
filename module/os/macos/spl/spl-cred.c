@@ -107,19 +107,15 @@ extern int kauth_cred_getgroups(kauth_cred_t _cred, gid_t *_groups,
  * Unfortunately, to get the count of groups, we have to call XNU which
  * memcpy's them over. No real clean way to get around that, but at least
  * these calls are done sparingly.
+ * dsl_deleg.c: dsl_check_user_access() loops the gid the user is in
+ * to call dsl_check_access(gid) to see if "zfs allow" matches.
+ * If we can iterate the gids saved in mos, and test with
+ * kauth_cred_ismember_gid() the equivalent can be achieved.
+ * However, "zfs allow" does not yet work of macOS.
  */
 int
 crgetngroups(const cred_t *cr)
 {
-	gid_t gids[NGROUPS];
-	int count = NGROUPS;
-	int ret;
-
-	ret = kauth_cred_getgroups((kauth_cred_t)cr, gids, &count);
-
-	if (!ret)
-		return (count);
-
 	return (0);
 }
 
@@ -132,16 +128,7 @@ crgetngroups(const cred_t *cr)
 gid_t *
 crgetgroups(const cred_t *cr)
 {
-	gid_t *gids;
-	int count = NGROUPS;
-
-	gids = kmem_zalloc(sizeof (gid_t) * count, KM_SLEEP);
-	if (!gids)
-		return (NULL);
-
-	kauth_cred_getgroups((kauth_cred_t)cr, gids, &count);
-
-	return (gids);
+	return (NULL);
 }
 
 void

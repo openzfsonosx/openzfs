@@ -98,6 +98,8 @@ libzfs_la_LIBADD += -lutil -lgeom
 endif
 
 if BUILD_MACOS
+libzfs_la_LIBADD += \
+	$(abs_top_builddir)/lib/os/macos/libdiskmgt/libdiskmgt.la
 libzfs_la_LDFLAGS += -framework IOKit -lssl
 endif
 

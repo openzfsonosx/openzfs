@@ -36,6 +36,7 @@
 
 #include <sys/taskq.h>
 
+
 int
 VOP_SPACE(struct vnode *vp, int cmd, struct flock *fl, int flags, offset_t off,
     cred_t *cr, void *ctx)
@@ -81,23 +82,42 @@ VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4)
 	return (error);
 }
 
-errno_t VNOP_LOOKUP(struct vnode *, struct vnode **,
-    struct componentname *, vfs_context_t);
+extern errno_t vnode_lookup(const char *path, int flags, struct vnode **vpp,
+    vfs_context_t ctx);
+
+extern errno_t vnode_lookupat(const char *path, int flags, struct vnode **vpp,
+    vfs_context_t ctx, struct vnode *start_dvp);
 
 errno_t
-VOP_LOOKUP(struct vnode *vp, struct vnode **vpp,
+VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
     struct componentname *cn, vfs_context_t ct)
 {
-	return (VNOP_LOOKUP(vp, vpp, cn, ct));
-}
+	char path[MAXPATHLEN];
+	char *lookup_name = cn->cn_nameptr;
 
-#undef VFS_ROOT
+	/*
+	 * Lookup a name, to get vnode.
+	 * If dvp is NULL, and it uses full path, just call vnode_lookup().
+	 * If dvp is supplied, we need to build path (vnode_lookupat() is
+	 * private.exports)
+	 * However, VOP_LOOKUP() is only used by OSX calls, finder and rename.
+	 * We could re-write that code to use /absolute/path.
+	 */
+	if (dvp != NULL) {
+		int result, len;
 
-extern int VFS_ROOT(mount_t, struct vnode **, vfs_context_t);
-int
-spl_vfs_root(mount_t mount, struct vnode **vp)
-{
-	return (VFS_ROOT(mount, vp, vfs_context_current()));
+		len = MAXPATHLEN;
+		result = vn_getpath(dvp, path, &len);
+		if (result != 0)
+			return (result);
+
+		strlcat(path, "/", MAXPATHLEN);
+		strlcat(path, cn->cn_nameptr, MAXPATHLEN);
+
+		lookup_name = path;
+	}
+
+	return (vnode_lookup(lookup_name, 0, vpp, ct));
 }
 
 void
@@ -163,10 +183,7 @@ getf(int fd)
 	if (!sfp)
 		return (NULL);
 
-	if (fp_lookup(current_proc(), fd, &fp, 0 /* !locked */)) {
-		kmem_free(sfp, sizeof (*sfp));
-		return (NULL);
-	}
+	/* We no longer use fp */
 
 	dprintf("current_proc %p: fd %d fp %p vp %p\n", current_proc(),
 	    fd, fp, vp);
@@ -223,11 +240,6 @@ releasef(int fd)
 	if (!fp)
 		return; // Not found
 
-	if (fp->f_writes)
-		fp_drop_written(p, fd, fp->f_fp, 0 /* !locked */);
-	else
-		fp_drop(p, fd, fp->f_fp, 0 /* !locked */);
-
 	/* Remove node from the list */
 	mutex_enter(&spl_getf_lock);
 	list_remove(&spl_getf_list, fp);
@@ -240,37 +252,26 @@ releasef(int fd)
 /*
  * getf()/releasef() IO handler.
  */
+#undef vn_rdwr
+extern int vn_rdwr(enum uio_rw rw, struct vnode *vp, caddr_t base, int len,
+	off_t offset, enum uio_seg segflg, int ioflg, kauth_cred_t cred,
+	int *aresid, struct proc *p);
+
 int spl_vn_rdwr(enum uio_rw rw,	struct spl_fileproc *sfp,
     caddr_t base, ssize_t len, offset_t offset, enum uio_seg seg,
     int ioflag, rlim64_t ulimit, cred_t *cr, ssize_t *residp)
 {
-	uio_t *auio;
-	int spacetype;
 	int error = 0;
-	vfs_context_t vctx;
+	int aresid;
 
-	spacetype = UIO_SEG_IS_USER_SPACE(seg) ? UIO_USERSPACE32 : UIO_SYSSPACE;
+	VERIFY3P(sfp->f_vnode, !=, NULL);
 
-	vctx = vfs_context_create((vfs_context_t)0);
-	auio = uio_create(1, 0, spacetype, rw);
-	uio_reset(auio, offset, spacetype, rw);
-	uio_addiov(auio, (uint64_t)(uintptr_t)base, len);
-
-	if (rw == UIO_READ) {
-		error = fo_read(sfp->f_fp, auio, ioflag, vctx);
-	} else {
-		error = fo_write(sfp->f_fp, auio, ioflag, vctx);
-	}
+	error = vn_rdwr(rw, sfp->f_vnode, base, len, offset, seg, ioflag,
+	    cr, &aresid, sfp->f_proc);
 
 	if (residp) {
-		*residp = uio_resid(auio);
-	} else {
-		if (uio_resid(auio) && error == 0)
-			error = EIO;
+		*residp = aresid;
 	}
-
-	uio_free(auio);
-	vfs_context_rele(vctx);
 
 	return (error);
 }
@@ -328,7 +329,7 @@ vn_rele_async(struct vnode *vp, void *taskq)
 vfs_context_t
 spl_vfs_context_kernel(void)
 {
-	return (vfs_context_kernel());
+	return (NULL);
 }
 
 #undef build_path
@@ -338,7 +339,13 @@ extern int build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
 int spl_build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
     int flags, vfs_context_t ctx)
 {
-	return (build_path(vp, buff, buflen, outlen, flags, ctx));
+	// Private.exports
+	// return (build_path(vp, buff, buflen, outlen, flags, ctx));
+	printf("%s: missing implementation. All will fail.\n", __func__);
+
+	buff[0] = 0;
+	*outlen = 0;
+	return (0);
 }
 
 /*
@@ -365,21 +372,48 @@ spl_vfs_get_notify_attributes(struct vnode_attr *vap)
  * vnode_put() to release it
  */
 
-extern struct vnode *rootvnode;
-
 struct vnode *
 getrootdir(void)
 {
 	struct vnode *rvnode;
 
-	// Unfortunately, Apple's vfs_rootvnode() fails to check for
-	// NULL rootvp, and just panics. We aren't technically allowed to
-	// see rootvp, but in the interest of avoiding a panic...
-	if (rootvnode == NULL)
-		return (NULL);
-
 	rvnode = vfs_rootvnode();
 	if (rvnode)
 		vnode_put(rvnode);
 	return (rvnode);
+}
+
+
+static inline int
+spl_cache_purgevfs_impl(struct vnode *vp, void *arg)
+{
+	cache_purge(vp);
+	cache_purge_negatives(vp);
+	return (VNODE_RETURNED);
+}
+
+/*
+ * Apple won't let us call cache_purgevfs() so let's try to get
+ * as close as possible
+ */
+void
+spl_cache_purgevfs(mount_t mp)
+{
+	(void) vnode_iterate(mp, 0, spl_cache_purgevfs_impl, NULL);
+}
+
+/* Gross hacks - find solutions */
+
+/*
+ * Sorry, but this is gross. But unable to find a way around it yet..
+ * Maybe one day Apple will allow it.
+ */
+int
+vnode_iocount(struct vnode *vp)
+{
+	int32_t *binvp;
+
+	binvp = (int32_t *)vp;
+
+	return (binvp[25]);
 }

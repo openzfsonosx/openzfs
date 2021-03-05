@@ -1464,6 +1464,42 @@ zfs_ereport_snapshot_post(const char *subclass, spa_t *spa, const char *name)
 	/* Cleanup is handled by the callback function */
 	zfs_zevent_post(ereport, detector, zfs_zevent_post_cb);
 }
+
+void
+zfs_ereport_zvol_post(const char *subclass, const char *name, const char *bsd,
+    const char *rbsd)
+{
+	nvlist_t *ereport = NULL;
+	nvlist_t *detector = NULL;
+	char *r;
+	spa_t *spa;
+	boolean_t has_lock = B_FALSE;
+
+	has_lock = mutex_owned(&spa_namespace_lock);
+	if (!has_lock) mutex_enter(&spa_namespace_lock);
+    spa = spa_lookup(name);
+	if (!has_lock) mutex_exit(&spa_namespace_lock);
+    if (!spa)
+		return;
+
+	zfs_ereport_start(&ereport, &detector,
+	    subclass, spa, NULL, NULL, NULL, 0, 0);
+
+	if (ereport == NULL)
+		return;
+
+	VERIFY0(nvlist_add_string(ereport, "BSD_disk", bsd));
+	VERIFY0(nvlist_add_string(ereport, "BSD_rdisk", rbsd));
+
+	r = strchr(name, '/');
+	if (r && r[1]) {
+		VERIFY0(nvlist_add_string(ereport, "DATASET", &r[1]));
+	}
+
+	/* Cleanup is handled by the callback function */
+	zfs_zevent_post(ereport, detector, zfs_zevent_post_cb);
+}
+
 #endif
 
 #if defined(_KERNEL)

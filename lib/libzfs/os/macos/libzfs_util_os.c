@@ -43,6 +43,7 @@
 #include "zfs_prop.h"
 #include <libzutil.h>
 #include <sys/zfs_sysfs.h>
+#include <libdiskmgt.h>
 
 #define	ZDIFF_SHARESDIR		"/.zfs/shares/"
 
@@ -164,6 +165,10 @@ libzfs_load_module_impl(const char *module)
 int
 libzfs_load_module(void)
 {
+
+	// Using this as a libzfs_init_os() - we should probably do it properly
+	libdiskmgt_init();
+
 	return (libzfs_load_module_impl(ZFS_DRIVER));
 }
 
@@ -376,7 +381,17 @@ struct pipe2file {
 };
 typedef struct pipe2file pipe2file_t;
 
-#include <poll.h>
+// #define	VERBOSE_WRAPFD
+static int pipe_relay_readfd = -1;
+static int pipe_relay_writefd = -1;
+static int pipe_relay_send;
+static volatile int signal_received = 0;
+static int pipe_relay_pid = 0;
+
+static void pipe_io_relay_intr(int signum)
+{
+	signal_received = 1;
+}
 
 static void *
 pipe_io_relay(void *arg)
@@ -400,32 +415,68 @@ pipe_io_relay(void *arg)
 		size = sizeof (space);
 	}
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: thread up: read(%d) write(%d)\r\n", __func__,
 	    readfd, writefd);
+#endif
+
+	/*
+	 * If ^C is hit, we must close the fds in the correct order, or
+	 * we deadlock. So we need to install a signal handler, let's be
+	 * nice and check if one is installed, and chain them in.
+	 */
+	struct sigaction sa;
+	sigset_t blocked;
+
+	/* Process: Ignore SIGINT */
+
+	sigemptyset(&blocked);
+	sigaddset(&blocked, SIGINT);
+	sigaddset(&blocked, SIGPIPE);
+	sigprocmask(SIG_SETMASK, &blocked, NULL);
+
+	sa.sa_handler = pipe_io_relay_intr;
+	sa.sa_mask = blocked;
+	sa.sa_flags = 0;
+
+	sigaction(SIGINT, &sa, NULL);
+
+	errno = 0;
 
 	for (;;) {
 
 		red = read(readfd, buffer, size);
-		// fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
-		//	readfd, red, errno);
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
+		    readfd, red, errno);
+#endif
 		if (red == 0)
 			break;
 		if (red < 0 && errno != EWOULDBLOCK)
 			break;
+
 		sent = write(writefd, buffer, red);
-		// fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
-		//	writefd, sent, errno);
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
+		    writefd, sent, errno);
+#endif
 		if (sent < 0)
 			break;
+
+		if (signal_received) {
+#ifdef VERBOSE_WRAPFD
+			fprintf(stderr, "sigint handler - exit\r\n");
+#endif
+			break;
+		}
+
 		total += red;
 	}
 
-	/*
-	 * It seems unlikely that this code is ever reached, as the process
-	 * calls exit() when done, and this thread is terminated.
-	 */
 
-	fprintf(stderr, "loop exit\r\n");
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "loop exit (closing)\r\n");
+#endif
 
 	close(readfd);
 	close(writefd);
@@ -433,26 +484,33 @@ pipe_io_relay(void *arg)
 	if (buffer != space)
 		free(buffer);
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: thread done: %llu bytes\r\n", __func__, total);
+#endif
+
 	return (NULL);
 }
 
 /*
  * XNU only lets us do IO on vnodes, not pipes, so create a Unix
  * Domain socket, open it to get a vnode for the kernel, and spawn
- * thread to relay IO.
+ * thread to relay IO. As used by sendrecv, we are given a FD it wants
+ * to send to the kernel, and we'll replace it with the pipe FD instead.
+ * If pipe/fork already exists, use same descriptors. (multiple send/recv)
  */
 void
 libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 {
 	char template[100];
-	int readfd = -1;
-	int writefd = -1;
 	int error;
 	struct stat sb;
 	pipe2file_t *p2f = NULL;
 
+	pipe_relay_send = send;
+
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: checking if we need pipe wrap\r\n", __func__);
+#endif
 
 	// Check if it is a pipe
 	error = fstat(*srcfd, &sb);
@@ -463,68 +521,87 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 	if (!S_ISFIFO(sb.st_mode))
 		return;
 
+	if (pipe_relay_pid != 0) {
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: pipe relay already started ... \r\n",
+		    __func__);
+#endif
+		if (send) {
+			*srcfd = pipe_relay_writefd;
+		} else {
+			*srcfd = pipe_relay_readfd;
+		}
+		return;
+	}
+
 	p2f = (pipe2file_t *)malloc(sizeof (pipe2file_t));
 	if (p2f == NULL)
 		return;
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: is pipe: work on fd %d\r\n", __func__, *srcfd);
-
+#endif
 	snprintf(template, sizeof (template), "/tmp/.zfs.pipe.XXXXXX");
 
 	mktemp(template);
 
 	mkfifo(template, 0600);
 
-	readfd = open(template, O_RDONLY | O_NONBLOCK);
+	pipe_relay_readfd = open(template, O_RDONLY | O_NONBLOCK);
 
-	fprintf(stderr, "%s: readfd %d (%d)\r\n", __func__, readfd, error);
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: pipe_relay_readfd %d (%d)\r\n", __func__,
+	    pipe_relay_readfd, error);
+#endif
 
-	writefd = open(template, O_WRONLY | O_NONBLOCK);
+	pipe_relay_writefd = open(template, O_WRONLY | O_NONBLOCK);
 
-	fprintf(stderr, "%s: writefd %d (%d)\r\n", __func__, writefd, error);
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: pipe_relay_writefd %d (%d)\r\n", __func__,
+	    pipe_relay_writefd, error);
+#endif
 
 	// set it to delete
 	unlink(template);
 
 	// Check delayed so unlink() is always called.
-	if (readfd < 0)
+	if (pipe_relay_readfd < 0)
 		goto out;
-	if (writefd < 0)
+	if (pipe_relay_writefd < 0)
 		goto out;
 
 	/* Open needs NONBLOCK, so switch back to BLOCK */
 	int flags;
-	flags = fcntl(readfd, F_GETFL);
+	flags = fcntl(pipe_relay_readfd, F_GETFL);
 	flags &= ~O_NONBLOCK;
-	fcntl(readfd, F_SETFL, flags);
-	flags = fcntl(writefd, F_GETFL);
+	fcntl(pipe_relay_readfd, F_SETFL, flags);
+	flags = fcntl(pipe_relay_writefd, F_GETFL);
 	flags &= ~O_NONBLOCK;
-	fcntl(writefd, F_SETFL, flags);
+	fcntl(pipe_relay_writefd, F_SETFL, flags);
 
 	// create IO thread
-
 	// Send, kernel was to be given *srcfd - to write to.
-	// Instead we give it writefd.
-	// thread then uses read(readfd) -> write(*srcfd)
+	// Instead we give it pipe_relay_writefd.
+	// thread then uses read(pipe_relay_readfd) -> write(*srcfd)
 	if (send) {
-		p2f->from = readfd;
+		p2f->from = pipe_relay_readfd;
 		p2f->to = *srcfd;
 	} else {
 		p2f->from = *srcfd;
-		p2f->to = writefd;
+		p2f->to = pipe_relay_writefd;
 	}
-	fprintf(stderr, "%s: spawning thread\r\n", __func__);
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: forking\r\n", __func__);
+#endif
 
-	// pthread kills all threads on exit, and pipe_io_relay may not
-	// have fully completed.
 	error = fork();
 	if (error == 0) {
 
 		// Close the fd we don't need
 		if (send)
-			close(writefd);
+			close(pipe_relay_writefd);
 		else
-			close(readfd);
+			close(pipe_relay_readfd);
 
 		setsid();
 		pipe_io_relay(p2f);
@@ -534,13 +611,15 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 	if (error < 0)
 		goto out;
 
+	pipe_relay_pid = error;
+
 	// Return open(file) fd to kernel only after all error cases
 	if (send) {
-		*srcfd = writefd;
-		close(readfd);
+		*srcfd = pipe_relay_writefd;
+		close(pipe_relay_readfd);
 	} else {
-		*srcfd = readfd;
-		close(writefd);
+		*srcfd = pipe_relay_readfd;
+		close(pipe_relay_writefd);
 	}
 	return;
 
@@ -548,11 +627,77 @@ out:
 	if (p2f != NULL)
 		free(p2f);
 
-	if (readfd >= 0)
-		close(readfd);
+	if (pipe_relay_readfd >= 0)
+		close(pipe_relay_readfd);
 
-	if (writefd >= 0)
-		close(writefd);
+	if (pipe_relay_writefd >= 0)
+		close(pipe_relay_writefd);
+}
+
+/*
+ * libzfs_diff uses pipe() to make 2 connected FDs,
+ * one is passed to kernel, and the other end it creates
+ * a thread to relay IO (to STDOUT).
+ * We can not do IO on anything by vnode opened FDs, so
+ * we'll use mkfifo, and open it twice, the WRONLY side
+ * is passed to kernel (now it is a vnode), and other other
+ * is used in the "differ" thread.
+ */
+int
+libzfs_macos_pipefd(int *read_fd, int *write_fd)
+{
+	char template[100];
+
+	snprintf(template, sizeof (template), "/tmp/.zfs.diff.XXXXXX");
+	mktemp(template);
+
+	if (mkfifo(template, 0600))
+		return (-1);
+
+	*read_fd = open(template, O_RDONLY | O_NONBLOCK);
+
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: readfd %d\r\n", __func__,
+	    *read_fd);
+#endif
+	if (*read_fd < 0) {
+		unlink(template);
+		return (-1);
+	}
+
+	*write_fd = open(template, O_WRONLY | O_NONBLOCK);
+
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: writefd %d\r\n", __func__,
+	    *write_fd);
+#endif
+
+	// set it to delete
+	unlink(template);
+
+	if (*write_fd < 0) {
+		close(*read_fd);
+		return (-1);
+	}
+
+	/* Open needs NONBLOCK, so switch back to BLOCK */
+	int flags;
+	flags = fcntl(*read_fd, F_GETFL);
+	flags &= ~O_NONBLOCK;
+	fcntl(*read_fd, F_SETFL, flags);
+	flags = fcntl(*write_fd, F_GETFL);
+	flags &= ~O_NONBLOCK;
+	fcntl(*write_fd, F_SETFL, flags);
+
+
+	return (0);
+
+}
+
+
+void
+libzfs_macos_wrapclose(void)
+{
 }
 
 void

@@ -51,7 +51,12 @@
 #include "libzfs_impl.h"
 #include <thread_pool.h>
 #include <sys/sysctl.h>
+#include <libzutil.h>
+#include <libdiskmgt.h>
 
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
 
 /*
  * The default OpenZFS icon. Compare against known values to see if it needs
@@ -481,4 +486,149 @@ zfs_snapshot_unmount(zfs_handle_t *zhp, int flags)
 	free(mountpoint);
 
 	return (ret);
+}
+
+static int
+do_unmount_volume(const char *mntpt, int flags)
+{
+	char force_opt[] = "force";
+	char *argv[7] = {
+	    "/usr/sbin/diskutil",
+	    NULL, NULL, NULL, NULL };
+	int rc, count = 1;
+
+	// Check if ends with "s1" partition
+	int idx = strlen(mntpt);
+	while (idx > 0 &&
+	    isdigit(mntpt[idx]))
+		idx--;
+	if (mntpt[idx] == 's')
+		argv[count++] = "unmount";
+	else
+		argv[count++] = "unmountDisk";
+
+	if (flags & MS_FORCE) {
+		argv[count] = force_opt;
+		count++;
+	}
+
+	argv[count] = (char *)mntpt;
+	rc = libzfs_run_process(argv[0], argv, STDOUT_VERBOSE|STDERR_VERBOSE);
+
+	return (rc ? EINVAL : 0);
+}
+
+static void
+zpool_disable_volume(const char *name)
+{
+	CFMutableDictionaryRef matching = 0;
+	char *fullname = NULL;
+	int result;
+	io_service_t service = 0;
+	io_service_t child;
+	char bsdstr[MAXPATHLEN];
+	char bsdstr2[MAXPATHLEN];
+	CFStringRef bsdname;
+	CFStringRef bsdname2;
+	io_iterator_t iter;
+
+	printf("Exporting '%s'\n", name);
+
+	if (asprintf(&fullname, "ZVOL %s Media", name) < 0)
+		return;
+
+	matching = IOServiceNameMatching(fullname);
+	if (matching == 0)
+		goto out;
+	service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+	if (service == 0)
+		goto out;
+	// printf("GetMatching said %p\n", service);
+
+	// Get BSDName?
+	bsdname = IORegistryEntryCreateCFProperty(service,
+	    CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+	if (bsdname &&
+	    CFStringGetCString(bsdname, bsdstr, sizeof (bsdstr),
+	    kCFStringEncodingUTF8)) {
+		// printf("BSDName '%s'\n", bsdstr);
+
+		// Now loop through and check if apfs has any synthesized
+		// garbage attached, as they didnt make "diskutil unmountdisk"
+		// handle it, we have to do it manually. (minus 1 apple!)
+
+		result = IORegistryEntryCreateIterator(service,
+		    kIOServicePlane,
+		    kIORegistryIterateRecursively,
+		    &iter);
+
+		// printf("iterating ret %d \n", result);
+		if (result == 0) {
+			while ((child = IOIteratorNext(iter)) != 0) {
+
+				bsdname2 = IORegistryEntryCreateCFProperty(
+				    child, CFSTR(kIOBSDNameKey),
+				    kCFAllocatorDefault, 0);
+
+				if (bsdname2 &&
+				    CFStringGetCString(bsdname2, bsdstr2,
+				    sizeof (bsdstr2), kCFStringEncodingUTF8)) {
+					CFRelease(bsdname2);
+					printf(
+					    "... asking apfs to eject '%s'\n",
+					    bsdstr2);
+					do_unmount_volume(bsdstr2, 0);
+
+				} // Has BSDName?
+
+				IOObjectRelease(child);
+			}
+			IOObjectRelease(iter);
+		} // iterate
+
+		CFRelease(bsdname);
+		printf("... asking ZVOL to export '%s'\n", bsdstr);
+		do_unmount_volume(bsdstr, 0);
+	}
+
+out:
+	if (service != 0)
+		IOObjectRelease(service);
+	if (fullname != NULL)
+		free(fullname);
+
+	printf("%s: exit\n", __func__);
+}
+
+static int
+zpool_disable_volumes(zfs_handle_t *nzhp, void *data)
+{
+	// Same pool?
+	if (nzhp && nzhp->zpool_hdl && zpool_get_name(nzhp->zpool_hdl) &&
+	    data &&
+	    strcmp(zpool_get_name(nzhp->zpool_hdl), (char *)data) == 0) {
+		if (zfs_get_type(nzhp) == ZFS_TYPE_VOLUME) {
+			/*
+			 *      /var/run/zfs/zvol/dsk/$POOL/$volume
+			 */
+
+			zpool_disable_volume(zfs_get_name(nzhp));
+
+		}
+	}
+	(void) zfs_iter_children(nzhp, zpool_disable_volumes, data);
+	zfs_close(nzhp);
+	return (0);
+}
+
+/*
+ * Since volumes can be mounted, we need to ask diskutil to unmountdisk
+ * to make sure Spotlight and all that, let go of the mount.
+ */
+void
+zpool_disable_datasets_os(zpool_handle_t *zhp, boolean_t force)
+{
+	libzfs_handle_t *hdl = zhp->zpool_hdl;
+
+	zfs_iter_root(hdl, zpool_disable_volumes, (void *)zpool_get_name(zhp));
 }

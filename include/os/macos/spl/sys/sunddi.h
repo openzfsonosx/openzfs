@@ -173,8 +173,9 @@ static inline long ddi_fls(long mask) {			\
 	/* Algorithm courtesy of Steve Chessin. */	\
     while (mask) {					\
 		long nx;				\
-		if ((nx = (mask & (mask - 1))) == 0)	\
+		if ((nx = (mask & (mask - 1))) == 0) {	\
 			break;				\
+		}                                       \
 		mask = nx;				\
 	}						\
 	return (ffs(mask));				\

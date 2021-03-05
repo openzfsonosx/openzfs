@@ -159,9 +159,9 @@ atomic_dec(atomic_t *v)
 	return (__sync_fetch_and_add(&v->counter, -1) - 1);
 }
 
-extern void kx_qsort(void *array, size_t nm, size_t member_size,
+extern void spl_qsort(void *array, size_t nm, size_t member_size,
     int (*cmpf)(const void *, const void *));
-#define	qsort kx_qsort
+#define	qsort spl_qsort
 
 #define	strstr kmem_strstr
 

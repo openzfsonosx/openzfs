@@ -27,6 +27,11 @@ libspl_la_LDFLAGS= \
 	-lkmod \
 	-lcc_kext
 
+if TARGET_CPU_AARCH64
+libspl_la_CPPFLAGS+=-arch arm64e
+libspl_la_LDFLAGS+=-arch arm64e
+endif
+
 libspl_la_LIBS = -lnone
 
 # If we don't set this to nothing, it adds "-lz -liconv"
@@ -38,6 +43,7 @@ libspl_la_SOURCES = 	\
 	spl-atomic.c \
 	spl-condvar.c \
 	spl-cred.c \
+	spl-debug.c \
 	spl-ddi.c \
 	spl-err.c \
 	spl-kmem.c \
@@ -49,6 +55,7 @@ libspl_la_SOURCES = 	\
 	spl-proc.c \
 	spl-processor.c \
 	spl-proc_list.c \
+	spl-qsort.c \
 	spl-rwlock.c \
 	spl-seg_kmem.c \
 	spl-taskq.c \

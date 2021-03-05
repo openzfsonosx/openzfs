@@ -178,6 +178,7 @@ zfs_findernotify_callback(mount_t mp, __unused void *arg)
 	if (vsf->f_fssubtype == MNTTYPE_ZFS_SUBTYPE) {
 		vfs_context_t kernelctx = spl_vfs_context_kernel();
 		struct vnode *rootvp, *vp;
+		znode_t *zp = NULL;
 
 		/*
 		 * Since potentially other filesystems could be using "our"
@@ -226,7 +227,9 @@ zfs_findernotify_callback(mount_t mp, __unused void *arg)
 		dprintf("ZFS: findernotify %p space delta %llu\n", mp, delta);
 
 		// Grab the root zp
-		if (!VFS_ROOT(mp, 0, &rootvp)) {
+		if (zfs_zget(zfsvfs, zfsvfs->z_root, &zp) == 0) {
+
+			rootvp = ZTOV(zp);
 
 			struct componentname cn;
 			char *tmpname = ".fseventsd";
@@ -634,8 +637,11 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 				    &file_vp, (vfs_context_t)ct))) {
 					goto out;
 				}
-				error = build_path(file_vp, bufptr, MAXPATHLEN,
-				    &outlen, flags, (vfs_context_t)ct);
+
+				error = spl_build_path(file_vp, bufptr,
+				    MAXPATHLEN, &outlen, flags,
+				    (vfs_context_t)ct);
+
 				vnode_put(file_vp);
 
 				dprintf("ZFS: HFS_GETPATH done %d : '%s'\n",
@@ -1786,7 +1792,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 {
 	DECLARE_CRED(ap);
 	vattr_t *vap = ap->a_vap;
-	uint_t mask = vap->va_mask;
+	uint_t mask;
 	int error = 0;
 	znode_t *zp = VTOZ(ap->a_vp);
 
@@ -1825,10 +1831,16 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 			zfs_setattr_set_documentid(zp, B_FALSE);
 		}
 
+#ifndef DECMPFS_XATTR_NAME
+#define	DECMPFS_XATTR_NAME "com.apple.decmpfs"
+#endif
+
 		/* If they are trying to turn on compression.. */
 		if (vap->va_flags & UF_COMPRESSED) {
 			zp->z_skip_truncate_undo_decmpfs = B_TRUE;
 			dprintf("setattr trying to set COMPRESSED!\n");
+			/* We return failure here, stops libarchive */
+			return (SET_ERROR(ENOTSUP));
 		}
 		/* Map OS X file flags to zfs file flags */
 		zfs_setbsdflags(zp, vap->va_flags);
@@ -1846,9 +1858,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	 * because we can not stop (no error, or !feature works) macOS from
 	 * using decmpfs.
 	 */
-#ifndef DECMPFS_XATTR_NAME
-#define	DECMPFS_XATTR_NAME "com.apple.decmpfs"
-#endif
 	if ((VATTR_IS_ACTIVE(vap, va_total_size) ||
 	    VATTR_IS_ACTIVE(vap, va_data_size)) &&
 	    zp->z_skip_truncate_undo_decmpfs) {
@@ -1900,6 +1909,17 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 			VATTR_SET_SUPPORTED(vap, va_flags);
 		}
 
+		/*
+		 * If we are told to ignore owners, we scribble over the uid
+		 * and gid here unless root.
+		 */
+		if (((unsigned int)vfs_flags(zp->z_zfsvfs->z_vfs)) &
+		    MNT_IGNORE_OWNERSHIP) {
+			if (kauth_cred_getuid(cr) != 0) {
+				vap->va_uid = UNKNOWNUID;
+				vap->va_gid = UNKNOWNGID;
+			}
+		}
 	}
 
 #if 1
@@ -3371,7 +3391,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	struct componentname cn = { 0 };
 	int  error = 0;
 	int size = 0;
-	uint64_t resid = uio ? zfs_uio_resid(uio) : 0;
+	uint64_t resid = ap->a_uio ? zfs_uio_resid(uio) : 0;
 	znode_t *xdzp = NULL, *xzp = NULL;
 
 	dprintf("+getxattr vp %p: '%s'\n", ap->a_vp, ap->a_name);
@@ -3396,10 +3416,12 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			rw_enter(&zp->z_xattr_lock, RW_READER);
 			size = zpl_xattr_get_sa(vp, ap->a_name, NULL, 0);
 			rw_exit(&zp->z_xattr_lock);
-			if (size > 0) {
+			if (size > 0 && ap->a_size != NULL) {
 				*ap->a_size = size;
-				goto out;
 			}
+			if (size < 0)
+				error = -size;
+			goto out;
 		}
 
 		if (resid) {
@@ -3408,8 +3430,13 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			size = zpl_xattr_get_sa(vp, ap->a_name, value, resid);
 			rw_exit(&zp->z_xattr_lock);
 
+			if (size < 0) {
+				error = -size;
+				goto out;
+			}
+
 			/* Finderinfo checks */
-			if (!error && resid &&
+			if (resid &&
 				bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 					sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 
@@ -3463,7 +3490,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	 * If we are dealing with FinderInfo, we duplicate the UIO first
 	 * so that we can uiomove to/from it to modify contents.
 	 */
-	if (!error && uio &&
+	if (!error &&
 	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 	    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 		ssize_t local_resid;
@@ -3515,7 +3542,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 	/* If NOT finderinfo */
 
-	if (uio == NULL) {
+	if (ap->a_uio == NULL) {
 
 		/* Query xattr size. */
 		if (ap->a_size) {
@@ -3529,7 +3556,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		/* Read xattr */
 		error = zfs_read(xzp, uio, 0, cr);
 
-		if (ap->a_size && uio) {
+		if (ap->a_size && ap->a_uio) {
 			*ap->a_size = (size_t)resid - zfs_uio_resid(uio);
 		}
 
@@ -3684,13 +3711,12 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		goto out;
 
 	/* Write the attribute data. */
-	ASSERT(uio != NULL);
 
 	/* OsX setxattr() replaces xattrs */
 	error = zfs_freesp(VTOZ(xvp), 0, 0, VTOZ(vp)->z_mode, TRUE);
 
 	/* Special case for Finderinfo */
-	if (!error && uio &&
+	if (!error &&
 	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 	    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 
@@ -3938,10 +3964,13 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 		    NULL) {
 			ASSERT3U(nvpair_type(nvp), ==, DATA_TYPE_BYTE_ARRAY);
 
+			if (xattr_protected(nvpair_name(nvp)))
+				continue;	 /* skip */
+
 			namelen = strlen(nvpair_name(nvp)) + 1; /* Null byte */
 
 			/* Just checking for space requirements? */
-			if (uio == NULL) {
+			if (ap->a_uio == NULL) {
 				size += namelen;
 			} else {
 				if (namelen > zfs_uio_resid(uio)) {
@@ -3996,7 +4025,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 			nameptr = &za.za_name[0];
 		}
 		++namelen;  /* account for NULL termination byte */
-		if (uio == NULL) {
+		if (ap->a_uio == NULL) {
 			size += namelen;
 		} else {
 			if (namelen > zfs_uio_resid(uio)) {
@@ -4011,7 +4040,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 	}
 	zap_cursor_fini(&zc);
 out:
-	if (uio == NULL) {
+	if (ap->a_uio == NULL) {
 		*ap->a_size = size;
 	}
 	if (xdzp) {

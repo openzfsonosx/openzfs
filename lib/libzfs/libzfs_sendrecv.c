@@ -1759,6 +1759,11 @@ zfs_send_resume_impl(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 			}
 		}
 
+#if defined(__APPLE__)
+		/* Can't do IO on pipes, possibly wrap fd in domain socket */
+		libzfs_macos_wrapfd(&outfd, B_TRUE);
+#endif
+
 		error = lzc_send_resume_redacted(zhp->zfs_name, fromname, outfd,
 		    lzc_flags, resumeobj, resumeoff, redact_book);
 		if (redact_book != NULL)
@@ -5020,6 +5025,11 @@ zfs_receive_impl(libzfs_handle_t *hdl, const char *tosnap,
 		    "(%s) does not exist"), originsnap);
 		return (zfs_error(hdl, EZFS_NOENT, errbuf));
 	}
+
+#if defined(__APPLE__)
+	/* Can't do IO on pipes, possibly wrap fd in domain socket */
+	libzfs_macos_wrapfd(&infd, B_FALSE);
+#endif
 
 	/* read in the BEGIN record */
 	if (0 != (err = recv_read(hdl, infd, &drr, sizeof (drr), B_FALSE,

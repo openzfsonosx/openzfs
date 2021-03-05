@@ -39,6 +39,7 @@
 #include <sys/zvol.h>
 #include <sys/zvol_impl.h>
 #include <sys/zvol_os.h>
+#include <sys/fm/fs/zfs.h>
 
 static uint32_t zvol_major = ZVOL_MAJOR;
 
@@ -228,9 +229,11 @@ zvol_os_register_device_cb(void *param)
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
 
+	zvol_os_verify_lock_exit(zv, locks);
+
+	/* This is a bit racy? */
 	zvolRegisterDevice(zv);
 
-	zvol_os_verify_lock_exit(zv, locks);
 }
 
 int
@@ -255,7 +258,6 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	boolean_t sync;
 	uint64_t offset = 0;
 	uint64_t bytes;
-	uint64_t off;
 
 	if (zv == NULL)
 		return (ENXIO);
@@ -303,19 +305,26 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	while (count > 0 && (position + offset) < volsize) {
 		/* bytes for this segment */
 		bytes = MIN(count, DMU_MAX_ACCESS >> 1);
-		off = offset;
 		dmu_tx_t *tx = dmu_tx_create(zv->zv_objset);
 
 		/* don't write past the end */
-		if (bytes > volsize - (position + off))
-			bytes = volsize - (position + off);
+		if (bytes > volsize - (position + offset))
+			bytes = volsize - (position + offset);
 
-		dmu_tx_hold_write_by_dnode(tx, zv->zv_dn, off, bytes);
+		dmu_tx_hold_write_by_dnode(tx, zv->zv_dn, position+offset,
+		    bytes);
 		error = dmu_tx_assign(tx, TXG_WAIT);
 		if (error) {
 			dmu_tx_abort(tx);
 			break;
 		}
+
+		/*
+		 * offset and bytes are mutated by dmu_write_iokit_dnode,
+		 * save them for zvol_log_write if the call succeeds
+		 */
+		uint64_t save_offset = offset;
+		uint64_t save_bytes = bytes;
 
 		error = dmu_write_iokit_dnode(zv->zv_dn, &offset,
 		    position, &bytes, iomem, tx);
@@ -323,7 +332,8 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 		if (error == 0) {
 			count -= MIN(count,
 			    (DMU_MAX_ACCESS >> 1)) + bytes;
-			zvol_log_write(zv, tx, offset, bytes, sync);
+			zvol_log_write(zv, tx, position+save_offset, save_bytes,
+			    sync);
 		}
 		dmu_tx_commit(tx);
 
@@ -505,10 +515,13 @@ zvol_os_clear_private(zvol_state_t *zv)
 	void *term;
 
 	dprintf("%s\n", __func__);
+
 	/* We can do all removal work, except call terminate. */
 	term = zvolRemoveDevice(zv->zv_zso->zvo_iokitdev);
 	if (term == NULL)
 		return;
+
+	zvol_remove_symlink(zv);
 
 	zv->zv_zso->zvo_iokitdev = NULL;
 
@@ -719,6 +732,10 @@ static void zvol_os_rename_device_cb(void *param)
 	int locks;
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
+
+	zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname + 1,
+	    zv->zv_zso->zvo_bsdname);
+
 	zvol_os_verify_lock_exit(zv, locks);
 	zvolRenameDevice(zv);
 }
@@ -730,6 +747,8 @@ zvol_os_rename_minor(zvol_state_t *zv, const char *newname)
 
 	ASSERT(RW_LOCK_HELD(&zvol_state_lock));
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
+
+	zvol_remove_symlink(zv);
 
 	strlcpy(zv->zv_name, newname, sizeof (zv->zv_name));
 
@@ -1089,4 +1108,40 @@ zvol_fini(void)
 {
 	zvol_fini_impl();
 	taskq_destroy(zvol_taskq);
+}
+
+
+
+/*
+ * Due to OS X limitations in /dev, we create a symlink for "/dev/zvol" to
+ * "/var/run/zfs" (if we can) and for each pool, create the traditional
+ * ZFS Volume symlinks.
+ *
+ * Ie, for ZVOL $POOL/$VOLUME
+ * BSDName /dev/disk2 /dev/rdisk2
+ * /dev/zvol -> /var/run/zfs
+ * /var/run/zfs/zvol/dsk/$POOL/$VOLUME -> /dev/disk2
+ * /var/run/zfs/zvol/rdsk/$POOL/$VOLUME -> /dev/rdisk2
+ *
+ * Note, we do not create symlinks for the partitioned slices.
+ *
+ */
+
+void
+zvol_add_symlink(zvol_state_t *zv, const char *bsd_disk, const char *bsd_rdisk)
+{
+	zfs_ereport_zvol_post(FM_EREPORT_ZVOL_CREATE_SYMLINK,
+	    zv->zv_name, bsd_disk, bsd_rdisk);
+}
+
+
+void
+zvol_remove_symlink(zvol_state_t *zv)
+{
+	if (!zv || !zv->zv_name[0])
+		return;
+
+	zfs_ereport_zvol_post(FM_EREPORT_ZVOL_REMOVE_SYMLINK,
+	    zv->zv_name, &zv->zv_zso->zvo_bsdname[1],
+	    zv->zv_zso->zvo_bsdname);
 }

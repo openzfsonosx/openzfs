@@ -1,6 +1,7 @@
 include $(top_srcdir)/config/Rules.am
 
 AUTOMAKE_OPTIONS = subdir-objects
+AM_LIBTOOLFLAGS += --tag=CXX
 
 DEFAULT_INCLUDES += \
 	-I$(top_srcdir)/include
