@@ -116,7 +116,8 @@ extern int get_system_inshutdown(void);
 int
 spl_system_inshutdown(void)
 {
-	return (get_system_inshutdown());
+	// return (get_system_inshutdown());
+	return (1);
 }
 
 #include <mach-o/loader.h>
@@ -271,11 +272,13 @@ static void
 panic_print_symbol_name(vm_address_t search)
 {
 	/* try searching in the kernel */
+#if 0
 	if (panic_print_macho_symbol_name(&_mh_execute_header,
 	    search, "mach_kernel") == 0) {
 		/* that failed, now try to search for the right kext */
 		panic_print_kmod_symbol_name(search);
 	}
+#endif
 }
 
 

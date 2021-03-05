@@ -45,9 +45,17 @@
 
 // Be aware that Apple defines "typedef struct vnode *vnode_t" and
 // ZFS uses "typedef struct vnode vnode_t".
+// uio and vnode wrappers can be removed now.
+// uio_t -> zfs_uio_t
+// vnode_t -> struct vnode (as it is only used in os/macos/
+// proc_t is to work around vn_rdwr( ..., proc_t p)
 #undef uio_t
 #undef vnode_t
+#undef proc_t
+#define	proc_t struct proc *
 #include_next <sys/vnode.h>
+#undef proc_t
+#define proc_t struct proc
 #define	vnode_t struct vnode
 #define	uio_t struct uio
 

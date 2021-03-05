@@ -169,10 +169,7 @@ getf(int fd)
 	if (!sfp)
 		return (NULL);
 
-	if (fp_lookup(current_proc(), fd, &fp, 0 /* !locked */)) {
-		kmem_free(sfp, sizeof (*sfp));
-		return (NULL);
-	}
+	/* We no longer use fp */
 
 	dprintf("current_proc %p: fd %d fp %p vp %p\n", current_proc(),
 	    fd, fp, vp);
@@ -229,11 +226,6 @@ releasef(int fd)
 	if (!fp)
 		return; // Not found
 
-	if (fp->f_writes)
-		fp_drop_written(p, fd, fp->f_fp, 0 /* !locked */);
-	else
-		fp_drop(p, fd, fp->f_fp, 0 /* !locked */);
-
 	/* Remove node from the list */
 	mutex_enter(&spl_getf_lock);
 	list_remove(&spl_getf_list, fp);
@@ -250,33 +242,21 @@ int spl_vn_rdwr(enum uio_rw rw,	struct spl_fileproc *sfp,
     caddr_t base, ssize_t len, offset_t offset, enum uio_seg seg,
     int ioflag, rlim64_t ulimit, cred_t *cr, ssize_t *residp)
 {
-	uio_t *auio;
-	int spacetype;
 	int error = 0;
-	vfs_context_t vctx;
+	int aresid;
 
-	spacetype = UIO_SEG_IS_USER_SPACE(seg) ? UIO_USERSPACE32 : UIO_SYSSPACE;
+	VERIFY3P(sfp->f_vnode, !=, NULL);
+#undef vn_rdwr
+extern int vn_rdwr(enum uio_rw rw, struct vnode *vp, caddr_t base, int len,
+    off_t offset, enum uio_seg segflg, int ioflg, kauth_cred_t cred,
+	int *aresid, struct proc *p);
 
-	vctx = vfs_context_create((vfs_context_t)0);
-	auio = uio_create(1, 0, spacetype, rw);
-	uio_reset(auio, offset, spacetype, rw);
-	uio_addiov(auio, (uint64_t)(uintptr_t)base, len);
-
-	if (rw == UIO_READ) {
-		error = fo_read(sfp->f_fp, auio, ioflag, vctx);
-	} else {
-		error = fo_write(sfp->f_fp, auio, ioflag, vctx);
-	}
+	error = vn_rdwr(rw, sfp->f_vnode, base, len, offset, seg, ioflag,
+		cr, &aresid, sfp->f_proc);
 
 	if (residp) {
-		*residp = uio_resid(auio);
-	} else {
-		if (uio_resid(auio) && error == 0)
-			error = EIO;
+		*residp = aresid;
 	}
-
-	uio_free(auio);
-	vfs_context_rele(vctx);
 
 	return (error);
 }
