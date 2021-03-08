@@ -471,7 +471,8 @@ spl_start(kmod_info_t *ki, void *d)
 	sysctlbyname("kern.version", &utsname_static.version, &len, NULL, 0);
 
 	strlcpy(spl_hostname, "noname", sizeof (spl_hostname));
-	bsd_hostname(spl_hostname, sizeof (spl_hostname), &len);
+	// Private.exports
+	// bsd_hostname(spl_hostname, sizeof (spl_hostname), &len);
 
 	strlcpy(utsname_static.nodename, spl_hostname,
 	    sizeof (utsname_static.nodename));

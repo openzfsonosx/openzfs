@@ -92,20 +92,6 @@ VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
 	return (vnode_lookupat(cn->cn_nameptr, 0, vpp, ct, dvp));
 }
 
-extern struct vnode *vfs_vnodecovered(mount_t mp);
-
-int
-spl_vfs_root(mount_t mount, struct vnode **vpp)
-{
-	struct vnode *vp;
-	vp = vfs_vnodecovered(mount);
-	if (vp != NULL) {
-		*vpp = vp;
-		return (0);
-	}
-	return (-1);
-}
-
 void
 vfs_mountedfrom(struct mount *vfsp, char *osname)
 {
@@ -324,7 +310,13 @@ extern int build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
 int spl_build_path(struct vnode *vp, char *buff, int buflen, int *outlen,
     int flags, vfs_context_t ctx)
 {
-	return (build_path(vp, buff, buflen, outlen, flags, ctx));
+	// Private.exports
+	// return (build_path(vp, buff, buflen, outlen, flags, ctx));
+	printf("%s: missing implementation. All will fail.\n", __func__);
+
+	buff[0] = 0;
+	*outlen = 0;
+	return (0);
 }
 
 /*
@@ -375,7 +367,24 @@ spl_cache_purgevfs_impl(struct vnode *vp, void *arg)
  * Apple won't let us call cache_purgevfs() so let's try to get
  * as close as possible
  */
-void spl_cache_purgevfs(mount_t mp)
+void
+spl_cache_purgevfs(mount_t mp)
 {
 	(void) vnode_iterate(mp, 0, spl_cache_purgevfs_impl, NULL);
+}
+
+/* Gross hacks - find solutions */
+
+/*
+ * Sorry, but this is gross. But unable to find a way around it yet..
+ * Maybe one day Apple will allow it.
+ */
+int
+vnode_iocount(struct vnode *vp)
+{
+	int32_t *binvp;
+
+	binvp = (int32_t *)vp;
+
+	return (binvp[0x64]);
 }
