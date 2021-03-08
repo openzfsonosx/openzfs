@@ -82,6 +82,9 @@ VOP_GETATTR(struct vnode *vp, vattr_t *vap, int flags, void *x3, void *x4)
 	return (error);
 }
 
+extern errno_t vnode_lookup(const char *path, int flags, struct vnode **vpp,
+    vfs_context_t ctx);
+
 extern errno_t vnode_lookupat(const char *path, int flags, struct vnode **vpp,
     vfs_context_t ctx, struct vnode *start_dvp);
 
@@ -89,7 +92,20 @@ errno_t
 VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
     struct componentname *cn, vfs_context_t ct)
 {
-	return (vnode_lookupat(cn->cn_nameptr, 0, vpp, ct, dvp));
+	/*
+	 * Lookup a name, to get vnode.
+	 * If dvp is NULL, and it uses full path, just call vnode_lookup().
+	 * If dvp is supplied, we need to build path (vnode_lookupat() is
+	 * private.exports) - by calling getattr(name), and vnode_getparent()
+	 * until root.
+	 * However, VOP_LOOKUP() is only used by OSX calls, finder and rename.
+	 * We could re-write that code to use /absolute/path.
+	 */
+	if (dvp == NULL) {
+		return (vnode_lookup(cn->cn_nameptr, 0, vpp, ct));
+	}
+	printf("%s: Missing implementation, will break.\n", __func__);
+	return (-1);
 }
 
 void
@@ -300,7 +316,7 @@ vn_rele_async(struct vnode *vp, void *taskq)
 vfs_context_t
 spl_vfs_context_kernel(void)
 {
-	return (vfs_context_kernel());
+	return (NULL);
 }
 
 #undef build_path
