@@ -406,15 +406,15 @@ pipe_io_relay(void *arg)
 	for (;;) {
 
 		red = read(readfd, buffer, size);
-		// fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
-		//	readfd, red, errno);
+		 fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
+			readfd, red, errno);
 		if (red == 0)
 			break;
 		if (red < 0 && errno != EWOULDBLOCK)
 			break;
 		sent = write(writefd, buffer, red);
-		// fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
-		//	writefd, sent, errno);
+		 fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
+			writefd, sent, errno);
 		if (sent < 0)
 			break;
 		total += red;
@@ -427,8 +427,8 @@ pipe_io_relay(void *arg)
 
 	fprintf(stderr, "loop exit\r\n");
 
-	close(readfd);
-	close(writefd);
+//	close(readfd);
+//	close(writefd);
 
 	if (buffer != space)
 		free(buffer);
@@ -437,22 +437,30 @@ pipe_io_relay(void *arg)
 	return (NULL);
 }
 
+// #define	VERBOSE_WRAPFD
+static pthread_t pipe_relay_tid = 0;
+static int pipe_relay_readfd = -1;
+static int pipe_relay_writefd = -1;
+static int pipe_relay_send;
 /*
  * XNU only lets us do IO on vnodes, not pipes, so create a Unix
  * Domain socket, open it to get a vnode for the kernel, and spawn
  * thread to relay IO.
+ * If pipe already exists, use same descriptors.
  */
 void
 libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 {
 	char template[100];
-	int readfd = -1;
-	int writefd = -1;
 	int error;
 	struct stat sb;
 	pipe2file_t *p2f = NULL;
 
+	pipe_relay_send = send;
+
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: checking if we need pipe wrap\r\n", __func__);
+#endif
 
 	// Check if it is a pipe
 	error = fstat(*srcfd, &sb);
@@ -463,84 +471,90 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 	if (!S_ISFIFO(sb.st_mode))
 		return;
 
+	if (pipe_relay_tid != 0) {
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: pipe relay already started ... \r\n", __func__);
+#endif
+		if (send) {
+			*srcfd = pipe_relay_writefd;
+		} else {
+			*srcfd = pipe_relay_readfd;
+		}
+		return;
+	}
+
 	p2f = (pipe2file_t *)malloc(sizeof (pipe2file_t));
 	if (p2f == NULL)
 		return;
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: is pipe: work on fd %d\r\n", __func__, *srcfd);
-
+#endif
 	snprintf(template, sizeof (template), "/tmp/.zfs.pipe.XXXXXX");
 
 	mktemp(template);
 
 	mkfifo(template, 0600);
 
-	readfd = open(template, O_RDONLY | O_NONBLOCK);
+	pipe_relay_readfd = open(template, O_RDONLY | O_NONBLOCK);
 
-	fprintf(stderr, "%s: readfd %d (%d)\r\n", __func__, readfd, error);
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: pipe_relay_readfd %d (%d)\r\n", __func__, pipe_relay_readfd, error);
+#endif
 
-	writefd = open(template, O_WRONLY | O_NONBLOCK);
+	pipe_relay_writefd = open(template, O_WRONLY | O_NONBLOCK);
 
-	fprintf(stderr, "%s: writefd %d (%d)\r\n", __func__, writefd, error);
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: pipe_relay_writefd %d (%d)\r\n", __func__, pipe_relay_writefd, error);
+#endif
 
 	// set it to delete
 	unlink(template);
 
 	// Check delayed so unlink() is always called.
-	if (readfd < 0)
+	if (pipe_relay_readfd < 0)
 		goto out;
-	if (writefd < 0)
+	if (pipe_relay_writefd < 0)
 		goto out;
 
 	/* Open needs NONBLOCK, so switch back to BLOCK */
 	int flags;
-	flags = fcntl(readfd, F_GETFL);
+	flags = fcntl(pipe_relay_readfd, F_GETFL);
 	flags &= ~O_NONBLOCK;
-	fcntl(readfd, F_SETFL, flags);
-	flags = fcntl(writefd, F_GETFL);
+	fcntl(pipe_relay_readfd, F_SETFL, flags);
+	flags = fcntl(pipe_relay_writefd, F_GETFL);
 	flags &= ~O_NONBLOCK;
-	fcntl(writefd, F_SETFL, flags);
+	fcntl(pipe_relay_writefd, F_SETFL, flags);
 
 	// create IO thread
-
 	// Send, kernel was to be given *srcfd - to write to.
-	// Instead we give it writefd.
-	// thread then uses read(readfd) -> write(*srcfd)
+	// Instead we give it pipe_relay_writefd.
+	// thread then uses read(pipe_relay_readfd) -> write(*srcfd)
 	if (send) {
-		p2f->from = readfd;
+		p2f->from = pipe_relay_readfd;
 		p2f->to = *srcfd;
 	} else {
 		p2f->from = *srcfd;
-		p2f->to = writefd;
+		p2f->to = pipe_relay_writefd;
 	}
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: spawning thread\r\n", __func__);
+#endif
 
-	// pthread kills all threads on exit, and pipe_io_relay may not
-	// have fully completed.
-	error = fork();
-	if (error == 0) {
-
-		// Close the fd we don't need
-		if (send)
-			close(writefd);
-		else
-			close(readfd);
-
-		setsid();
-		pipe_io_relay(p2f);
-		_exit(0);
-	}
-
-	if (error < 0)
+	if ((error = pthread_create(&pipe_relay_tid, NULL,
+				pipe_io_relay, p2f)) != 0) {
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: unable to create relay pipe (%d)\r\n",
+		    __func__, error);
+#endif
 		goto out;
+	}
 
 	// Return open(file) fd to kernel only after all error cases
 	if (send) {
-		*srcfd = writefd;
-		close(readfd);
+		*srcfd = pipe_relay_writefd;
 	} else {
-		*srcfd = readfd;
-		close(writefd);
+		*srcfd = pipe_relay_readfd;
 	}
 	return;
 
@@ -548,11 +562,36 @@ out:
 	if (p2f != NULL)
 		free(p2f);
 
-	if (readfd >= 0)
-		close(readfd);
+	if (pipe_relay_readfd >= 0)
+		close(pipe_relay_readfd);
 
-	if (writefd >= 0)
-		close(writefd);
+	if (pipe_relay_writefd >= 0)
+		close(pipe_relay_writefd);
+}
+
+void
+libzfs_macos_wrapclose(void)
+{
+	void *status = NULL;
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: waiting for pipe relay thread\r\n", __func__);
+#endif
+	if (pipe_relay_tid != 0) {
+		if (pipe_relay_send) {
+			close(pipe_relay_writefd);
+			close(pipe_relay_readfd);
+		} else {
+			close(pipe_relay_readfd);
+			close(pipe_relay_writefd);
+		}
+		pthread_cancel(pipe_relay_tid);
+		pthread_join(pipe_relay_tid, &status);
+		pipe_relay_tid = 0;
+	}
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: waited for pipe relay thread: status %d\r\n",
+	    __func__, (int)(uintptr_t)status);
+#endif
 }
 
 void

@@ -2288,6 +2288,10 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 			return (zfs_standard_error(zhp->zfs_hdl, err, errbuf));
 	}
 
+#if defined(__APPLE__)
+	libzfs_macos_wrapclose();
+#endif
+
 	return (err || sdd.err);
 
 stderr_out:
@@ -2577,6 +2581,9 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 		}
 	}
 
+#if defined(__APPLE__)
+	libzfs_macos_wrapclose();
+#endif
 	return (err != 0);
 }
 
@@ -5021,6 +5028,11 @@ zfs_receive_impl(libzfs_handle_t *hdl, const char *tosnap,
 		return (zfs_error(hdl, EZFS_NOENT, errbuf));
 	}
 
+#if defined(__APPLE__)
+	/* Can't do IO on pipes, possibly wrap fd in domain socket */
+	libzfs_macos_wrapfd(&infd, B_FALSE);
+#endif
+
 	/* read in the BEGIN record */
 	if (0 != (err = recv_read(hdl, infd, &drr, sizeof (drr), B_FALSE,
 	    &zcksum)))
@@ -5185,6 +5197,10 @@ zfs_receive(libzfs_handle_t *hdl, const char *tosnap, nvlist_t *props,
 out:
 	if (top_zfs)
 		free(top_zfs);
+
+#if defined(__APPLE__)
+	libzfs_macos_wrapclose();
+#endif
 
 	return (err);
 }

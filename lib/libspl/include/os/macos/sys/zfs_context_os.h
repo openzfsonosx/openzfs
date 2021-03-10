@@ -37,5 +37,6 @@ struct zfs_handle;
 
 extern void zfs_rollback_os(struct zfs_handle *zhp);
 extern void libzfs_macos_wrapfd(int *srcfd, boolean_t send);
+extern void libzfs_macos_wrapclose(void);
 
 #endif
