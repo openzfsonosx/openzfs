@@ -402,5 +402,5 @@ vnode_iocount(struct vnode *vp)
 
 	binvp = (int32_t *)vp;
 
-	return (binvp[0x64]);
+	return (binvp[25]);
 }
