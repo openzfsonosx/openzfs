@@ -83,6 +83,9 @@ typedef struct kmutex {
 	void		*m_owner;
 	wrapper_mutex_t	m_lock;
 
+	uint64_t m_waiters;
+	uint64_t m_sleepers;
+
 #ifdef SPL_DEBUG_MUTEX
 	void		*leak;
 	uint64_t	m_initialised;

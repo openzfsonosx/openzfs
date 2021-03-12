@@ -97,11 +97,26 @@ spl_cv_wait(kcondvar_t *cvp, kmutex_t *mp, int flags, const char *msg)
 	spl_wdlist_settime(mp->leak, 0);
 #endif
 	mp->m_owner = NULL;
+	atomic_inc_64(&mp->m_sleepers);
 	result = msleep(cvp, (lck_mtx_t *)&mp->m_lock, flags, msg, 0);
+	atomic_dec_64(&mp->m_sleepers);
 	mp->m_owner = current_thread();
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, gethrestime_sec());
 #endif
+
+	/*
+	 * If already signalled, XNU never releases mutex, so
+	 * do so manually if we know there are threads waiting.
+	 * Avoids a starvation in bqueue_dequeue().
+	 * Does timedwait() versions need the same?
+	 */
+	if (result == EINTR &&
+		(mp->m_waiters > 0 || mp->m_sleepers > 0)) {
+		mutex_exit(mp);
+		(void) thread_block(THREAD_CONTINUE_NULL);
+		mutex_enter(mp);
+	}
 
 	/*
 	 * 1 - condvar got cv_signal()/cv_broadcast()
@@ -147,9 +162,10 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 #endif
 
 	mp->m_owner = NULL;
+	atomic_inc_64(&mp->m_sleepers);
 	result = msleep(cvp, (lck_mtx_t *)&mp->m_lock, flags, msg, &ts);
+	atomic_dec_64(&mp->m_sleepers);
 
-	/* msleep grabs the mutex, even if timeout/signal */
 	mp->m_owner = current_thread();
 
 #ifdef SPL_DEBUG_MUTEX
@@ -162,7 +178,7 @@ spl_cv_timedwait(kcondvar_t *cvp, kmutex_t *mp, clock_t tim, int flags,
 		case ERESTART:
 			return (0);
 
-		case EWOULDBLOCK:	/* Timeout */
+		case EWOULDBLOCK:	/* Timeout: EAGAIN */
 			return (-1);
 	}
 
@@ -211,8 +227,10 @@ cv_timedwait_hires(kcondvar_t *cvp, kmutex_t *mp, hrtime_t tim,
 #endif
 
 	mp->m_owner = NULL;
+	atomic_inc_64(&mp->m_sleepers);
 	result = msleep(cvp, (lck_mtx_t *)&mp->m_lock,
 	    flag, "cv_timedwait_hires", &ts);
+	atomic_dec_64(&mp->m_sleepers);
 	mp->m_owner = current_thread();
 #ifdef SPL_DEBUG_MUTEX
 	spl_wdlist_settime(mp->leak, gethrestime_sec());

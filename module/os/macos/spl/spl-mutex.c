@@ -240,6 +240,8 @@ spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type, void *ibc)
 
 	lck_mtx_init((lck_mtx_t *)&mp->m_lock, zfs_mutex_group, zfs_lock_attr);
     mp->m_owner = NULL;
+	mp->m_waiters = 0;
+	mp->m_sleepers = 0;
 
 	atomic_inc_64(&zfs_active_mutex);
 
@@ -324,7 +326,9 @@ spl_mutex_enter(kmutex_t *mp)
 	}
 #endif
 
+	atomic_inc_64(&mp->m_waiters);
     lck_mtx_lock((lck_mtx_t *)&mp->m_lock);
+	atomic_dec_64(&mp->m_waiters);
     mp->m_owner = current_thread();
 
 #ifdef SPL_DEBUG_MUTEX
@@ -384,7 +388,9 @@ spl_mutex_tryenter(kmutex_t *mp)
 	if (mp->m_owner == current_thread())
 		panic("mutex_tryenter: locking against myself!");
 
+	atomic_inc_64(&mp->m_waiters);
 	held = lck_mtx_try_lock((lck_mtx_t *)&mp->m_lock);
+	atomic_dec_64(&mp->m_waiters);
 	if (held) {
 		mp->m_owner = current_thread();
 
