@@ -29,6 +29,8 @@
 #include <sys/errno.h>
 #include <sys/callb.h>
 
+extern wait_result_t thread_block(thread_continue_t continuation);
+
 /*
  * cv_timedwait() is similar to cv_wait() except that it additionally expects
  * a timeout value specified in ticks.  When woken by cv_signal() or
