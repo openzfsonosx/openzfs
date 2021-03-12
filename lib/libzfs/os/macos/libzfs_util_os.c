@@ -376,31 +376,15 @@ struct pipe2file {
 };
 typedef struct pipe2file pipe2file_t;
 
-// #include <poll.h>
-
-#define	VERBOSE_WRAPFD
-static pthread_t pipe_relay_tid = 0;
+// #define	VERBOSE_WRAPFD
 static int pipe_relay_readfd = -1;
 static int pipe_relay_writefd = -1;
 static int pipe_relay_send;
-static void (*pipe_io_intr_sighandler)(int) = NULL;
 static volatile int signal_received = 0;
+static int pipe_relay_pid = 0;
 
 static void pipe_io_relay_intr(int signum)
 {
-	fprintf(stderr, "\r\nSIGINT! signalling exit\r\n"); fflush(stderr);
-#if 0
-	if (pipe_relay_send) {
-		close(pipe_relay_writefd);
-		close(pipe_relay_readfd);
-	} else {
-		close(pipe_relay_readfd);
-		close(pipe_relay_writefd);
-	}
-
-	if (pipe_io_intr_sighandler != NULL)
-		pipe_io_intr_sighandler(signum);
-#endif
 	signal_received = 1;
 }
 
@@ -436,28 +420,23 @@ pipe_io_relay(void *arg)
 	 * we deadlock. So we need to install a signal handler, let's be
 	 * nice and check if one is installed, and chain them in.
 	 */
-	struct sigaction sa, save_int;
-	sigset_t save_mask, blocked, pending;
+	struct sigaction sa;
+	sigset_t blocked;
 
 	/* Process: Ignore SIGINT */
 
 	sigemptyset(&blocked);
 	sigaddset(&blocked, SIGINT);
 	sigaddset(&blocked, SIGPIPE);
-	sigprocmask(SIG_SETMASK, &blocked, &save_mask);
+	sigprocmask(SIG_SETMASK, &blocked, NULL);
 
 	sa.sa_handler = pipe_io_relay_intr;
 	sa.sa_mask = blocked;
 	sa.sa_flags = 0;
 
-	sigaction(SIGINT, &sa, &save_int);
-	pipe_io_intr_sighandler = save_int.sa_handler;
-    // sigprocmask(SIG_BLOCK, &sa.sa_mask, &save_mask);
+	sigaction(SIGINT, &sa, NULL);
 
-	/* Now enable this thread to get SIGINT */
-	pthread_sigmask(SIG_UNBLOCK, &blocked, NULL);
-
-	fprintf(stderr, "Before handler %p and mask %x\r\n", pipe_io_intr_sighandler, save_mask);
+	errno = 0;
 
 	for (;;) {
 
@@ -470,6 +449,7 @@ pipe_io_relay(void *arg)
 			break;
 		if (red < 0 && errno != EWOULDBLOCK)
 			break;
+
 		sent = write(writefd, buffer, red);
 #ifdef VERBOSE_WRAPFD
 		fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
@@ -478,47 +458,23 @@ pipe_io_relay(void *arg)
 		if (sent < 0)
 			break;
 
-		sigpending(&pending);
-		if (sigismember(&pending, SIGINT)) {
-			fprintf(stderr, "sensed ^C - exit\r\n");
-			break;
-		}
-
 		if (signal_received) {
+#ifdef VERBOSE_WRAPFD
 			fprintf(stderr, "sigint handler - exit\r\n");
+#endif
 			break;
 		}
 
 		total += red;
 	}
 
-	if (errno == EPIPE) {
-		signal_received = 1;
-		fprintf(stderr, "sigpipe: draining read\r\n");
-
-		while ((red = read(readfd, buffer, size) > 0)) {
-#ifdef VERBOSE_WRAPFD
-			fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
-			    readfd, red, errno);
-#endif
-			fprintf(stderr, "sigpipe: drained.\r\n");
-		}
-	}
-
-	/* Restore previous sighandler */
-	// sa.sa_handler = pipe_io_intr_sighandler;
-	// sa.sa_mask = saved_mask;
-	// sigemptyset(&sa.sa_mask);
-	sigaction(SIGINT, &save_int, NULL);
-
-	/*
-	 * It seems unlikely that this code is ever reached, as the process
-	 * calls exit() when done, and this thread is terminated.
-	 */
 
 #ifdef VERBOSE_WRAPFD
-	fprintf(stderr, "loop exit\r\n");
+	fprintf(stderr, "loop exit (closing)\r\n");
 #endif
+
+	close(readfd);
+	close(writefd);
 
 	if (buffer != space)
 		free(buffer);
@@ -526,18 +482,6 @@ pipe_io_relay(void *arg)
 #ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: thread done: %llu bytes\r\n", __func__, total);
 #endif
-
-	if (sigismember(&pending, SIGINT) || signal_received) {
-		fprintf(stderr, "%s: closing pipes\r\n", __func__);
-		if (pipe_relay_send) {
-			close(pipe_relay_writefd);
-			close(pipe_relay_readfd);
-		} else {
-			close(pipe_relay_readfd);
-			close(pipe_relay_writefd);
-		}
-		fprintf(stderr, "%s: sending signal\r\n", __func__);
-	}
 
 	return (NULL);
 }
@@ -571,7 +515,7 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 	if (!S_ISFIFO(sb.st_mode))
 		return;
 
-	if (pipe_relay_tid != 0) {
+	if (pipe_relay_pid != 0) {
 #ifdef VERBOSE_WRAPFD
 		fprintf(stderr, "%s: pipe relay already started ... \r\n", __func__);
 #endif
@@ -638,23 +582,35 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 		p2f->to = pipe_relay_writefd;
 	}
 #ifdef VERBOSE_WRAPFD
-	fprintf(stderr, "%s: spawning thread\r\n", __func__);
+	fprintf(stderr, "%s: forking\r\n", __func__);
 #endif
 
-	if ((error = pthread_create(&pipe_relay_tid, NULL,
-				pipe_io_relay, p2f)) != 0) {
-#ifdef VERBOSE_WRAPFD
-		fprintf(stderr, "%s: unable to create relay pipe (%d)\r\n",
-		    __func__, error);
-#endif
-		goto out;
+	error = fork();
+	if (error == 0) {
+
+		// Close the fd we don't need
+		if (send)
+			close(pipe_relay_writefd);
+		else
+			close(pipe_relay_readfd);
+
+		setsid();
+		pipe_io_relay(p2f);
+		_exit(0);
 	}
+
+	if (error < 0)
+		goto out;
+
+	pipe_relay_pid = error;
 
 	// Return open(file) fd to kernel only after all error cases
 	if (send) {
 		*srcfd = pipe_relay_writefd;
+		close(pipe_relay_readfd);
 	} else {
 		*srcfd = pipe_relay_readfd;
+		close(pipe_relay_writefd);
 	}
 	return;
 
@@ -672,26 +628,6 @@ out:
 void
 libzfs_macos_wrapclose(void)
 {
-	void *status = NULL;
-#ifdef VERBOSE_WRAPFD
-	fprintf(stderr, "%s: waiting for pipe relay thread\r\n", __func__);
-#endif
-	if (pipe_relay_tid != 0) {
-		if (pipe_relay_send) {
-			close(pipe_relay_writefd);
-			close(pipe_relay_readfd);
-		} else {
-			close(pipe_relay_readfd);
-			close(pipe_relay_writefd);
-		}
-		pthread_cancel(pipe_relay_tid);
-		pthread_join(pipe_relay_tid, &status);
-		pipe_relay_tid = 0;
-	}
-#ifdef VERBOSE_WRAPFD
-	fprintf(stderr, "%s: waited for pipe relay thread: status %d\r\n",
-	    __func__, (int)(uintptr_t)status);
-#endif
 }
 
 void
