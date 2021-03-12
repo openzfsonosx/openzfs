@@ -376,7 +376,33 @@ struct pipe2file {
 };
 typedef struct pipe2file pipe2file_t;
 
-#include <poll.h>
+// #include <poll.h>
+
+#define	VERBOSE_WRAPFD
+static pthread_t pipe_relay_tid = 0;
+static int pipe_relay_readfd = -1;
+static int pipe_relay_writefd = -1;
+static int pipe_relay_send;
+static void (*pipe_io_intr_sighandler)(int) = NULL;
+static volatile int signal_received = 0;
+
+static void pipe_io_relay_intr(int signum)
+{
+	fprintf(stderr, "\r\nSIGINT! signalling exit\r\n"); fflush(stderr);
+#if 0
+	if (pipe_relay_send) {
+		close(pipe_relay_writefd);
+		close(pipe_relay_readfd);
+	} else {
+		close(pipe_relay_readfd);
+		close(pipe_relay_writefd);
+	}
+
+	if (pipe_io_intr_sighandler != NULL)
+		pipe_io_intr_sighandler(signum);
+#endif
+	signal_received = 1;
+}
 
 static void *
 pipe_io_relay(void *arg)
@@ -400,48 +426,122 @@ pipe_io_relay(void *arg)
 		size = sizeof (space);
 	}
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: thread up: read(%d) write(%d)\r\n", __func__,
 	    readfd, writefd);
+#endif
+
+	/*
+	 * If ^C is hit, we must close the fds in the correct order, or
+	 * we deadlock. So we need to install a signal handler, let's be
+	 * nice and check if one is installed, and chain them in.
+	 */
+	struct sigaction sa, save_int;
+	sigset_t save_mask, blocked, pending;
+
+	/* Process: Ignore SIGINT */
+
+	sigemptyset(&blocked);
+	sigaddset(&blocked, SIGINT);
+	sigaddset(&blocked, SIGPIPE);
+	sigprocmask(SIG_SETMASK, &blocked, &save_mask);
+
+	sa.sa_handler = pipe_io_relay_intr;
+	sa.sa_mask = blocked;
+	sa.sa_flags = 0;
+
+	sigaction(SIGINT, &sa, &save_int);
+	pipe_io_intr_sighandler = save_int.sa_handler;
+    // sigprocmask(SIG_BLOCK, &sa.sa_mask, &save_mask);
+
+	/* Now enable this thread to get SIGINT */
+	pthread_sigmask(SIG_UNBLOCK, &blocked, NULL);
+
+	fprintf(stderr, "Before handler %p and mask %x\r\n", pipe_io_intr_sighandler, save_mask);
 
 	for (;;) {
 
 		red = read(readfd, buffer, size);
-		 fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
-			readfd, red, errno);
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
+		    readfd, red, errno);
+#endif
 		if (red == 0)
 			break;
 		if (red < 0 && errno != EWOULDBLOCK)
 			break;
 		sent = write(writefd, buffer, red);
-		 fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
-			writefd, sent, errno);
+#ifdef VERBOSE_WRAPFD
+		fprintf(stderr, "%s: write(%d): %d (errno %d)\r\n", __func__,
+		    writefd, sent, errno);
+#endif
 		if (sent < 0)
 			break;
+
+		sigpending(&pending);
+		if (sigismember(&pending, SIGINT)) {
+			fprintf(stderr, "sensed ^C - exit\r\n");
+			break;
+		}
+
+		if (signal_received) {
+			fprintf(stderr, "sigint handler - exit\r\n");
+			break;
+		}
+
 		total += red;
 	}
+
+	if (errno == EPIPE) {
+		signal_received = 1;
+		fprintf(stderr, "sigpipe: draining read\r\n");
+
+		while ((red = read(readfd, buffer, size) > 0)) {
+#ifdef VERBOSE_WRAPFD
+			fprintf(stderr, "%s: read(%d): %d (errno %d)\r\n", __func__,
+			    readfd, red, errno);
+#endif
+			fprintf(stderr, "sigpipe: drained.\r\n");
+		}
+	}
+
+	/* Restore previous sighandler */
+	// sa.sa_handler = pipe_io_intr_sighandler;
+	// sa.sa_mask = saved_mask;
+	// sigemptyset(&sa.sa_mask);
+	sigaction(SIGINT, &save_int, NULL);
 
 	/*
 	 * It seems unlikely that this code is ever reached, as the process
 	 * calls exit() when done, and this thread is terminated.
 	 */
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "loop exit\r\n");
-
-//	close(readfd);
-//	close(writefd);
+#endif
 
 	if (buffer != space)
 		free(buffer);
 
+#ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: thread done: %llu bytes\r\n", __func__, total);
+#endif
+
+	if (sigismember(&pending, SIGINT) || signal_received) {
+		fprintf(stderr, "%s: closing pipes\r\n", __func__);
+		if (pipe_relay_send) {
+			close(pipe_relay_writefd);
+			close(pipe_relay_readfd);
+		} else {
+			close(pipe_relay_readfd);
+			close(pipe_relay_writefd);
+		}
+		fprintf(stderr, "%s: sending signal\r\n", __func__);
+	}
+
 	return (NULL);
 }
 
-// #define	VERBOSE_WRAPFD
-static pthread_t pipe_relay_tid = 0;
-static int pipe_relay_readfd = -1;
-static int pipe_relay_writefd = -1;
-static int pipe_relay_send;
 /*
  * XNU only lets us do IO on vnodes, not pipes, so create a Unix
  * Domain socket, open it to get a vnode for the kernel, and spawn
