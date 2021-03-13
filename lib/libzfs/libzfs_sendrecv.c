@@ -1759,6 +1759,11 @@ zfs_send_resume_impl(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 			}
 		}
 
+#if defined(__APPLE__)
+		/* Can't do IO on pipes, possibly wrap fd in domain socket */
+		libzfs_macos_wrapfd(&outfd, B_TRUE);
+#endif
+
 		error = lzc_send_resume_redacted(zhp->zfs_name, fromname, outfd,
 		    lzc_flags, resumeobj, resumeoff, redact_book);
 		if (redact_book != NULL)
@@ -2288,10 +2293,6 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 			return (zfs_standard_error(zhp->zfs_hdl, err, errbuf));
 	}
 
-#if defined(__APPLE__)
-	libzfs_macos_wrapclose();
-#endif
-
 	return (err || sdd.err);
 
 stderr_out:
@@ -2581,9 +2582,6 @@ zfs_send_one(zfs_handle_t *zhp, const char *from, int fd, sendflags_t *flags,
 		}
 	}
 
-#if defined(__APPLE__)
-	libzfs_macos_wrapclose();
-#endif
 	return (err != 0);
 }
 
@@ -5197,10 +5195,6 @@ zfs_receive(libzfs_handle_t *hdl, const char *tosnap, nvlist_t *props,
 out:
 	if (top_zfs)
 		free(top_zfs);
-
-#if defined(__APPLE__)
-	libzfs_macos_wrapclose();
-#endif
 
 	return (err);
 }
