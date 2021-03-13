@@ -180,8 +180,8 @@ install-data-hook:
 	for f in $(zpoolconfdefaults); do \
 	  test -f "$(DESTDIR)$(zpoolconfdir)/$${f}" -o \
 	       -L "$(DESTDIR)$(zpoolconfdir)/$${f}" || \
-	    ln -s "$(zpoolexecdir)/$${f}" "$(DESTDIR)$(zpoolconfdir)"; \
+	    ln -sf "$(zpoolexecdir)/$${f}" "$(DESTDIR)$(zpoolconfdir)"; \
 	done
 	for l in $(zpoolcompatlinks); do \
-		(cd "$(DESTDIR)$(zpoolcompatdir)"; ln -s $${l} ); \
+		(cd "$(DESTDIR)$(zpoolcompatdir)"; ln -sf $${l} ); \
 	done
