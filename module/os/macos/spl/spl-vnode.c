@@ -92,20 +92,32 @@ errno_t
 VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
     struct componentname *cn, vfs_context_t ct)
 {
+	char path[MAXPATHLEN];
+	char *lookup_name = cn->cn_nameptr;
+
 	/*
 	 * Lookup a name, to get vnode.
 	 * If dvp is NULL, and it uses full path, just call vnode_lookup().
 	 * If dvp is supplied, we need to build path (vnode_lookupat() is
-	 * private.exports) - by calling getattr(name), and vnode_getparent()
-	 * until root.
+	 * private.exports)
 	 * However, VOP_LOOKUP() is only used by OSX calls, finder and rename.
 	 * We could re-write that code to use /absolute/path.
 	 */
-	if (dvp == NULL) {
-		return (vnode_lookup(cn->cn_nameptr, 0, vpp, ct));
+	if (dvp != NULL) {
+		int result, len;
+
+		len = MAXPATHLEN;
+		result = vn_getpath(dvp, path, &len);
+		if (result != 0)
+			return (result);
+
+		strlcat(path, "/", MAXPATHLEN);
+		strlcat(path, cn->cn_nameptr, MAXPATHLEN);
+
+		lookup_name = path;
 	}
-	printf("%s: Missing implementation, will break.\n", __func__);
-	return (-1);
+
+	return (vnode_lookup(lookup_name, 0, vpp, ct));
 }
 
 void
