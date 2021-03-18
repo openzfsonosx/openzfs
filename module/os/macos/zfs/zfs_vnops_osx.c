@@ -1791,7 +1791,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 {
 	DECLARE_CRED(ap);
 	vattr_t *vap = ap->a_vap;
-	uint_t mask = vap->va_mask;
+	uint_t mask;
 	int error = 0;
 	znode_t *zp = VTOZ(ap->a_vp);
 
@@ -1905,6 +1905,17 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 			VATTR_SET_SUPPORTED(vap, va_flags);
 		}
 
+		/*
+		 * If we are told to ignore owners, we scribble over the uid
+		 * and gid here unless root.
+		 */
+		if (((unsigned int)vfs_flags(zp->z_zfsvfs->z_vfs)) &
+		    MNT_IGNORE_OWNERSHIP) {
+			if (kauth_cred_getuid(cr) != 0) {
+				vap->va_uid = UNKNOWNUID;
+				vap->va_gid = UNKNOWNGID;
+			}
+		}
 	}
 
 #if 1
