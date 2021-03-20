@@ -3387,7 +3387,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	struct componentname cn = { 0 };
 	int  error = 0;
 	int size = 0;
-	uint64_t resid = uio ? zfs_uio_resid(uio) : 0;
+	uint64_t resid = ap->a_uio ? zfs_uio_resid(uio) : 0;
 	znode_t *xdzp = NULL, *xzp = NULL;
 
 	dprintf("+getxattr vp %p: '%s'\n", ap->a_vp, ap->a_name);
@@ -3479,7 +3479,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	 * If we are dealing with FinderInfo, we duplicate the UIO first
 	 * so that we can uiomove to/from it to modify contents.
 	 */
-	if (!error && uio &&
+	if (!error &&
 	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 	    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 		ssize_t local_resid;
@@ -3531,7 +3531,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 	/* If NOT finderinfo */
 
-	if (uio == NULL) {
+	if (ap->a_uio == NULL) {
 
 		/* Query xattr size. */
 		if (ap->a_size) {
@@ -3545,7 +3545,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		/* Read xattr */
 		error = zfs_read(xzp, uio, 0, cr);
 
-		if (ap->a_size && uio) {
+		if (ap->a_size && ap->a_uio) {
 			*ap->a_size = (size_t)resid - zfs_uio_resid(uio);
 		}
 
@@ -3700,13 +3700,12 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		goto out;
 
 	/* Write the attribute data. */
-	ASSERT(uio != NULL);
 
 	/* OsX setxattr() replaces xattrs */
 	error = zfs_freesp(VTOZ(xvp), 0, 0, VTOZ(vp)->z_mode, TRUE);
 
 	/* Special case for Finderinfo */
-	if (!error && uio &&
+	if (!error &&
 	    bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 	    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 
@@ -3957,7 +3956,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 			namelen = strlen(nvpair_name(nvp)) + 1; /* Null byte */
 
 			/* Just checking for space requirements? */
-			if (uio == NULL) {
+			if (ap->a_uio == NULL) {
 				size += namelen;
 			} else {
 				if (namelen > zfs_uio_resid(uio)) {
@@ -4012,7 +4011,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 			nameptr = &za.za_name[0];
 		}
 		++namelen;  /* account for NULL termination byte */
-		if (uio == NULL) {
+		if (ap->a_uio == NULL) {
 			size += namelen;
 		} else {
 			if (namelen > zfs_uio_resid(uio)) {
@@ -4027,7 +4026,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 	}
 	zap_cursor_fini(&zc);
 out:
-	if (uio == NULL) {
+	if (ap->a_uio == NULL) {
 		*ap->a_size = size;
 	}
 	if (xdzp) {
