@@ -203,6 +203,10 @@ void print_symbol(uintptr_t symbol);
 #else /* MACOS_ASSERT_SHOULD_PANIC */
 
 #define PRINT printf
+
+__attribute__((noinline)) int assfail(const char *str, const char *file,
+    unsigned int line) __attribute__((optnone));
+
 #define ASSERT(cond)							\
 	(void)(unlikely(!(cond)) && assfail(#cond,__FILE__,__LINE__) &&	\
 	    PRINT("ZFS: %s %s %d : %s\n", __FILE__, __FUNCTION__, __LINE__, \
