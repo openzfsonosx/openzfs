@@ -2622,7 +2622,7 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 		}
 
 		if (XVA_ISSET_REQ(xvap, XAT_AV_SCANSTAMP))
-			ASSERT(vp->v_type == VREG);
+			ASSERT(vnode_isreg(vp));
 
 		zfs_xvattr_set(zp, xvap, tx);
 	}
