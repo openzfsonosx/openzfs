@@ -315,13 +315,19 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 			break;
 		}
 
+		/* offset and bytes are mutated by dmu_write_iokit_dnode,
+		 * save them for zvol_log_write if the call succeeds
+		 */
+		uint64_t save_offset = offset;
+		uint64_t save_bytes = bytes;
+
 		error = dmu_write_iokit_dnode(zv->zv_dn, &offset,
 		    position, &bytes, iomem, tx);
 
 		if (error == 0) {
 			count -= MIN(count,
 			    (DMU_MAX_ACCESS >> 1)) + bytes;
-			zvol_log_write(zv, tx, position+offset, bytes, sync);
+			zvol_log_write(zv, tx, position+save_offset, save_bytes, sync);
 		}
 		dmu_tx_commit(tx);
 
