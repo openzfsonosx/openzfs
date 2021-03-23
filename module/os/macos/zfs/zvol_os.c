@@ -255,7 +255,6 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	boolean_t sync;
 	uint64_t offset = 0;
 	uint64_t bytes;
-	uint64_t off;
 
 	if (zv == NULL)
 		return (ENXIO);
@@ -303,19 +302,24 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	while (count > 0 && (position + offset) < volsize) {
 		/* bytes for this segment */
 		bytes = MIN(count, DMU_MAX_ACCESS >> 1);
-		off = offset;
 		dmu_tx_t *tx = dmu_tx_create(zv->zv_objset);
 
 		/* don't write past the end */
-		if (bytes > volsize - (position + off))
-			bytes = volsize - (position + off);
+		if (bytes > volsize - (position + offset))
+			bytes = volsize - (position + offset);
 
-		dmu_tx_hold_write_by_dnode(tx, zv->zv_dn, off, bytes);
+		dmu_tx_hold_write_by_dnode(tx, zv->zv_dn, position+offset, bytes);
 		error = dmu_tx_assign(tx, TXG_WAIT);
 		if (error) {
 			dmu_tx_abort(tx);
 			break;
 		}
+
+		/* offset and bytes are mutated by dmu_write_iokit_dnode,
+		 * save them for zvol_log_write if the call succeeds
+		 */
+		uint64_t save_offset = offset;
+		uint64_t save_bytes = bytes;
 
 		error = dmu_write_iokit_dnode(zv->zv_dn, &offset,
 		    position, &bytes, iomem, tx);
@@ -323,7 +327,7 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 		if (error == 0) {
 			count -= MIN(count,
 			    (DMU_MAX_ACCESS >> 1)) + bytes;
-			zvol_log_write(zv, tx, offset, bytes, sync);
+			zvol_log_write(zv, tx, position+save_offset, save_bytes, sync);
 		}
 		dmu_tx_commit(tx);
 
