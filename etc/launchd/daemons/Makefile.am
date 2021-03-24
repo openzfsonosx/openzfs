@@ -6,6 +6,7 @@ launchddaemon_DATA = \
 	$(top_srcdir)/etc/launchd/daemons/org.openzfsonosx.zconfigd.plist \
 	$(top_srcdir)/etc/launchd/daemons/org.openzfsonosx.zed.plist \
 	$(top_srcdir)/etc/launchd/daemons/org.openzfsonosx.zpool-import-all.plist \
+	$(top_srcdir)/etc/launchd/daemons/org.openzfsonosx.zfs-pool-importer.plist \
 	$(top_srcdir)/etc/launchd/daemons/org.openzfsonosx.InvariantDisks.plist
 
 DAEMON_DIR = $(top_srcdir)/etc/launchd/daemons
@@ -15,11 +16,13 @@ EXTRA_DIST = \
 	$(DAEMON_DIR)/org.openzfsonosx.zconfigd.plist.in \
 	$(DAEMON_DIR)/org.openzfsonosx.zed.plist.in \
 	$(DAEMON_DIR)/org.openzfsonosx.zpool-import-all.plist.in \
+	$(DAEMON_DIR)/org.openzfsonosx.zfs-pool-importer.plist.in \
 	$(DAEMON_DIR)/org.openzfsonosx.InvariantDisks.plist.in
 
 $(DAEMON_DIR)/org.openzfsonosx.zconfigd.plist: $(DAEMON_DIR)/org.openzfsonosx.zconfigd.plist.in
 $(DAEMON_DIR)/org.openzfsonosx.zed.plist: $(DAEMON_DIR)/org.openzfsonosx.zed.plist.in
 $(DAEMON_DIR)/org.openzfsonosx.zpool-import-all.plist: $(DAEMON_DIR)/org.openzfsonosx.zpool-import-all.plist.in
+$(DAEMON_DIR)/org.openzfsonosx.zfs-pool-importer.plist: $(DAEMON_DIR)/org.openzfsonosx.zfs-pool-importer.plist.in
 $(DAEMON_DIR)/org.openzfsonosx.InvariantDisks.plist: $(DAEMON_DIR)/org.openzfsonosx.InvariantDisks.plist.in
 
 $(launchddaemon_DATA):

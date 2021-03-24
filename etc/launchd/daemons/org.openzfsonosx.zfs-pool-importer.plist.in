@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.openzfsonosx.zfs-pool-importer</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@launchdscriptdir@/zfs-pool-importer</string>
+		<string>--sbindir=@sbindir@</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/private/var/log/org.openzfsonosx.zfs-pool-importer.log</string>
+	<key>StandardOutPath</key>
+	<string>/private/var/log/org.openzfsonosx.zfs-pool-importer.log</string>
+</dict>
+</plist>
