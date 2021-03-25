@@ -3432,7 +3432,11 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 				/* Must be 32 bytes */
 				if (resid != sizeof (emptyfinfo) ||
 					size != sizeof (emptyfinfo)) {
-					error = ERANGE;
+					/* The xattr might not be present */
+					if (size == -ENOENT)
+						error = ENOENT;
+					else
+						error = ERANGE;
 					kmem_free(value, resid);
 					goto out;
 				}
