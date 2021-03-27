@@ -69,6 +69,14 @@
 
 #include <sys/isa_defs.h>
 
+#define	kfpu_init()		(0)
+#define	kfpu_fini()		do {} while (0)
+
+#define	kfpu_begin()  ((void)0)
+#define	kfpu_end()    ((void)0)
+#define	kfpu_allowed()		1
+
+
 /* only for __x86 */
 #if defined(__x86)
 
@@ -95,15 +103,7 @@ extern uint64_t spl_cpuid_leaf7_features(void);
 
 #define	ZFS_ASM_BUG()	{ ASSERT(0); } break
 
-#define	kfpu_allowed()		1
-
 #endif
-
-#define	kfpu_init()		(0)
-#define	kfpu_fini()		do {} while (0)
-
-#define	kfpu_begin()  ((void)0)
-#define	kfpu_end()    ((void)0)
 
 /*
  * CPUID feature tests for user-space. Linux kernel provides an interface for

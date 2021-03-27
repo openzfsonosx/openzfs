@@ -67,6 +67,15 @@ extern int zvolRegisterDevice(zvol_state_t *zv);
 extern int zvolRenameDevice(zvol_state_t *zv);
 extern int zvolSetVolsize(zvol_state_t *zv);
 
+extern void zvol_add_symlink(zvol_state_t *zv, const char *bsd_disk,
+    const char *bsd_rdisk);
+
+extern void zvol_remove_symlink(zvol_state_t *zv);
+
+extern void zfs_ereport_zvol_post(const char *subclass, const char *name,
+    const char *bsd, const char *rbsd);
+
+
 #ifdef  __cplusplus
 }
 #endif

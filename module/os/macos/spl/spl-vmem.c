@@ -843,7 +843,6 @@ vmem_span_create(vmem_t *vmp, void *vaddr, size_t size, uint8_t import)
 	uintptr_t end = start + size;
 
 	ASSERT(MUTEX_HELD(&vmp->vm_lock));
-
 	if ((start | end) & (vmp->vm_quantum - 1))
 		panic("vmem_span_create(%p, %p, %lu): misaligned (%s)",
 		    (void *)vmp, vaddr, size, vmp->vm_name);
@@ -3307,8 +3306,10 @@ vmem_init(const char *heap_name,
 	// illumos/openzfs has a gigantic pile of memory that it can use
 	// for its first arena;
 	// o3x is not so lucky, so we start with this
+	// Intel can go with 4096 alignment, but arm64 needs 16384. So
+	// we just use the larger.
 	static char initial_default_block[16ULL*1024ULL*1024ULL]
-	    __attribute__((aligned(4096))) = { 0 };
+	    __attribute__((aligned(16384))) = { 0 };
 
 	// The default arena is very low-bandwidth; it supplies the initial
 	// large allocation for the heap arena below, and it serves as the

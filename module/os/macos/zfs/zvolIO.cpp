@@ -1009,8 +1009,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 		    "%s", str);
 		dprintf("%s zvol bsdname set to %s\n", __func__,
 		    zv->zv_zso->zvo_bsdname);
-//		zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname+1,
-//		    zv->zv_zso->zvo_bsdname);
+		zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname+1,
+		    zv->zv_zso->zvo_bsdname);
 		ret = true;
 	} else {
 		dprintf("%s couldn't get BSD Name\n", __func__);

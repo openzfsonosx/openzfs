@@ -47,9 +47,11 @@ struct znode;
 #define	APPLE_SA_RECOVER
 /* #define	WITH_SEARCHFS */
 /* #define	WITH_READDIRATTR */
-#define	HAVE_NAMED_STREAMS 1
 #define	HAVE_PAGEOUT_V2 1
 #define	HIDE_TRIVIAL_ACL 1
+#ifndef __arm64__
+#define	HAVE_NAMED_STREAMS 1
+#endif
 #endif
 
 /*

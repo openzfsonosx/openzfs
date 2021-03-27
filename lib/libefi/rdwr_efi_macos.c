@@ -190,8 +190,10 @@ int efi_debug = 0;
 static int efi_read(int, struct dk_gpt *);
 /* Additional macOS support functions */
 
-#include <DiskArbitration/DiskArbitration.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFString.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
+#include <DiskArbitration/DiskArbitration.h>
 
 static const CFStringRef CoreStorageLogicalVolumeMediaPathSubstring =
     CFSTR("/CoreStoragePhysical/");

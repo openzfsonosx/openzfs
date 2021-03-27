@@ -1262,7 +1262,7 @@ taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
 		int loopcount;
 		taskq_bucket_t *b;
 		// uintptr_t h = ((uintptr_t)CPU + (uintptr_t)arg) >> 3;
-		uintptr_t h = ((uintptr_t)(cpu_number()<<3) +
+		uintptr_t h = ((uintptr_t)(CPU_SEQID<<3) +
 		    (uintptr_t)arg) >> 3;
 
 		h = TQ_HASH(h);

@@ -1015,7 +1015,7 @@ kmem_log_enter(kmem_log_header_t *lhp, void *data, size_t size)
 {
 	void *logspace;
 
-	kmem_cpu_log_header_t *clhp = &lhp->lh_cpu[cpu_number()];
+	kmem_cpu_log_header_t *clhp = &lhp->lh_cpu[CPU_SEQID];
 
 	//    if (lhp == NULL || kmem_logging == 0 || panicstr)
 	if (lhp == NULL || kmem_logging == 0)

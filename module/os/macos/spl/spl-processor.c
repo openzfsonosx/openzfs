@@ -50,7 +50,8 @@ static boolean_t cpuid_has_xgetbv = B_FALSE;
 uint32_t
 getcpuid()
 {
-	return ((uint32_t)cpu_number());
+	// return ((uint32_t)cpu_number());
+	return (0);
 }
 
 uint64_t

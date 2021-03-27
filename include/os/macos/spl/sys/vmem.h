@@ -33,8 +33,10 @@ extern "C" {
 #endif
 
 
-#define	KMEM_QUANTUM (PAGESIZE)
-
+// Make sure IOMalloc uses kernel_map, and not kalloc.zones
+// This is from XNU kalloc_max and kalloc_kernmap_size
+// #define	KMEM_QUANTUM (PAGESIZE << 2) * 16 + PAGESIZE;
+#define	KMEM_QUANTUM PAGESIZE
 
 	/*
 	 * Per-allocation flags

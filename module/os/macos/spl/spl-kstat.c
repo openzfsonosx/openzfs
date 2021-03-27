@@ -42,8 +42,9 @@
  * We need to get dynamically allocated memory from the kernel allocator
  * (Our needs are small, we wont blow the zone_map).
  */
-extern void *kalloc(vm_size_t size);
-extern void kfree(void *data, vm_size_t size);
+void *IOMalloc(vm_size_t size);
+void IOFree(void *address, vm_size_t size);
+
 
 /*
  * Statically declared toplevel OID that all kstats
@@ -355,7 +356,7 @@ get_kstat_parent(struct sysctl_oid_list *root, char *module_name,
 	the_module = get_oid_with_name(root, module_name);
 
 	if (!the_module) {
-		new_node = kalloc(sizeof (sysctl_tree_node_t));
+		new_node = IOMalloc(sizeof (sysctl_tree_node_t));
 		bzero(new_node, sizeof (sysctl_tree_node_t));
 		init_oid_tree_node(root, module_name, new_node);
 		the_module = &new_node->tn_oid;
@@ -368,7 +369,7 @@ get_kstat_parent(struct sysctl_oid_list *root, char *module_name,
 	the_class = get_oid_with_name(container, class_name);
 
 	if (!the_class) {
-		new_node = kalloc(sizeof (sysctl_tree_node_t));
+		new_node = IOMalloc(sizeof (sysctl_tree_node_t));
 		bzero(new_node, sizeof (sysctl_tree_node_t));
 		init_oid_tree_node(container, class_name, new_node);
 		the_class = &new_node->tn_oid;
@@ -407,9 +408,9 @@ kstat_resize_raw(kstat_t *ksp)
 	if (ksp->ks_raw_bufsize == KSTAT_RAW_MAX)
 		return (ENOMEM);
 
-	kfree(ksp->ks_raw_buf, ksp->ks_raw_bufsize);
+	IOFree(ksp->ks_raw_buf, ksp->ks_raw_bufsize);
 	ksp->ks_raw_bufsize = MIN(ksp->ks_raw_bufsize * 2, KSTAT_RAW_MAX);
-	ksp->ks_raw_buf = kalloc(ksp->ks_raw_bufsize);
+	ksp->ks_raw_buf = IOMalloc(ksp->ks_raw_bufsize);
 
 	return (0);
 }
@@ -507,7 +508,7 @@ kstat_handle_raw SYSCTL_HANDLER_ARGS
 	(void) ksp->ks_update(ksp, KSTAT_READ);
 
 	ksp->ks_raw_bufsize = PAGE_SIZE;
-	ksp->ks_raw_buf = kalloc(PAGE_SIZE);
+	ksp->ks_raw_buf = IOMalloc(PAGE_SIZE);
 
 	n = 0;
 	has_header = (ksp->ks_raw_ops.headers ||
@@ -548,7 +549,7 @@ restart:
 		}
 		n++;
 	}
-	kfree(ksp->ks_raw_buf, PAGE_SIZE);
+	IOFree(ksp->ks_raw_buf, PAGE_SIZE);
 	mutex_exit(ksp->ks_lock);
 	rc = SYSCTL_OUT(req, sbuf_data(sb), sbuf_len(sb));
 	sbuf_delete(sb);
@@ -737,7 +738,7 @@ kstat_create(const char *ks_module, int ks_instance, const char *ks_name,
 	 * Allocate memory for the new kstat header.
 	 */
 	size = sizeof (ekstat_t);
-	e = (ekstat_t *)kalloc(size);
+	e = (ekstat_t *)IOMalloc(size);
 	bzero(e, size);
 	if (e == NULL) {
 		cmn_err(CE_NOTE, "kstat_create('%s', %d, '%s'): "
@@ -847,7 +848,7 @@ kstat_install(kstat_t *ksp)
 		}
 
 		// Create the leaf node OID objects
-		e->e_vals = (sysctl_leaf_t *)kalloc(ksp->ks_ndata *
+		e->e_vals = (sysctl_leaf_t *)IOMalloc(ksp->ks_ndata *
 		    sizeof (sysctl_leaf_t));
 		bzero(e->e_vals, ksp->ks_ndata * sizeof (sysctl_leaf_t));
 		e->e_num_vals = ksp->ks_ndata;
@@ -880,7 +881,7 @@ kstat_install(kstat_t *ksp)
 			// flags to the sysctl.
 			switch (named->data_type) {
 				case KSTAT_DATA_INT64:
-					params = (sysctl_leaf_t *)kalloc(
+					params = (sysctl_leaf_t *)IOMalloc(
 					    sizeof (sysctl_leaf_t));
 					params->l_named = named;
 					params->l_ksp = ksp;
@@ -894,7 +895,7 @@ kstat_install(kstat_t *ksp)
 					params = 0;
 					break;
 				case KSTAT_DATA_UINT64:
-					params = (sysctl_leaf_t *)kalloc(
+					params = (sysctl_leaf_t *)IOMalloc(
 					    sizeof (sysctl_leaf_t));
 					params->l_named = named;
 					params->l_ksp = ksp;
@@ -940,7 +941,7 @@ kstat_install(kstat_t *ksp)
 					val->l_oid.oid_arg1 = &named->value.ul;
 					break;
 				case KSTAT_DATA_STRING:
-					params = (sysctl_leaf_t *)kalloc(
+					params = (sysctl_leaf_t *)IOMalloc(
 					    sizeof (sysctl_leaf_t));
 					params->l_named = named;
 					params->l_ksp = ksp;
@@ -975,7 +976,7 @@ kstat_install(kstat_t *ksp)
 
 	} else if (ksp->ks_type == KSTAT_TYPE_RAW) {
 
-		e->e_vals = (sysctl_leaf_t *)kalloc(sizeof (sysctl_leaf_t));
+		e->e_vals = (sysctl_leaf_t *)IOMalloc(sizeof (sysctl_leaf_t));
 		bzero(e->e_vals, sizeof (sysctl_leaf_t));
 		e->e_num_vals = 1;
 		sysctl_leaf_t *val = e->e_vals;
@@ -995,7 +996,7 @@ kstat_install(kstat_t *ksp)
 			val->l_oid.oid_handler =
 			    kstat_handle_raw;
 			val->l_oid.oid_kind = CTLTYPE_STRING |
-			    CTLFLAG_RD;
+			    CTLFLAG_RD | CTLFLAG_OID2;
 			val->l_oid.oid_fmt = "A";
 			val->l_oid.oid_arg1 = (void *) ksp;
 			sysctl_register_oid(&val->l_oid);
@@ -1003,7 +1004,7 @@ kstat_install(kstat_t *ksp)
 			val->l_oid.oid_handler =
 			    kstat_handle_raw;
 			val->l_oid.oid_kind = CTLTYPE_OPAQUE |
-			    CTLFLAG_RD;
+			    CTLFLAG_RD | CTLFLAG_OID2;
 			val->l_oid.oid_fmt = "A";
 			val->l_oid.oid_arg1 = (void *) ksp;
 			sysctl_register_oid(&val->l_oid);
@@ -1011,7 +1012,7 @@ kstat_install(kstat_t *ksp)
 
 	} else if (ksp->ks_type == KSTAT_TYPE_IO) {
 
-		e->e_vals = (sysctl_leaf_t *)kalloc(sizeof (sysctl_leaf_t));
+		e->e_vals = (sysctl_leaf_t *)IOMalloc(sizeof (sysctl_leaf_t));
 		bzero(e->e_vals, sizeof (sysctl_leaf_t));
 		e->e_num_vals = 1;
 		sysctl_leaf_t *val = e->e_vals;
@@ -1030,7 +1031,7 @@ kstat_install(kstat_t *ksp)
 		val->l_oid.oid_handler =
 		    kstat_handle_io;
 		val->l_oid.oid_kind = CTLTYPE_STRING |
-		    CTLFLAG_RD;
+		    CTLFLAG_RD | CTLFLAG_OID2;
 		val->l_oid.oid_fmt = "A";
 		val->l_oid.oid_arg1 = (void *) ksp;
 		sysctl_register_oid(&val->l_oid);
@@ -1058,7 +1059,7 @@ remove_child_sysctls(ekstat_t *e)
 
 			sysctl_leaf_t *leaf = (sysctl_leaf_t *)
 			    vals_base[i].l_oid.oid_arg1;  /* params */
-			kfree(leaf, sizeof (sysctl_leaf_t));
+			IOFree(leaf, sizeof (sysctl_leaf_t));
 
 			if (named_base[i].data_type == KSTAT_DATA_STRING) {
 				kstat_named_setstr(&named_base[i], NULL);
@@ -1092,7 +1093,7 @@ kstat_delete(kstat_t *ksp)
 	sysctl_unregister_oid(&e->e_oid);
 
 	if (e->e_vals) {
-		kfree(e->e_vals, sizeof (sysctl_leaf_t) * e->e_num_vals);
+		IOFree(e->e_vals, sizeof (sysctl_leaf_t) * e->e_num_vals);
 	}
 
 	if (!(ksp->ks_flags & KSTAT_FLAG_VIRTUAL))
@@ -1102,7 +1103,7 @@ kstat_delete(kstat_t *ksp)
 	mutex_destroy(&ksp->ks_private_lock);
 
 	cv_destroy(&e->e_cv);
-	kfree(e, e->e_size);
+	IOFree(e, e->e_size);
 }
 
 void
@@ -1126,7 +1127,7 @@ kstat_named_setstr(kstat_named_t *knp, const char *src)
 		    strcmp(src, data) == 0)
 			return;
 
-		kfree(data, len);
+		IOFree(data, len);
 		KSTAT_NAMED_STR_PTR(knp) = NULL;
 		KSTAT_NAMED_STR_BUFLEN(knp) = 0;
 	}
@@ -1136,7 +1137,7 @@ kstat_named_setstr(kstat_named_t *knp, const char *src)
 
 	len = strlen(src) + 1;
 
-	data = kalloc(len);
+	data = IOMalloc(len);
 	strlcpy(data, src, len);
 	KSTAT_NAMED_STR_PTR(knp) = data;
 	KSTAT_NAMED_STR_BUFLEN(knp) = len;
@@ -1224,7 +1225,7 @@ spl_kstat_fini()
 	while (tree_nodes) {
 		sysctl_tree_node_t *tn = tree_nodes;
 		tree_nodes = tn->tn_next;
-		kfree(tn, sizeof (sysctl_tree_node_t));
+		IOFree(tn, sizeof (sysctl_tree_node_t));
 	}
 
 	/*

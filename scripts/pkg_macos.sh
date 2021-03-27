@@ -180,6 +180,8 @@ function do_unlock
 {
     cert=$1
 
+    echo "Looking for certificate ${cert} ..."
+
     keychain=$(security find-certificate -c "${cert}" | awk '{if ($1 == "keychain:") print $2;}'|tr -d '"')
 
     echo "Unlocking keychain $keychain ..."
@@ -272,7 +274,7 @@ function do_prune
 function copy_fix_libraries
 {
     echo "Fixing external libraries ... "
-    fixlib=$(otool -L ${codesign_files} | grep '/usr/local/opt/' |awk '{print $1;}' | grep '\.dylib$' | sort | uniq)
+    fixlib=$(otool -L ${codesign_files} | egrep '/usr/local/opt/|/opt/local/lib/' |awk '{print $1;}' | grep '\.dylib$' | sort | uniq)
 
     # Add the libs into codesign list - both to be codesigned, and updated
     # between themselves (libssl depends on libcrypt)
@@ -358,6 +360,7 @@ do_prune
 
 if [ -n "$fix_libraries" ]; then
     copy_fix_libraries
+    copy_fix_libraries
 fi
 
 if [ -n "$PKG_CODESIGN_KEY" ]; then
@@ -373,6 +376,7 @@ sign=()
 if [ -n "$PKG_INSTALL_KEY" ]; then
     do_unlock "${PKG_INSTALL_KEY}"
     #sign=(--sign "$PKG_INSTALL_KEY" --keychain "$retval" --keychain ~/Library/Keychains/login.keychain-db)
+    echo sign=--sign "$PKG_INSTALL_KEY" --keychain "$retval"
     sign=(--sign "$PKG_INSTALL_KEY" --keychain "$retval")
 fi
 

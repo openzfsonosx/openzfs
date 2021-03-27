@@ -27,6 +27,11 @@ libspl_la_LDFLAGS= \
 	-lkmod \
 	-lcc_kext
 
+if TARGET_CPU_AARCH64
+libspl_la_CPPFLAGS+=-arch arm64e
+libspl_la_LDFLAGS+=-arch arm64e
+endif
+
 libspl_la_LIBS = -lnone
 
 # If we don't set this to nothing, it adds "-lz -liconv"

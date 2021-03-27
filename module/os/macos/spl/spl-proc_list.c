@@ -23,8 +23,8 @@
 #include <sys/mutex.h>
 #include <sys/procfs_list.h>
 
-extern void *kalloc(vm_size_t size);
-extern void kfree(void *data, vm_size_t size);
+void *IOMalloc(vm_size_t size);
+void IOFree(void *address, vm_size_t size);
 
 typedef struct procfs_list_iter {
 	procfs_list_t *pli_pl;
@@ -63,7 +63,7 @@ procfs_list_data(char *buf, size_t size, void *data)
 	p = data;
 	pl = p->pli_pl;
 	elt = p->pli_elt;
-	kfree(p, sizeof (*p));
+	IOFree(p, sizeof (*p));
 	f.sf_buf = buf;
 	f.sf_size = size;
 	return (pl->pl_show(&f, elt));
@@ -83,7 +83,7 @@ procfs_list_addr(kstat_t *ksp, loff_t n)
 		ksp->ks_private1 = list_next(&pl->pl_list, elt);
 
 	if (ksp->ks_private1) {
-		p = kalloc(sizeof (*p));
+		p = IOMalloc(sizeof (*p));
 		p->pli_pl = pl;
 		p->pli_elt = ksp->ks_private1;
 	}

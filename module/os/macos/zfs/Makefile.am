@@ -27,6 +27,7 @@ zfs_CPPFLAGS = \
 	-I@KERNEL_HEADERS@/PrivateHeaders \
 	-I$(top_srcdir)/module/zstd/include
 
+
 zfs_CPPFLAGS += @KERNEL_DEBUG_CPPFLAGS@
 
 zfs_CFLAGS =
@@ -39,6 +40,11 @@ zfs_LDFLAGS = \
 	-lkmodc++ \
 	-lkmod \
 	-lcc_kext
+
+if TARGET_CPU_AARCH64
+zfs_CPPFLAGS+=-arch arm64e
+zfs_LDFLAGS+=-arch arm64e
+endif
 
 zfs_LDADD = \
 	$(top_builddir)/module/os/macos/spl/libspl.la

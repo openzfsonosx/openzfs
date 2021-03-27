@@ -111,14 +111,13 @@ typedef uint8_t vm_tag_t;
 /*
  * In kernel lowlevel form of malloc.
  */
-#undef kmem_alloc /* Remove SPL macro to call XNU */
-kern_return_t kmem_alloc(vm_map_t map, vm_offset_t *addrp, vm_size_t size);
+void *IOMalloc(vm_size_t size);
+void *IOMallocAligned(vm_size_t size, vm_offset_t alignment);
 
 /*
  * Free memory
  */
-#undef kmem_free /* Remove SPL macro to call XNU */
-extern void kmem_free(vm_map_t map, void *addr, vm_size_t size);
+void IOFree(void *address, vm_size_t size);
 
 #endif /* _KERNEL */
 
@@ -154,9 +153,15 @@ void *
 osif_malloc(uint64_t size)
 {
 #ifdef _KERNEL
-	vm_offset_t tr;
+	// vm_offset_t tr = NULL;
+	void *tr = NULL;
+	kern_return_t kr = -1;
 
-	kern_return_t kr = kmem_alloc(kernel_map, &tr, size);
+	// kern_return_t kr = kmem_alloc(kernel_map, &tr, size);
+	// tr = IOMalloc(size);
+	tr = IOMallocAligned(size, PAGESIZE);
+	if (tr != NULL)
+		kr = KERN_SUCCESS;
 
 	if (kr == KERN_SUCCESS) {
 		atomic_inc_64(&stat_osif_malloc_success);
@@ -174,10 +179,11 @@ osif_malloc(uint64_t size)
 }
 
 void
-osif_free(void* buf, uint64_t size)
+osif_free(void *buf, uint64_t size)
 {
 #ifdef _KERNEL
-	kmem_free(kernel_map, buf, size);
+	// kmem_free(kernel_map, buf, size);
+	IOFree(buf, size);
 	atomic_inc_64(&stat_osif_free);
 	atomic_sub_64(&segkmem_total_mem_allocated, size);
 	atomic_add_64(&stat_osif_free_bytes, size);

@@ -39,6 +39,7 @@
 #include <sys/zvol.h>
 #include <sys/zvol_impl.h>
 #include <sys/zvol_os.h>
+#include <sys/fm/fs/zfs.h>
 
 static uint32_t zvol_major = ZVOL_MAJOR;
 
@@ -509,10 +510,13 @@ zvol_os_clear_private(zvol_state_t *zv)
 	void *term;
 
 	dprintf("%s\n", __func__);
+
 	/* We can do all removal work, except call terminate. */
 	term = zvolRemoveDevice(zv->zv_zso->zvo_iokitdev);
 	if (term == NULL)
 		return;
+
+	zvol_remove_symlink(zv);
 
 	zv->zv_zso->zvo_iokitdev = NULL;
 
@@ -723,6 +727,8 @@ static void zvol_os_rename_device_cb(void *param)
 	int locks;
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
+	zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname + 1,
+	    zv->zv_zso->zvo_bsdname);
 	zvol_os_verify_lock_exit(zv, locks);
 	zvolRenameDevice(zv);
 }
@@ -734,6 +740,8 @@ zvol_os_rename_minor(zvol_state_t *zv, const char *newname)
 
 	ASSERT(RW_LOCK_HELD(&zvol_state_lock));
 	ASSERT(MUTEX_HELD(&zv->zv_state_lock));
+
+	zvol_remove_symlink(zv);
 
 	strlcpy(zv->zv_name, newname, sizeof (zv->zv_name));
 
@@ -1093,4 +1101,40 @@ zvol_fini(void)
 {
 	zvol_fini_impl();
 	taskq_destroy(zvol_taskq);
+}
+
+
+
+/*
+ * Due to OS X limitations in /dev, we create a symlink for "/dev/zvol" to
+ * "/var/run/zfs" (if we can) and for each pool, create the traditional
+ * ZFS Volume symlinks.
+ *
+ * Ie, for ZVOL $POOL/$VOLUME
+ * BSDName /dev/disk2 /dev/rdisk2
+ * /dev/zvol -> /var/run/zfs
+ * /var/run/zfs/zvol/dsk/$POOL/$VOLUME -> /dev/disk2
+ * /var/run/zfs/zvol/rdsk/$POOL/$VOLUME -> /dev/rdisk2
+ *
+ * Note, we do not create symlinks for the partitioned slices.
+ *
+ */
+
+void
+zvol_add_symlink(zvol_state_t *zv, const char *bsd_disk, const char *bsd_rdisk)
+{
+	zfs_ereport_zvol_post(FM_EREPORT_ZVOL_CREATE_SYMLINK,
+	    zv->zv_name, bsd_disk, bsd_rdisk);
+}
+
+
+void
+zvol_remove_symlink(zvol_state_t *zv)
+{
+	if (!zv || !zv->zv_name[0])
+		return;
+
+	zfs_ereport_zvol_post(FM_EREPORT_ZVOL_REMOVE_SYMLINK,
+	    zv->zv_name, &zv->zv_zso->zvo_bsdname[1],
+	    zv->zv_zso->zvo_bsdname);
 }

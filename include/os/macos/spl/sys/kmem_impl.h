@@ -205,7 +205,7 @@ typedef struct kmem_buftag_lite {
  */
 
 #define	KMEM_CPU_CACHE(cp)			\
-	(&cp->cache_cpu[cpu_number()])
+	(&cp->cache_cpu[CPU_SEQID])
 
 #define	KMOM_MAGAZINE_VALID(cp, mp)	\
 	(((kmem_slab_t *)P2END((uintptr_t)(mp), PAGESIZE) - 1)->slab_cache == \
