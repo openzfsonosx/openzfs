@@ -1526,11 +1526,11 @@ do_alloc:
 			vmp->vm_nsegfree -= resv;	/* reserve our segs */
 			mutex_exit(&vmp->vm_lock);
 			if (vmp->vm_cflags & VMC_XALLOC) {
-				// size_t oasize = asize;
+				size_t oasize = asize;
 				vaddr = ((vmem_ximport_t *)
 				    vmp->vm_source_alloc)(vmp->vm_source,
 				    &asize, align, vmflag & VM_KMFLAGS);
-				// ASSERT(asize >= oasize);
+				ASSERT(asize >= oasize);
 				ASSERT(P2PHASE(asize,
 				    vmp->vm_source->vm_quantum) == 0);
 				ASSERT(!(vmp->vm_cflags & VMC_XALIGN) ||
@@ -3319,7 +3319,7 @@ vmem_init(const char *heap_name,
 	spl_default_arena = vmem_create("spl_default_arena", // id 1
 	    initial_default_block, 16ULL*1024ULL*1024ULL,
 	    heap_quantum, spl_vmem_default_alloc, spl_vmem_default_free,
-	    spl_default_arena_parent, 16ULL*1024ULL*1024ULL,
+	    spl_default_arena_parent, 131072,
 	    VM_SLEEP | VMC_POPULATOR | VMC_NO_QCACHE);
 
 	VERIFY(spl_default_arena != NULL);
@@ -3367,85 +3367,26 @@ vmem_init(const char *heap_name,
 	    spl_bucket_tunable_large_span, spl_bucket_tunable_small_span);
 	char *buf = vmem_alloc(spl_default_arena, VMEM_NAMELEN + 21, VM_SLEEP);
 	for (int32_t i = VMEM_BUCKET_LOWBIT; i <= VMEM_BUCKET_HIBIT; i++) {
-		size_t minimum_allocsize = 0;
 		const uint64_t bucket_largest_size = (1ULL << (uint64_t)i);
 		(void) snprintf(buf, VMEM_NAMELEN + 20, "%s_%llu",
 		    "bucket", bucket_largest_size);
 		dprintf("SPL: %s creating arena %s (i == %d)\n", __func__, buf,
 		    i);
-		switch (i) {
-		case 15:
-		case 16:
-			/*
-			 * With the arrival of abd, the 2^15 (== 32768) and 2^16
-			 * buckets are by far the most busy, holding
-			 * respectively the qcache spans of kmem_va (the
-			 * kmem_alloc et al. heap) and zfs_qcache (notably the
-			 * source for the abd_chunk arena)
-			 *
-			 * The lifetime of early (i.e., after import and mount)
-			 * allocations can be highly variable, leading
-			 * to persisting fragmentation from the first eviction
-			 * after arc has grown large.    This can happen if, for
-			 * example, there substantial import and mounting (and
-			 * mds/mdworker and backupd scanning) activity before a
-			 * user logs in and starts demanding memory in userland
-			 * (e.g. by firing up a browser or mail app).
-			 *
-			 * Crucially, this makes it difficult to give back
-			 * memory to xnu without holding the ARC size down for
-			 * long periods of time.
-			 *
-			 * We can mitigate this by exchanging smaller
-			 * amounts of memory with xnu for these buckets.
-			 * There are two downsides: xnu's memory
-			 * freelist will be prone to greater
-			 * fragmentation, which will affect all
-			 * allocation and free activity using xnu's
-			 * allocator including kexts other than our; and
-			 * we are likely to have more waits in the throttled
-			 * alloc function, as more threads are likely to require
-			 * slab importing into the kmem layer and fewer threads
-			 * can be satisfied by a small allocation vs a large
-			 * one.
-			 *
-			 * The import sizes are sysadmin-tunable by setting
-			 * kstat.spl.misc.spl_misc.spl_tunable_small_span
-			 * to a power-of-two number of bytes in zsysctl.conf
-			 * should a sysadmin prefer non-early allocations to
-			 * be larger or smaller depending on system performance
-			 * and workload.
-			 *
-			 * However, a zfs booting system must use the defaults
-			 * here for the earliest allocations, therefore they.
-			 * should be only large enough to protect system
-			 * performance if the sysadmin never changes the tunable
-			 * span sizes.
-			 */
-			minimum_allocsize = MAX(spl_bucket_tunable_small_span,
-			    bucket_largest_size * 4);
-			break;
-		default:
-			/*
-			 * These buckets are all relatively low bandwidth and
-			 * with relatively uniform lifespans for most
-			 * allocations (borrowed arc buffers dominate).
-			 * They should be large enough that they do not
-			 * pester xnu.
-			 */
-			minimum_allocsize = MAX(spl_bucket_tunable_large_span,
-			    bucket_largest_size * 4);
-			break;
-		}
-		dprintf("SPL: %s setting bucket %d (%d) to size %llu\n",
-		    __func__, i, (int)(1 << i), (uint64_t)minimum_allocsize);
 		const int bucket_number = i - VMEM_BUCKET_LOWBIT;
-		vmem_t *b = vmem_create(buf, NULL, 0, heap_quantum,
+		/* To reduce the number of IOMalloc/IOFree transactions with
+		 * the kernel, we create vmem bucket arenas with a PAGESIZE or
+		 * bigger quantum, and a minimum import that is several pages
+		 * for small bucket sizes, and twice the bucket size.
+		 * These will serve power-of-two sized blocks to the
+		 * bucket_heap arena.
+		 */
+		vmem_t *b = vmem_create(buf, NULL, 0,
+		    MAX(heap_quantum, bucket_largest_size),
 		    xnu_alloc_throttled, xnu_free_throttled,
-		    spl_default_arena_parent, minimum_allocsize,
+		    spl_default_arena_parent,
+		    MAX(heap_quantum * 8, bucket_largest_size * 2),
 		    VM_SLEEP | VMC_POPULATOR | VMC_NO_QCACHE | VMC_TIMEFREE);
 		VERIFY(b != NULL);
-		b->vm_min_import = minimum_allocsize;
 		b->vm_source = b;
 		vmem_bucket_arena[bucket_number] = b;
 		vmem_bucket_id_to_bucket_number[b->vm_id] = bucket_number;
