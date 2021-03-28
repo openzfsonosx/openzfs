@@ -3428,7 +3428,8 @@ vmem_init(const char *heap_name,
 	    __func__, (uint64_t)resv_size);
 
 	spl_heap_arena_initial_alloc = vmem_add(spl_heap_arena,
-	    vmem_alloc(spl_default_arena, resv_size, VM_SLEEP),
+	    vmem_xalloc(spl_default_arena, resv_size, resv_size,
+		0, 0, NULL, NULL, VM_SLEEP),
 	    resv_size, VM_SLEEP);
 
 	VERIFY(spl_heap_arena_initial_alloc != NULL);
