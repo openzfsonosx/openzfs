@@ -3963,6 +3963,9 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 		    NULL) {
 			ASSERT3U(nvpair_type(nvp), ==, DATA_TYPE_BYTE_ARRAY);
 
+			if (xattr_protected(nvpair_name(nvp)))
+				continue;	 /* skip */
+
 			namelen = strlen(nvpair_name(nvp)) + 1; /* Null byte */
 
 			/* Just checking for space requirements? */
