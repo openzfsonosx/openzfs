@@ -1830,10 +1830,18 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 			zfs_setattr_set_documentid(zp, B_FALSE);
 		}
 
+#ifndef DECMPFS_XATTR_NAME
+#define	DECMPFS_XATTR_NAME "com.apple.decmpfs"
+#endif
+
 		/* If they are trying to turn on compression.. */
 		if (vap->va_flags & UF_COMPRESSED) {
+			size_t retsize = 0;
+
 			zp->z_skip_truncate_undo_decmpfs = B_TRUE;
 			dprintf("setattr trying to set COMPRESSED!\n");
+			/* We return failure here, stops libarchive from going on */
+			return (SET_ERROR(ENOTSUP));
 		}
 		/* Map OS X file flags to zfs file flags */
 		zfs_setbsdflags(zp, vap->va_flags);
@@ -1851,9 +1859,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	 * because we can not stop (no error, or !feature works) macOS from
 	 * using decmpfs.
 	 */
-#ifndef DECMPFS_XATTR_NAME
-#define	DECMPFS_XATTR_NAME "com.apple.decmpfs"
-#endif
 	if ((VATTR_IS_ACTIVE(vap, va_total_size) ||
 	    VATTR_IS_ACTIVE(vap, va_data_size)) &&
 	    zp->z_skip_truncate_undo_decmpfs) {
