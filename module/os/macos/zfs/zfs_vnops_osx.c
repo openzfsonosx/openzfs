@@ -1836,8 +1836,6 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 
 		/* If they are trying to turn on compression.. */
 		if (vap->va_flags & UF_COMPRESSED) {
-			size_t retsize = 0;
-
 			zp->z_skip_truncate_undo_decmpfs = B_TRUE;
 			dprintf("setattr trying to set COMPRESSED!\n");
 			/* We return failure here, stops libarchive from going on */
@@ -3417,10 +3415,12 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			rw_enter(&zp->z_xattr_lock, RW_READER);
 			size = zpl_xattr_get_sa(vp, ap->a_name, NULL, 0);
 			rw_exit(&zp->z_xattr_lock);
-			if (size > 0) {
+			if (size > 0 && ap->a_size != NULL) {
 				*ap->a_size = size;
-				goto out;
 			}
+			if (size < 0)
+				error = -size;
+			goto out;
 		}
 
 		if (resid) {
@@ -3429,8 +3429,13 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			size = zpl_xattr_get_sa(vp, ap->a_name, value, resid);
 			rw_exit(&zp->z_xattr_lock);
 
+			if (size < 0) {
+				error = -size;
+				goto out;
+			}
+
 			/* Finderinfo checks */
-			if (!error && resid &&
+			if (resid &&
 				bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
 					sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 
