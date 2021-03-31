@@ -3033,7 +3033,12 @@ top:
 	}
 
 	tx = dmu_tx_create(zfsvfs->z_os);
+#ifdef __APPLE__
+	/* ADDTIME might grow SA */
+	dmu_tx_hold_sa(tx, szp->z_sa_hdl, B_TRUE);
+#else
 	dmu_tx_hold_sa(tx, szp->z_sa_hdl, B_FALSE);
+#endif
 	dmu_tx_hold_sa(tx, sdzp->z_sa_hdl, B_FALSE);
 	dmu_tx_hold_zap(tx, sdzp->z_id, FALSE, snm);
 	dmu_tx_hold_zap(tx, tdzp->z_id, TRUE, tnm);
@@ -3089,6 +3094,7 @@ top:
 			    (void *)&szp->z_pflags, sizeof (uint64_t), tx);
 			ASSERT0(error);
 
+#ifdef __APPLE__
 			/*
 			 * If we moved an entry into a different directory
 			 * (sdzp != tdzp) then we also need to update ADDEDTIME
@@ -3104,6 +3110,7 @@ top:
 				    SA_ZPL_ADDTIME(zfsvfs), (void *)&addtime,
 				    sizeof (addtime), tx);
 			}
+#endif
 
 			error = zfs_link_destroy(sdl, szp, tx, ZRENAMING, NULL);
 			if (error == 0) {
