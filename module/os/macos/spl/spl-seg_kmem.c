@@ -159,7 +159,27 @@ osif_malloc(uint64_t size)
 
 	// kern_return_t kr = kmem_alloc(kernel_map, &tr, size);
 	// tr = IOMalloc(size);
-	tr = IOMallocAligned(size, PAGESIZE);
+
+	/* align small allocations on PAGESIZE
+	 * and larger ones on the enclosing power of two
+	 * but drop to PAGESIZE for huge allocations
+	 */
+	uint64_t align = PAGESIZE;
+	if (size > PAGESIZE && !ISP2(size) && size < UINT32_MAX) {
+		uint64_t v = size;
+		v--;
+		v |= v >> 1;
+		v |= v >> 2;
+		v |= v >> 4;
+		v |= v >> 8;
+		v |= v >> 16;
+		v++;
+		align = v;
+	} else if (size > PAGESIZE && ISP2(size)) {
+		align = size;
+	}
+
+	tr = IOMallocAligned(size, MAX(PAGESIZE, align));
 	if (tr != NULL)
 		kr = KERN_SUCCESS;
 
