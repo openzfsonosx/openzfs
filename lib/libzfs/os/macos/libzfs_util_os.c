@@ -489,8 +489,9 @@ pipe_io_relay(void *arg)
 /*
  * XNU only lets us do IO on vnodes, not pipes, so create a Unix
  * Domain socket, open it to get a vnode for the kernel, and spawn
- * thread to relay IO.
- * If pipe already exists, use same descriptors.
+ * thread to relay IO. As used by sendrecv, we are given a FD it wants
+ * to send to the kernel, and we'll replace it with the pipe FD instead.
+ * If pipe/fork already exists, use same descriptors. (multiple send/recv)
  */
 void
 libzfs_macos_wrapfd(int *srcfd, boolean_t send)
@@ -543,13 +544,15 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 	pipe_relay_readfd = open(template, O_RDONLY | O_NONBLOCK);
 
 #ifdef VERBOSE_WRAPFD
-	fprintf(stderr, "%s: pipe_relay_readfd %d (%d)\r\n", __func__, pipe_relay_readfd, error);
+	fprintf(stderr, "%s: pipe_relay_readfd %d (%d)\r\n", __func__,
+	    pipe_relay_readfd, error);
 #endif
 
 	pipe_relay_writefd = open(template, O_WRONLY | O_NONBLOCK);
 
 #ifdef VERBOSE_WRAPFD
-	fprintf(stderr, "%s: pipe_relay_writefd %d (%d)\r\n", __func__, pipe_relay_writefd, error);
+	fprintf(stderr, "%s: pipe_relay_writefd %d (%d)\r\n", __func__,
+	    pipe_relay_writefd, error);
 #endif
 
 	// set it to delete
@@ -624,6 +627,67 @@ out:
 	if (pipe_relay_writefd >= 0)
 		close(pipe_relay_writefd);
 }
+
+/*
+ * libzfs_diff uses pipe() to make 2 connected FDs,
+ * one is passed to kernel, and the other end it creates
+ * a thread to relay IO (to STDOUT).
+ * We can not do IO on anything by vnode opened FDs, so
+ * we'll use mkfifo, and open it twice, the WRONLY side
+ * is passed to kernel (now it is a vnode), and other other
+ * is used in the "differ" thread.
+ */
+int
+libzfs_macos_pipefd(int *read_fd, int *write_fd)
+{
+	char template[100];
+
+	snprintf(template, sizeof (template), "/tmp/.zfs.diff.XXXXXX");
+	mktemp(template);
+
+	if (mkfifo(template, 0600))
+		return (-1);
+
+	*read_fd = open(template, O_RDONLY | O_NONBLOCK);
+
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: readfd %d\r\n", __func__,
+		*read_fd);
+#endif
+	if (*read_fd < 0) {
+		unlink(template);
+		return (-1);
+	}
+
+	*write_fd = open(template, O_WRONLY | O_NONBLOCK);
+
+#ifdef VERBOSE_WRAPFD
+	fprintf(stderr, "%s: writefd %d\r\n", __func__,
+		*write_fd);
+#endif
+
+	// set it to delete
+	unlink(template);
+
+	if (*write_fd < 0) {
+		close(*read_fd);
+		return (-1);
+	}
+
+	/* Open needs NONBLOCK, so switch back to BLOCK */
+	int flags;
+	flags = fcntl(*read_fd, F_GETFL);
+	flags &= ~O_NONBLOCK;
+	fcntl(*read_fd, F_SETFL, flags);
+	flags = fcntl(*write_fd, F_GETFL);
+	flags &= ~O_NONBLOCK;
+	fcntl(*write_fd, F_SETFL, flags);
+
+
+	return (0);
+
+}
+
 
 void
 libzfs_macos_wrapclose(void)
