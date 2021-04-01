@@ -202,42 +202,45 @@ void print_symbol(uintptr_t symbol);
 /* END CSTYLED */
 #else /* MACOS_ASSERT_SHOULD_PANIC */
 
-#define PRINT printf
+#define	PRINT printf
 
 __attribute__((noinline)) int assfail(const char *str, const char *file,
     unsigned int line) __attribute__((optnone));
 
-#define ASSERT(cond)							\
-	(void)(unlikely(!(cond)) && assfail(#cond,__FILE__,__LINE__) &&	\
+#define	ASSERT(cond)							\
+	(void) (unlikely(!(cond)) && assfail(#cond, __FILE__, __LINE__) && \
 	    PRINT("ZFS: %s %s %d : %s\n", __FILE__, __FUNCTION__, __LINE__, \
 		"ASSERTION(" #cond ") failed\n"))
 
-#define ASSERT3_IMPL(LEFT, OP, RIGHT, TYPE, FMT, CAST)			\
+#define	ASSERT3_IMPL(LEFT, OP, RIGHT, TYPE, FMT, CAST)			\
 	do {								\
-		if (!((TYPE)(LEFT) OP (TYPE)(RIGHT)) &&			\
+		if (!((TYPE)(LEFT) OP(TYPE)(RIGHT)) &&	\
 		    assfail(#LEFT #OP #RIGHT, __FILE__, __LINE__))	\
-			PRINT("ZFS: %s %s %d : ASSERT3( %s " #OP " %s) "	\
+			PRINT("ZFS: %s %s %d : ASSERT3( %s " #OP " %s) " \
 			    "failed (" FMT " " #OP " " FMT ")\n",	\
-			    __FILE__, __FUNCTION__, __LINE__,		\
-			    #LEFT,	#RIGHT,				\
-			    CAST (LEFT), CAST (RIGHT));			\
+			    __FILE__, __FUNCTION__, \
+				__LINE__, #LEFT, #RIGHT,	\
+			    CAST(LEFT), CAST(RIGHT));			\
 	} while (0)
 
 
-#define ASSERTF(cond, fmt, a...)					\
+#define	ASSERTF(cond, fmt, a...)					\
 	do {								\
 		if (unlikely(!(cond)))					\
 			panic("ZFS: ASSERTION(" #cond ") failed: " fmt, ## a); \
 	} while (0)
 
 
-#define ASSERT3B(x,y,z)	ASSERT3_IMPL(x, y, z, int64_t, "%u", (boolean_t))
-#define ASSERT3S(x,y,z)	ASSERT3_IMPL(x, y, z, int64_t, "%lld", (long long))
-#define ASSERT3U(x,y,z)	ASSERT3_IMPL(x, y, z, uint64_t, "%llu",	(unsigned long long))
+#define	ASSERT3B(x, y, z) ASSERT3_IMPL(x, y, z, int64_t, "%u", \
+		(boolean_t))
+#define	ASSERT3S(x, y, z) ASSERT3_IMPL(x, y, z, int64_t, "%lld", \
+		(long long))
+#define	ASSERT3U(x, y, z) ASSERT3_IMPL(x, y, z, uint64_t, "%llu", \
+		(unsigned long long))
 
-#define ASSERT3P(x,y,z)	ASSERT3_IMPL(x, y, z, uintptr_t, "%p", (void *))
-#define ASSERT0(x)	ASSERT3_IMPL(0, ==, x, int64_t, "%lld", (long long))
-#define ASSERTV(x)	x
+#define	ASSERT3P(x, y, z) ASSERT3_IMPL(x, y, z, uintptr_t, "%p", (void *))
+#define	ASSERT0(x)	ASSERT3_IMPL(0, ==, x, int64_t, "%lld", (long long))
+#define	ASSERTV(x)	x
 
 
 /*
@@ -247,12 +250,12 @@ __attribute__((noinline)) int assfail(const char *str, const char *file,
  * and
  *      if (a) then (b) *AND* if (b) then (a)
  */
-#define IMPLY(A, B)						\
+#define	IMPLY(A, B)						\
 	((void)(((!(A)) || (B)) ||				\
 	    printf("%s:%d (" #A ") implies (" #B "): failed\n",	\
 		__FILE__, __LINE__)))
 
-#define EQUIV(A, B)							\
+#define	EQUIV(A, B)							\
 	((void)((!!(A) == !!(B)) ||					\
 	    printf("%s:%d (" #A ") is equivalent to (" #B "): failed\n", \
 		__FILE__, __LINE__)))

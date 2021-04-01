@@ -135,25 +135,25 @@ zpool_open_func(void *arg)
 	dupname = zutil_strdup(hdl, rn->rn_name);
 	bname = basename(dupname);
 	error = ((strcmp(bname, "hpet") == 0) || is_watchdog_dev(bname));
-        if ((strncmp(bname, "core", 4) == 0) ||
-            (strncmp(bname, "fd", 2) == 0) ||
-            (strncmp(bname, "fuse", 4) == 0) ||
-            (strncmp(bname, "hpet", 4) == 0) ||
-            (strncmp(bname, "lp", 2) == 0) ||
-            (strncmp(bname, "parport", 7) == 0) ||
-            (strncmp(bname, "ppp", 3) == 0) ||
-            (strncmp(bname, "random", 6) == 0) ||
-            (strncmp(bname, "rtc", 3) == 0) ||
-            (strncmp(bname, "tty", 3) == 0) ||
-            (strncmp(bname, "urandom", 7) == 0) ||
-            (strncmp(bname, "usbmon", 6) == 0) ||
-            (strncmp(bname, "vcs", 3) == 0) ||
+	if ((strncmp(bname, "core", 4) == 0) ||
+	    (strncmp(bname, "fd", 2) == 0) ||
+	    (strncmp(bname, "fuse", 4) == 0) ||
+	    (strncmp(bname, "hpet", 4) == 0) ||
+	    (strncmp(bname, "lp", 2) == 0) ||
+	    (strncmp(bname, "parport", 7) == 0) ||
+	    (strncmp(bname, "ppp", 3) == 0) ||
+	    (strncmp(bname, "random", 6) == 0) ||
+	    (strncmp(bname, "rtc", 3) == 0) ||
+	    (strncmp(bname, "tty", 3) == 0) ||
+	    (strncmp(bname, "urandom", 7) == 0) ||
+	    (strncmp(bname, "usbmon", 6) == 0) ||
+	    (strncmp(bname, "vcs", 3) == 0) ||
 	    (strncmp(bname, "pty", 3) == 0) || // lots, skip for speed
 	    (strncmp(bname, "bpf", 3) == 0) ||
-            (strncmp(bname, "audit", 5) == 0) ||
-            (strncmp(bname, "autofs", 6) == 0) ||
-            (strncmp(bname, "console", 7) == 0) ||
-            (strncmp(bname, "zfs", 3) == 0) ||
+	    (strncmp(bname, "audit", 5) == 0) ||
+	    (strncmp(bname, "autofs", 6) == 0) ||
+	    (strncmp(bname, "console", 7) == 0) ||
+	    (strncmp(bname, "zfs", 3) == 0) ||
 	    (strncmp(bname, "com", 3) == 0)) // /dev/com_digidesign_semiface
 		error = 1;
 
@@ -165,9 +165,9 @@ zpool_open_func(void *arg)
 	 * Ignore failed stats.  We only want regular files and block devices.
 	 */
 	if (stat(rn->rn_name, &statbuf) != 0 ||
-	    (!S_ISREG(statbuf.st_mode)
-		&& !S_ISBLK(statbuf.st_mode)
-		&& !S_ISCHR(statbuf.st_mode)))
+	    (!S_ISREG(statbuf.st_mode) &&
+	    !S_ISBLK(statbuf.st_mode) &&
+	    !S_ISCHR(statbuf.st_mode)))
 		return;
 
 	fd = open(rn->rn_name, O_RDONLY);
@@ -186,19 +186,21 @@ zpool_open_func(void *arg)
 		return;
 	}
 
-	/* zpool_read_label() uses lio_listio; since we are also
+	/*
+	 * zpool_read_label() uses lio_listio; since we are also
 	 * using a tpool thread pool, this will produce occasional
 	 * EAGAINs, which zpool_read_label() deals with gracelessly.
 	 * Here we look for errno == EAGAIN and try again after
 	 * a short delay.
 	 */
-	for(int i = 0; i < 10; i++) {
+	for (int i = 0; i < 10; i++) {
 		error = zpool_read_label(fd, &config, &num_labels);
 		if (error == 0)
 			break;
 		if (error != 0 && errno == EAGAIN) {
 			int saved_errno = errno;
-			if(zpool_label_disk_wait(rn->rn_name, DISK_LABEL_WAIT)==0)
+			if (zpool_label_disk_wait(rn->rn_name,
+			    DISK_LABEL_WAIT) == 0)
 				continue;
 			else
 				errno = saved_errno;
@@ -208,7 +210,8 @@ zpool_open_func(void *arg)
 
 	if (error != 0) {
 		(void) close(fd);
-		printf("%s: zpool_read_label returned error %d (errno: %d name: %s)\n",
+		printf("%s: zpool_read_label returned error %d "
+		    "(errno: %d name: %s)\n",
 		    __func__, error, errno, rn->rn_name);
 		return;
 	}

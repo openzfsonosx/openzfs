@@ -2052,8 +2052,10 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 	 * once large timestamps are fully supported.
 	 */
 	if (mask & (ATTR_ATIME | ATTR_MTIME)) {
-		if (((mask & ATTR_ATIME) && TIMESPEC_OVERFLOW(&vap->va_atime)) ||
-		    ((mask & ATTR_MTIME) && TIMESPEC_OVERFLOW(&vap->va_mtime))) {
+		if (((mask & ATTR_ATIME) &&
+		    TIMESPEC_OVERFLOW(&vap->va_atime)) ||
+		    ((mask & ATTR_MTIME) &&
+		    TIMESPEC_OVERFLOW(&vap->va_mtime))) {
 			ZFS_EXIT(zfsvfs);
 			return (SET_ERROR(EOVERFLOW));
 		}
@@ -2163,7 +2165,8 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 		 *
 		 */
 
-		if (((idmask == (ATTR_UID|ATTR_GID)) && take_owner && take_group) ||
+		if (((idmask == (ATTR_UID|ATTR_GID)) &&
+		    take_owner && take_group) ||
 		    ((idmask == ATTR_UID) && take_owner) ||
 		    ((idmask == ATTR_GID) && take_group)) {
 			if (zfs_zaccess(zp, ACE_WRITE_OWNER, 0,

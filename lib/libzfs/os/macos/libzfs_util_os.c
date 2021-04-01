@@ -518,7 +518,8 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 
 	if (pipe_relay_pid != 0) {
 #ifdef VERBOSE_WRAPFD
-		fprintf(stderr, "%s: pipe relay already started ... \r\n", __func__);
+		fprintf(stderr, "%s: pipe relay already started ... \r\n",
+		    __func__);
 #endif
 		if (send) {
 			*srcfd = pipe_relay_writefd;
@@ -652,7 +653,7 @@ libzfs_macos_pipefd(int *read_fd, int *write_fd)
 
 #ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: readfd %d\r\n", __func__,
-		*read_fd);
+	    *read_fd);
 #endif
 	if (*read_fd < 0) {
 		unlink(template);
@@ -663,7 +664,7 @@ libzfs_macos_pipefd(int *read_fd, int *write_fd)
 
 #ifdef VERBOSE_WRAPFD
 	fprintf(stderr, "%s: writefd %d\r\n", __func__,
-		*write_fd);
+	    *write_fd);
 #endif
 
 	// set it to delete

@@ -114,7 +114,7 @@ spl_cv_wait(kcondvar_t *cvp, kmutex_t *mp, int flags, const char *msg)
 	 * Does timedwait() versions need the same?
 	 */
 	if (result == EINTR &&
-		(mp->m_waiters > 0 || mp->m_sleepers > 0)) {
+	    (mp->m_waiters > 0 || mp->m_sleepers > 0)) {
 		mutex_exit(mp);
 		(void) thread_block(THREAD_CONTINUE_NULL);
 		mutex_enter(mp);

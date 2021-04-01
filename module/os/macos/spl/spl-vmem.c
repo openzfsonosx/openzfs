@@ -1294,8 +1294,10 @@ spl_vmem_xnu_useful_bytes_free(void)
 	if (spl_vm_page_free_wanted > 0)
 		return (0);
 
-	uint64_t bytes_free = (uint64_t)spl_vm_page_free_count * (uint64_t)PAGESIZE;
-	uint64_t bytes_min = (uint64_t)spl_vm_page_free_min * (uint64_t)PAGESIZE;
+	uint64_t bytes_free =
+	    (uint64_t)spl_vm_page_free_count * (uint64_t)PAGESIZE;
+	uint64_t bytes_min =
+	    (uint64_t)spl_vm_page_free_min * (uint64_t)PAGESIZE;
 
 	if (bytes_free <= bytes_min)
 		return (0);
@@ -3373,7 +3375,8 @@ vmem_init(const char *heap_name,
 		dprintf("SPL: %s creating arena %s (i == %d)\n", __func__, buf,
 		    i);
 		const int bucket_number = i - VMEM_BUCKET_LOWBIT;
-		/* To reduce the number of IOMalloc/IOFree transactions with
+		/*
+		 * To reduce the number of IOMalloc/IOFree transactions with
 		 * the kernel, we create vmem bucket arenas with a PAGESIZE or
 		 * bigger quantum, and a minimum import that is several pages
 		 * for small bucket sizes, and twice the bucket size.
@@ -3429,7 +3432,7 @@ vmem_init(const char *heap_name,
 
 	spl_heap_arena_initial_alloc = vmem_add(spl_heap_arena,
 	    vmem_xalloc(spl_default_arena, resv_size, resv_size,
-		0, 0, NULL, NULL, VM_SLEEP),
+	    0, 0, NULL, NULL, VM_SLEEP),
 	    resv_size, VM_SLEEP);
 
 	VERIFY(spl_heap_arena_initial_alloc != NULL);

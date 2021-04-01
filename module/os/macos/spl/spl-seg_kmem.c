@@ -160,7 +160,8 @@ osif_malloc(uint64_t size)
 	// kern_return_t kr = kmem_alloc(kernel_map, &tr, size);
 	// tr = IOMalloc(size);
 
-	/* align small allocations on PAGESIZE
+	/*
+	 * align small allocations on PAGESIZE
 	 * and larger ones on the enclosing power of two
 	 * but drop to PAGESIZE for huge allocations
 	 */

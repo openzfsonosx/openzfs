@@ -4545,14 +4545,16 @@ spl_free_thread()
 			previous_highest_pressure = spl_free_manual_pressure;
 			if (new_p > previous_highest_pressure || new_p <= 0) {
 				boolean_t fast = FALSE;
-				if (spl_vm_page_free_wanted > spl_vm_page_free_min / 8)
+				if (spl_vm_page_free_wanted >
+				    spl_vm_page_free_min / 8)
 					fast = TRUE;
 				spl_free_set_pressure_both(-16LL * new_spl_free,
 				    fast);
 			}
 			last_disequilibrium = time_now_seconds;
 		} else if (spl_vm_page_free_wanted > 0) {
-			int64_t bytes_wanted = (int64_t)spl_vm_page_free_wanted *
+			int64_t bytes_wanted =
+			    (int64_t)spl_vm_page_free_wanted *
 			    (int64_t)PAGESIZE;
 			new_spl_free -= bytes_wanted;
 			if (reserve_low && !early_lots_free) {
@@ -4599,7 +4601,8 @@ spl_free_thread()
 			lowmem = true;
 			recent_lowmem = time_now;
 			last_disequilibrium = time_now_seconds;
-			int64_t spec_bytes = (int64_t)spl_vm_page_speculative_count
+			int64_t spec_bytes =
+			    (int64_t)spl_vm_page_speculative_count
 			    * (int64_t)PAGESIZE;
 			if (spl_vm_page_free_wanted > 0 || new_p > spec_bytes) {
 				// force a stronger reaction from ARC if we are
@@ -4679,12 +4682,14 @@ spl_free_thread()
 			 * file blocks that have been prefetched by xnu but
 			 * are not (yet) in use by any consumer
 			 */
-			if (spl_vm_page_speculative_count / 4 + spl_vm_page_free_count >
+			if (spl_vm_page_speculative_count / 4 +
+			    spl_vm_page_free_count >
 			    spl_vm_page_free_min) {
 				emergency_lowmem = false;
 				spl_free_fast_pressure = FALSE;
 			}
-			if (spl_vm_page_speculative_count / 2 + spl_vm_page_free_count >
+			if (spl_vm_page_speculative_count / 2 +
+			    spl_vm_page_free_count >
 			    spl_vm_page_free_min) {
 				lowmem = false;
 				spl_free_fast_pressure = FALSE;

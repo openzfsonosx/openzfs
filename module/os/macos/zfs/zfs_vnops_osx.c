@@ -638,8 +638,9 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 					goto out;
 				}
 
-				error = spl_build_path(file_vp, bufptr, MAXPATHLEN,
-				    &outlen, flags, (vfs_context_t)ct);
+				error = spl_build_path(file_vp, bufptr,
+				    MAXPATHLEN, &outlen, flags,
+				    (vfs_context_t)ct);
 
 				vnode_put(file_vp);
 
@@ -1838,7 +1839,7 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 		if (vap->va_flags & UF_COMPRESSED) {
 			zp->z_skip_truncate_undo_decmpfs = B_TRUE;
 			dprintf("setattr trying to set COMPRESSED!\n");
-			/* We return failure here, stops libarchive from going on */
+			/* We return failure here, stops libarchive */
 			return (SET_ERROR(ENOTSUP));
 		}
 		/* Map OS X file flags to zfs file flags */
