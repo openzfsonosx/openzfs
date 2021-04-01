@@ -1477,9 +1477,9 @@ zfs_ereport_zvol_post(const char *subclass, const char *name, const char *bsd,
 
 	has_lock = mutex_owned(&spa_namespace_lock);
 	if (!has_lock) mutex_enter(&spa_namespace_lock);
-    spa = spa_lookup(name);
+	spa = spa_lookup(name);
 	if (!has_lock) mutex_exit(&spa_namespace_lock);
-    if (!spa)
+	if (!spa)
 		return;
 
 	zfs_ereport_start(&ereport, &detector,
