@@ -41,12 +41,8 @@ extern "C" {
 
 extern uint64_t segkmem_total_allocated;
 
-/* qcaching for zio arenas and abd arena */
-extern vmem_t *zio_arena_parent;
-/* arena for zio caches for file blocks */
-extern vmem_t *zio_arena;
-/* arena for zio caches for (zfs) metadata blocks */
-extern vmem_t *zio_metadata_arena;
+/* qcaching for abd */
+extern vmem_t *abd_arena;
 
 /*
  * segkmem page vnodes
@@ -63,10 +59,8 @@ extern void segkmem_free(vmem_t *, void *, size_t);
 extern void kernelheap_init(void);
 extern void kernelheap_fini(void);
 
-extern void *segkmem_zio_alloc(vmem_t *, size_t, int);
-extern void segkmem_zio_free(vmem_t *, void *, size_t);
-extern void segkmem_zio_init(void);
-extern void segkmem_zio_fini(void);
+extern void segkmem_abd_init(void);
+extern void segkmem_abd_fini(void);
 
 /*
  * Flags for segkmem_xalloc().
