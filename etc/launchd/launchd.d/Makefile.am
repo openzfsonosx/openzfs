@@ -1,5 +1,3 @@
-SUBDIRS = zfs-pool-importer
-
 AUTOMAKE_OPTIONS = subdir-objects
 
 launchdscriptdir = ${libexecdir}/zfs/launchd.d
