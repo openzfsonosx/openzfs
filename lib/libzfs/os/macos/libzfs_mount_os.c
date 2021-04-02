@@ -51,6 +51,7 @@
 #include "libzfs_impl.h"
 #include <thread_pool.h>
 #include <sys/sysctl.h>
+#include <libzutil.h>
 
 
 /*
@@ -481,4 +482,105 @@ zfs_snapshot_unmount(zfs_handle_t *zhp, int flags)
 	free(mountpoint);
 
 	return (ret);
+}
+
+static int
+do_unmount_volume(const char *mntpt, int flags)
+{
+	char force_opt[] = "force";
+	char *argv[7] = {
+	    "/usr/sbin/diskutil",
+	    "unmountDisk",
+	    NULL, NULL, NULL, NULL };
+	int rc, count = 2;
+
+	if (flags & MS_FORCE) {
+		argv[count] = force_opt;
+		count++;
+	}
+
+	argv[count] = (char *)mntpt;
+	rc = libzfs_run_process(argv[0], argv, STDOUT_VERBOSE|STDERR_VERBOSE);
+
+	return (rc ? EINVAL : 0);
+}
+
+static void
+zpool_disable_volume(char *name)
+{
+	printf("%s: looking for '%s'\n", __func__, name);
+#if 0
+	CFMutableDictionaryRef matchingDict;
+	char *fullname = NULL;
+
+	if (asprintf(&fullname, "ZVOL %s Media", name) < 0)
+		return;
+
+#endif
+}
+
+static int
+zpool_disable_volumes(zfs_handle_t *nzhp, void *data)
+{
+	// Same pool?
+	if (nzhp && nzhp->zpool_hdl && zpool_get_name(nzhp->zpool_hdl) &&
+	    data &&
+	    strcmp(zpool_get_name(nzhp->zpool_hdl), (char *)data) == 0) {
+		if (zfs_get_type(nzhp) == ZFS_TYPE_VOLUME) {
+			char *volume = NULL;
+			/*
+			 *      /var/run/zfs/zvol/dsk/$POOL/$volume
+			 */
+
+			// zpool_disable_volume(zfs_get_name(nzhp));
+
+#if 1
+			volume = zfs_asprintf(nzhp->zfs_hdl,
+			    "%s/zfs/zvol/dsk/%s",
+			    "/var/run",
+			    zfs_get_name(nzhp));
+			if (volume) {
+				/*
+				 * Unfortunately, diskutil does not handle our
+				 * symlink to /dev/diskX - so we need to
+				 * readlink() to find the path
+				 */
+				char dstlnk[MAXPATHLEN];
+				int ret;
+				ret = readlink(volume, dstlnk, sizeof (dstlnk));
+				if (ret > 0) {
+					printf("Attempting to eject volume "
+					    "'%s'\n", zfs_get_name(nzhp));
+					dstlnk[ret] = '\0';
+					do_unmount_volume(dstlnk, 0);
+				} else {
+					printf("Unable to automatically "
+					    "unmount ZVOL by reading "
+					    "symlink '%s', "
+					    "is 'zed' running?\n",
+					    volume);
+					printf("Use 'diskutil unmountdisk "
+					    "/dev/diskX' to "
+					    "complete export.\n");
+				}
+				free(volume);
+			}
+#endif
+		}
+	}
+	(void) zfs_iter_children(nzhp, zpool_disable_volumes, data);
+	zfs_close(nzhp);
+	return (0);
+}
+
+/*
+ * Since volumes can be mounted, we need to ask diskutil to unmountdisk
+ * to make sure Spotlight and all that, let go of the mount.
+ */
+void
+zpool_disable_datasets_os(zpool_handle_t *zhp, boolean_t force)
+{
+	libzfs_handle_t *hdl = zhp->zpool_hdl;
+
+	zfs_iter_root(hdl, zpool_disable_volumes, (void *)zpool_get_name(zhp));
 }
