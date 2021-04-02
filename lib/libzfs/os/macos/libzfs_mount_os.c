@@ -52,7 +52,11 @@
 #include <thread_pool.h>
 #include <sys/sysctl.h>
 #include <libzutil.h>
+#include <libdiskmgt.h>
 
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
 
 /*
  * The default OpenZFS icon. Compare against known values to see if it needs
@@ -490,9 +494,18 @@ do_unmount_volume(const char *mntpt, int flags)
 	char force_opt[] = "force";
 	char *argv[7] = {
 	    "/usr/sbin/diskutil",
-	    "unmountDisk",
 	    NULL, NULL, NULL, NULL };
-	int rc, count = 2;
+	int rc, count = 1;
+
+	// Check if ends with "s1" partition
+	int idx = strlen(mntpt);
+	while (idx > 0 &&
+	    isdigit(mntpt[idx]))
+		idx--;
+	if (mntpt[idx] == 's')
+		argv[count++] = "unmount";
+	else
+		argv[count++] = "unmountDisk";
 
 	if (flags & MS_FORCE) {
 		argv[count] = force_opt;
@@ -506,17 +519,85 @@ do_unmount_volume(const char *mntpt, int flags)
 }
 
 static void
-zpool_disable_volume(char *name)
+zpool_disable_volume(const char *name)
 {
-	printf("%s: looking for '%s'\n", __func__, name);
-#if 0
-	CFMutableDictionaryRef matchingDict;
+	CFMutableDictionaryRef matching = 0;
 	char *fullname = NULL;
+	int result;
+	io_service_t service = 0;
+	io_service_t child;
+	char bsdstr[MAXPATHLEN];
+	char bsdstr2[MAXPATHLEN];
+	CFStringRef bsdname;
+	CFStringRef bsdname2;
+	io_iterator_t iter;
+
+	printf("Exporting '%s'\n", name);
 
 	if (asprintf(&fullname, "ZVOL %s Media", name) < 0)
 		return;
 
-#endif
+	matching = IOServiceNameMatching(fullname);
+	if (matching == 0)
+		goto out;
+	service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+	if (service == 0)
+		goto out;
+	// printf("GetMatching said %p\n", service);
+
+	// Get BSDName?
+	bsdname = IORegistryEntryCreateCFProperty(service,
+	    CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+	if (bsdname &&
+	    CFStringGetCString(bsdname, bsdstr, sizeof (bsdstr),
+	    kCFStringEncodingUTF8)) {
+		// printf("BSDName '%s'\n", bsdstr);
+
+		// Now loop through and check if apfs has any synthesized
+		// garbage attached, as they didnt make "diskutil unmountdisk"
+		// handle it, we have to do it manually. (minus 1 apple!)
+
+		result = IORegistryEntryCreateIterator(service,
+		    kIOServicePlane,
+		    kIORegistryIterateRecursively,
+		    &iter);
+
+		// printf("iterating ret %d \n", result);
+		if (result == 0) {
+			while ((child = IOIteratorNext(iter)) != 0) {
+
+				bsdname2 = IORegistryEntryCreateCFProperty(
+				    child, CFSTR(kIOBSDNameKey),
+				    kCFAllocatorDefault, 0);
+
+				if (bsdname2 &&
+				    CFStringGetCString(bsdname2, bsdstr2,
+				    sizeof (bsdstr2), kCFStringEncodingUTF8)) {
+					CFRelease(bsdname2);
+					printf(
+					    "... asking apfs to eject '%s'\n",
+					    bsdstr2);
+					do_unmount_volume(bsdstr2, 0);
+
+				} // Has BSDName?
+
+				IOObjectRelease(child);
+			}
+			IOObjectRelease(iter);
+		} // iterate
+
+		CFRelease(bsdname);
+		printf("... asking ZVOL to export '%s'\n", bsdstr);
+		do_unmount_volume(bsdstr, 0);
+	}
+
+out:
+	if (service != 0)
+		IOObjectRelease(service);
+	if (fullname != NULL)
+		free(fullname);
+
+	printf("%s: exit\n", __func__);
 }
 
 static int
@@ -527,45 +608,12 @@ zpool_disable_volumes(zfs_handle_t *nzhp, void *data)
 	    data &&
 	    strcmp(zpool_get_name(nzhp->zpool_hdl), (char *)data) == 0) {
 		if (zfs_get_type(nzhp) == ZFS_TYPE_VOLUME) {
-			char *volume = NULL;
 			/*
 			 *      /var/run/zfs/zvol/dsk/$POOL/$volume
 			 */
 
-			// zpool_disable_volume(zfs_get_name(nzhp));
+			zpool_disable_volume(zfs_get_name(nzhp));
 
-#if 1
-			volume = zfs_asprintf(nzhp->zfs_hdl,
-			    "%s/zfs/zvol/dsk/%s",
-			    "/var/run",
-			    zfs_get_name(nzhp));
-			if (volume) {
-				/*
-				 * Unfortunately, diskutil does not handle our
-				 * symlink to /dev/diskX - so we need to
-				 * readlink() to find the path
-				 */
-				char dstlnk[MAXPATHLEN];
-				int ret;
-				ret = readlink(volume, dstlnk, sizeof (dstlnk));
-				if (ret > 0) {
-					printf("Attempting to eject volume "
-					    "'%s'\n", zfs_get_name(nzhp));
-					dstlnk[ret] = '\0';
-					do_unmount_volume(dstlnk, 0);
-				} else {
-					printf("Unable to automatically "
-					    "unmount ZVOL by reading "
-					    "symlink '%s', "
-					    "is 'zed' running?\n",
-					    volume);
-					printf("Use 'diskutil unmountdisk "
-					    "/dev/diskX' to "
-					    "complete export.\n");
-				}
-				free(volume);
-			}
-#endif
 		}
 	}
 	(void) zfs_iter_children(nzhp, zpool_disable_volumes, data);
