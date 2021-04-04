@@ -109,16 +109,13 @@ extern unsigned int max_ncpus;
 /*
  * In OSX, the kernel thread priorities start at 81 and goes to
  * 95 MAXPRI_KERNEL. BASEPRI_REALTIME starts from 96. Since
- * swap priority is at 92. Most ZFS priorities should probably
- * stay below this, but kmem_reap needs to be higher.
+ * swap priority is at 92.  ZFS priorities should have a base below
+ * 81 in general.  Xnu will dynamically adjust priorities of
+ * some taskq threads around maxclsyspri.
  */
-#define	minclsyspri  81 /* BASEPRI_KERNEL */
-#define	defclsyspri  81 /* BASEPRI_KERNEL */
-#define	maxclsyspri  95
-
-
-#define	NICE_TO_PRIO(nice)		(MAX_RT_PRIO + (nice) + 20)
-#define	PRIO_TO_NICE(prio)		((prio) - MAX_RT_PRIO - 20)
+#define	minclsyspri  70 /* well below the render server and other graphics */
+#define	defclsyspri  75 /* five below the xnu kernel services */
+#define	maxclsyspri  80 /* 1 less than base, 2 less than networking */
 
 /*
  * Missing macros

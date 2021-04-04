@@ -498,6 +498,10 @@
 #include <sys/sysmacros.h>
 #include <sys/note.h>
 #include <sys/tsd.h>
+#ifdef __APPLE__
+#include <mach/thread_act.h>
+#include <mach/thread_policy.h>
+#endif
 
 static kmem_cache_t *taskq_ent_cache, *taskq_cache;
 
@@ -516,7 +520,11 @@ taskq_t *system_delay_taskq = NULL;
  * Maximum number of entries in global system taskq is
  *	system_taskq_size * max_ncpus
  */
+#ifdef __APPLE__
+#define	SYSTEM_TASKQ_SIZE 128
+#else
 #define	SYSTEM_TASKQ_SIZE 64
+#endif
 int system_taskq_size = SYSTEM_TASKQ_SIZE;
 
 /*
@@ -1009,9 +1017,16 @@ taskq_mp_init(void)
 void
 system_taskq_init(void)
 {
+#ifdef __APPLE__
+	system_taskq = taskq_create_common("system_taskq", 0,
+	    system_taskq_size * max_ncpus, minclsyspri, 4, 512, &p0, 0,
+	    TASKQ_DYNAMIC | TASKQ_PREPOPULATE | TASKQ_REALLY_DYNAMIC);
+#else
 	system_taskq = taskq_create_common("system_taskq", 0,
 	    system_taskq_size * max_ncpus, minclsyspri, 4, 512, &p0, 0,
 	    TASKQ_DYNAMIC | TASKQ_PREPOPULATE);
+#endif
+
 	system_delay_taskq = taskq_create("system_delay_taskq", max_ncpus,
 	    minclsyspri, 0, 0, 0);
 }
@@ -1603,9 +1618,14 @@ taskq_thread_create(taskq_t *tq)
 		ASSERT3P(tq->tq_proc, !=, &p0);
 		t = lwp_kernel_create(tq->tq_proc, taskq_thread, tq, TS_RUN,
 		    tq->tq_pri);
+#else
+		t = thread_create_named(tq->tq_name,
+		    NULL, 0, taskq_thread, tq, 0, tq->tq_proc,
+		    TS_RUN, tq->tq_pri);
 #endif
 	} else {
-		t = thread_create(NULL, 0, taskq_thread, tq, 0, tq->tq_proc,
+		t = thread_create_named(tq->tq_name,
+		    NULL, 0, taskq_thread, tq, 0, tq->tq_proc,
 		    TS_RUN, tq->tq_pri);
 	}
 
@@ -1662,6 +1682,164 @@ taskq_thread_wait(taskq_t *tq, kmutex_t *mx, kcondvar_t *cv,
 	return (ret);
 }
 
+#ifdef __APPLE__
+/*
+ * Adjust thread policies for SYSDC and BATCH task threads
+ */
+
+/*
+ * from osfmk/kern/thread.[hc] and osfmk/kern/ledger.c
+ *
+ * limit [is] a percentage of CPU over an interval in nanoseconds
+ *
+ * in particular limittime = (interval_ns * percentage) / 100
+ *
+ * when a thread has enough cpu time accumulated to hit limittime,
+ * ast_taken->thread_block is seen in a stackshot (e.g. spindump)
+ *
+ * thread.h 204:#define MINIMUM_CPULIMIT_INTERVAL_MS 1
+ *
+ * Illumos's sysdc updates its stats every 20 ms
+ * (sysdc_update_interval_msec)
+ * which is the tunable we can deal with here; xnu will
+ * take care of the bookkeeping and the amount of "break",
+ * which are the other Illumos tunables.
+ */
+#define	CPULIMIT_INTERVAL (MSEC2NSEC(100ULL))
+#define	THREAD_CPULIMIT_BLOCK 0x1
+
+#if (MACOS < 11) && MACOS_IMPURE
+extern int thread_set_cpulimit(int action, uint8_t percentage,
+    uint64_t interval_ns);
+#endif
+
+static void
+taskq_thread_set_cpulimit(taskq_t *tq)
+{
+	if (tq->tq_flags & TASKQ_DUTY_CYCLE) {
+		ASSERT3U(tq->tq_DC, <=, 100);
+		ASSERT3U(tq->tq_DC, >, 0);
+#if (MACOS < 11) && MACOS_IMPURE
+		const uint8_t inpercent = MIN(100, MAX(tq->tq_DC, 1));
+		const uint64_t interval_ns = CPULIMIT_INTERVAL;
+		/*
+		 * deflate tq->tq_DC (a percentage of cpu) by the
+		 * ratio of max_ncpus (logical cpus) to physical_ncpu.
+		 *
+		 * we don't want hyperthread resources to get starved
+		 * out by a large DUTY CYCLE, and we aren't doing
+		 * processor set pinning of threads to CPUs of either
+		 * type (neither does Illumos, but sysdc does take
+		 * account of psets when calculating the duty cycle,
+		 * and I don't know how to do that yet).
+		 *
+		 * do some scaled integer division to get
+		 * decpct = percent/(maxcpus/physcpus)
+		 */
+		const uint64_t m100 = (uint64_t)max_ncpus * 100ULL;
+		const uint64_t r100 = m100 / (MAX(max_ncpus/2, 1));
+		const uint64_t pct100 = inpercent * 100ULL;
+		const uint64_t decpct = pct100 / r100;
+		uint8_t percent = MIN(decpct, inpercent);
+		ASSERT3U(percent, <=, 100);
+		ASSERT3U(percent, >, 0);
+
+		int ret = thread_set_cpulimit(THREAD_CPULIMIT_BLOCK,
+		    percent, interval_ns);
+#else
+		int ret = 45; // ENOTSUP -- XXX todo: drop priority?
+#endif
+
+		if (ret != KERN_SUCCESS) {
+			printf("SPL: %s:%d: WARNING"
+			    " thread_set_cpulimit returned %d\n",
+			    __func__, __LINE__, ret);
+		}
+	}
+}
+
+/*
+ * Set up xnu thread importance,
+ * throughput and latency QOS.
+ *
+ * Approximate Illumos's SYSDC
+ * (/usr/src/uts/common/disp/sysdc.c)
+ *
+ * SYSDC tracks cpu runtime itself, and yields to
+ * other threads if
+ * onproc time / (onproc time + runnable time)
+ * exceeds the Duty Cycle threshold.
+ *
+ * Approximate this by
+ * [a] setting a thread_cpu_limit percentage,
+ * [b] setting the thread precedence
+ * slightly higher than normal,
+ * [c] setting the thread throughput and latency policies
+ * just less than USER_INTERACTIVE, and
+ * [d] turning on the
+ * TIMESHARE policy, which adjusts the thread
+ * priority based on cpu usage.
+ */
+
+static void
+set_taskq_thread_attributes(thread_t thread, taskq_t *tq)
+{
+	pri_t pri = tq->tq_pri;
+
+	if (tq->tq_flags & TASKQ_DUTY_CYCLE) {
+		taskq_thread_set_cpulimit(tq);
+	}
+
+	if (tq->tq_flags & TASKQ_DC_BATCH)
+		pri--;
+
+	set_thread_importance_named(thread,
+	    pri, tq->tq_name);
+
+	/*
+	 * TIERs: 0 is USER_INTERACTIVE, 1 is USER_INITIATED, 1 is LEGACY,
+	 *        2 is UTILITY, 5 is BACKGROUND, 5 is MAINTENANCE
+	 */
+	const thread_throughput_qos_t std_throughput = THROUGHPUT_QOS_TIER_1;
+	const thread_throughput_qos_t sysdc_throughput = THROUGHPUT_QOS_TIER_1;
+	const thread_throughput_qos_t batch_throughput = THROUGHPUT_QOS_TIER_2;
+	if (tq->tq_flags & TASKQ_DC_BATCH)
+		set_thread_throughput_named(thread,
+		    batch_throughput, tq->tq_name);
+	else if (tq->tq_flags & TASKQ_DUTY_CYCLE)
+		set_thread_throughput_named(thread,
+		    sysdc_throughput, tq->tq_name);
+	else
+		set_thread_throughput_named(thread,
+		    std_throughput, tq->tq_name);
+
+	/*
+	 * TIERs: 0 is USER_INTERACTIVE, 1 is USER_INITIATED,
+	 *        1 is LEGACY, 3 is UTILITY, 3 is BACKGROUND,
+	 *        5 is MAINTENANCE
+	 */
+	const thread_latency_qos_t batch_latency = LATENCY_QOS_TIER_3;
+	const thread_latency_qos_t std_latency = LATENCY_QOS_TIER_1;
+
+	if (tq->tq_flags & TASKQ_DC_BATCH)
+		set_thread_latency_named(thread,
+		    batch_latency, tq->tq_name);
+	else
+		set_thread_latency_named(thread,
+		    std_latency, tq->tq_name);
+
+	/*
+	 * Passivate I/Os for this thread
+	 * (Default is IOPOOL_IMPORTANT)
+	 */
+	throttle_set_thread_io_policy(IOPOL_PASSIVE);
+
+	set_thread_timeshare_named(thread,
+	    tq->tq_name);
+}
+
+#endif // __APPLE__
+
 /*
  * Worker thread for processing task queue.
  */
@@ -1675,6 +1853,10 @@ taskq_thread(void *arg)
 	callb_cpr_t cprinfo;
 	hrtime_t start, end;
 	boolean_t freeit;
+
+#ifdef __APPLE__
+	set_taskq_thread_attributes(current_thread(), tq);
+#endif
 
 	CALLB_CPR_INIT(&cprinfo, &tq->tq_lock, callb_generic_cpr,
 	    tq->tq_name);
@@ -2020,6 +2202,11 @@ taskq_create_sysdc(const char *name, int nthreads, int minalloc,
 	ASSERT((flags & ~TASKQ_INTERFACE_FLAGS) == 0);
 #ifndef __APPLE__
 	ASSERT(proc->p_flag & SSYS);
+#else
+	dprintf("SPL: %s:%d: taskq_create_sysdc(%s, nthreads: %d,"
+	    " minalloc: %d, maxalloc: %d, proc, dc: %u, flags: %x)\n",
+	    __func__, __LINE__, name, nthreads,
+	    minalloc, maxalloc, dc, flags);
 #endif
 	return (taskq_create_common(name, 0, nthreads, minclsyspri, minalloc,
 	    maxalloc, proc, dc, flags | TASKQ_NOINSTANCE | TASKQ_DUTY_CYCLE));
@@ -2042,7 +2229,8 @@ taskq_create_common(const char *name, int instance, int nthreads, pri_t pri,
 	 * We are not allowed to use TASKQ_DYNAMIC with taskq_dispatch_ent()
 	 * but that is done by spa.c - so we will simply mask DYNAMIC out.
 	 */
-	flags &= ~TASKQ_DYNAMIC;
+	if (!(flags & TASKQ_REALLY_DYNAMIC))
+		flags &= ~TASKQ_DYNAMIC;
 
 	/*
 	 * TASKQ_DYNAMIC, TASKQ_CPR_SAFE and TASKQ_THREADS_CPU_PCT are all
@@ -2059,7 +2247,14 @@ taskq_create_common(const char *name, int instance, int nthreads, pri_t pri,
 	IMPLY((flags & TASKQ_DUTY_CYCLE), proc != &p0);
 
 	/* Cannot have DC_BATCH without DUTY_CYCLE */
-	ASSERT((flags & (TASKQ_DUTY_CYCLE|TASKQ_DC_BATCH)) != TASKQ_DC_BATCH);
+	ASSERT((flags & (TASKQ_DUTY_CYCLE|TASKQ_DC_BATCH))
+	    != TASKQ_DC_BATCH);
+
+#ifdef __APPLE__
+	/* Cannot have DC_BATCH or DUTY_CYCLE with TIMESHARE */
+	IMPLY((flags & (TASKQ_DUTY_CYCLE|TASKQ_DC_BATCH)),
+	    !(flags & TASKQ_TIMESHARE));
+#endif
 
 	ASSERT(proc != NULL);
 
@@ -2396,8 +2591,11 @@ taskq_bucket_extend(void *arg)
 	 * for it to be initialized (below).
 	 */
 	tqe->tqent_thread = (kthread_t *)0xCEDEC0DE;
-	thread = thread_create(NULL, 0, (void (*)(void *))taskq_d_thread,
+	thread = thread_create_named(tq->tq_name,
+	    NULL, 0, (void (*)(void *))taskq_d_thread,
 	    tqe, 0, pp0, TS_RUN, tq->tq_pri);
+
+	set_taskq_thread_attributes(thread, tq);
 #else
 
 	/*
