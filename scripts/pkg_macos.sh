@@ -164,6 +164,7 @@ ${WORKDIR}/${prefix}/lib/libzfs.?.dylib
 ${WORKDIR}/${prefix}/lib/libzpool.?.dylib
 ${WORKDIR}/${prefix}/lib/libzfs_core.?.dylib
 ${WORKDIR}/${prefix}/lib/libzfsbootenv.?.dylib
+${WORKDIR}/${prefix}/lib/libdiskmgt.1.dylib
 ${WORKDIR}/Library/Filesystems/zfs.fs/Contents/Resources/zfs_util
 ${WORKDIR}/Library/Filesystems/zfs.fs/Contents/Resources/mount_zfs
 "
