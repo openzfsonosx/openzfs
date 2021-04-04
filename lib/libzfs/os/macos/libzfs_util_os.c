@@ -43,6 +43,7 @@
 #include "zfs_prop.h"
 #include <libzutil.h>
 #include <sys/zfs_sysfs.h>
+#include <libdiskmgt.h>
 
 #define	ZDIFF_SHARESDIR		"/.zfs/shares/"
 
@@ -164,6 +165,10 @@ libzfs_load_module_impl(const char *module)
 int
 libzfs_load_module(void)
 {
+
+	// Using this as a libzfs_init_os() - we should probably do it properly
+	libdiskmgt_init();
+
 	return (libzfs_load_module_impl(ZFS_DRIVER));
 }
 

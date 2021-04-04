@@ -195,6 +195,9 @@ AC_CONFIG_FILES([
 	lib/libzpool/Makefile
 	lib/libzstd/Makefile
 	lib/libzutil/Makefile
+	lib/os/Makefile
+	lib/os/macos/Makefile
+	lib/os/macos/libdiskmgt/Makefile
 	man/Makefile
 	man/man1/Makefile
 	man/man5/Makefile
