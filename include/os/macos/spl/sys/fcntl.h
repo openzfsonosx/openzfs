@@ -28,6 +28,12 @@
 #ifndef _SPL_FCNTL_H
 #define	_SPL_FCNTL_H
 
+#include <AvailabilityMacros.h>
+#if !defined(MAC_OS_X_VERSION_10_9) ||	\
+	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_9)
+#include <i386/types.h>
+#endif
+
 #include_next <sys/fcntl.h>
 
 #define	F_FREESP		11
