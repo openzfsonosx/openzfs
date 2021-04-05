@@ -3449,12 +3449,13 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 				}
 
 				/* If FinderInfo is empty > it doesn't exist */
-				if (bcmp(value, emptyfinfo,
-				    sizeof (emptyfinfo)) == 0) {
-					error = ENOATTR;
-					kmem_free(value, resid);
-					goto out;
-				}
+				// if (bcmp(value, emptyfinfo,
+				//     sizeof (emptyfinfo)) == 0) {
+				// 	error = ENOATTR;
+				// 	kmem_free(value, resid);
+				//	printf("empty, so noattr\n");
+				//	goto out;
+				// }
 
 				/* According to HFS zero out some fields */
 				finderinfo_update((uint8_t *)value, zp);
@@ -3500,7 +3501,8 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 		/* Read the attribute data. */
 		/* FinderInfo is 32 bytes */
-		if ((user_size_t)zfs_uio_resid(uio) < 32) {
+		// Size 0 to getsize, otherwise, it should be 32 bytes.
+		if (zfs_uio_resid(uio) > 0 && zfs_uio_resid(uio) < 32) {
 			error = ERANGE;
 			goto out;
 		}
@@ -3524,16 +3526,21 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			finderinfo_update((uint8_t *)&finderinfo, zp);
 
 			/* If Finder Info is empty then it doesn't exist. */
-			if (bcmp(finderinfo, emptyfinfo,
-			    sizeof (emptyfinfo)) == 0) {
-				error = ENOATTR;
-			} else {
+			/*
+			 * Allow for now, we should weed them out of listxattr as
+			 * well, and presumably delete xattr in those cases.
+			 * 2021/04/07 - lundman
+			 */
+			// if (bcmp(finderinfo, emptyfinfo,
+			//    sizeof (emptyfinfo)) == 0) {
+			//	error = ENOATTR;
+			// } else {
 
-				/* Copy out the data we just modified */
-				error = zfs_uiomove(&finderinfo,
-				    sizeof (finderinfo), 0, uio);
+			/* Copy out the data we just modified */
+			error = zfs_uiomove(&finderinfo,
+			    sizeof (finderinfo), 0, uio);
 
-			} /* Not empty */
+			// } /* Not empty */
 		} /* Correct size */
 
 		/* We are done */
