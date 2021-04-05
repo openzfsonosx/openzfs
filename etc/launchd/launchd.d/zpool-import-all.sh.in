@@ -2,7 +2,6 @@
 
 echo "+zpool-import-all.sh"
 date
-export ZPOOL=@sbindir@/zpool
 export ZPOOL_IMPORT_ALL_COOKIE=/var/run/org.openzfsonosx.zpool-import-all.didRun
 export INVARIANT_DISKS_IDLE_FILE=/var/run/disk/invariant.idle
 export TIMEOUT_SECONDS=60
@@ -32,11 +31,11 @@ sleep 10
 echo "Running zpool import -a"
 date
 
-"${ZPOOL}" import -a -d /var/run/disk/by-id
+/bin/launchctl kickstart system/org.openzfsonosx.zpool-import
 ret=$?
 
 date
-echo "Finished running zpool import -a : ${ret}"
+echo "Launched zpool import -a : ${ret}"
 
 echo "Touching the file ${ZPOOL_IMPORT_ALL_COOKIE}"
 touch "${ZPOOL_IMPORT_ALL_COOKIE}"
