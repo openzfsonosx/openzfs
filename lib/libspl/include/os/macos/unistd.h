@@ -43,4 +43,8 @@ fdatasync(int fd)
 	return (0);
 }
 
+#ifndef _SC_PHYS_PAGES
+#define	_SC_PHYS_PAGES 200
+#endif
+
 #endif

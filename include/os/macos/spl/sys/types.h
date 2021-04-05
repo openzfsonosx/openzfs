@@ -37,6 +37,14 @@
 #include <sys/sysmacros.h>
 #include <stddef.h>
 
+#include <AvailabilityMacros.h>
+#if !defined(MAC_OS_X_VERSION_10_9) ||	\
+	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_9)
+#include <i386/types.h>
+#include <i386/limits.h>
+#include <sys/_types/_ptrdiff_t.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

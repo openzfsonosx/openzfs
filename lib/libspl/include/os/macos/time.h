@@ -23,6 +23,7 @@
 #define	_LIBSPL_TIME_H
 
 #include_next <time.h>
+#include <AvailabilityMacros.h>
 
 /* Linux also has a timer_create() API we need to emulate. */
 
@@ -36,6 +37,11 @@
  */
 
 typedef void *timer_t;
+
+#if !defined(MAC_OS_X_VERSION_10_12) || \
+	(MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_12)
+typedef int clockid_t;
+#endif
 
 struct itimerspec {
 	struct timespec it_interval;	/* timer period */

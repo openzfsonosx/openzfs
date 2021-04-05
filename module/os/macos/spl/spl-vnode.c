@@ -35,7 +35,7 @@
 #include <IOKit/IOLib.h>
 
 #include <sys/taskq.h>
-
+#include <AvailabilityMacros.h>
 
 int
 VOP_SPACE(struct vnode *vp, int cmd, struct flock *fl, int flags, offset_t off,
@@ -356,14 +356,24 @@ extern int vnode_notify(struct vnode *, uint32_t, struct vnode_attr *);
 int
 spl_vnode_notify(struct vnode *vp, uint32_t type, struct vnode_attr *vap)
 {
+#if defined(MAC_OS_X_VERSION_10_11) &&	\
+	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	return (vnode_notify(vp, type, vap));
+#else
+	return (0);
+#endif
 }
 
 extern int vfs_get_notify_attributes(struct vnode_attr *vap);
 int
 spl_vfs_get_notify_attributes(struct vnode_attr *vap)
 {
+#if defined(MAC_OS_X_VERSION_10_11) &&	\
+	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	return (vfs_get_notify_attributes(vap));
+#else
+	return (0);
+#endif
 }
 
 /* Root directory vnode for the system a.k.a. '/' */

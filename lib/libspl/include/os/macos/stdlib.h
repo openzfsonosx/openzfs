@@ -24,5 +24,6 @@
 
 #include_next <stdlib.h>
 #include <sys/sysmacros.h>
+#include <sys/time.h>
 
 #endif
