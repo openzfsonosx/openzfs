@@ -37,6 +37,11 @@
  * Evan Susarret in 2015.
  */
 
+/* Quiet some noisy build warnings */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winconsistent-missing-override"
+#pragma GCC diagnostic ignored "-Wdeprecated-register"
+
 /*
  * Apple IOKit (c++)
  */
@@ -418,17 +423,22 @@ handle_sync_iokit(struct ldi_handle *lhp)
 #if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	/* Issue device sync */
-	if (LH_MEDIA(lhp)->synchronize(LH_CLIENT(lhp), 0, 0, 0) !=
+	if (LH_MEDIA(lhp)->synchronize(LH_CLIENT(lhp), 0, 0, kIOStorageSynchronizeOptionBarrier) !=
 	    kIOReturnSuccess) {
-		dprintf("%s %s\n", __func__,
-		    "IOMedia synchronizeCache failed");
-		return (ENOTSUP);
+		printf("%s %s\n", __func__,
+		    "IOMedia synchronizeCache (with write barrier) failed\n");
+		if (LH_MEDIA(lhp)->synchronize(LH_CLIENT(lhp), 0, 0, 0) !=
+		    kIOReturnSuccess) {
+			printf("%s %s\n", __func__,
+			    "IOMedia synchronizeCache (standard) failed\n");
+			return (ENOTSUP);
+		}
 	}
 #else
 	/* Issue device sync */
 	if (LH_MEDIA(lhp)->synchronizeCache(LH_CLIENT(lhp)) !=
 	    kIOReturnSuccess) {
-		dprintf("%s %s\n", __func__,
+		printf("%s %s\n", __func__,
 		    "IOMedia synchronizeCache failed");
 		return (ENOTSUP);
 	}
@@ -1252,6 +1262,9 @@ buf_sync_strategy_iokit(ldi_buf_t *lbp, ldi_iokit_buf_t *iobp,
 	UInt64 actualByteCount = 0;
 	IOReturn result;
 
+	iobp->ioattr.priority = 0;
+	iobp->ioattr.options = 0;
+
 	/* Read or write */
 	if (lbp->b_flags & B_READ) {
 		result = LH_MEDIA(lhp)->IOStorage::read(LH_CLIENT(lhp),
@@ -1325,6 +1338,18 @@ buf_strategy_iokit(ldi_buf_t *lbp, struct ldi_handle *lhp)
 	/* XXX Zero the ioattr struct */
 	bzero(&iobp->ioattr, sizeof (IOStorageAttributes));
 #endif
+
+	/* Priority of I/O */
+	if (lbp->b_flags & B_THROTTLED_IO) {
+		lbp->b_flags &= ~B_THROTTLED_IO;
+		iobp->ioattr.priority = kIOStoragePriorityBackground;
+		if (lbp->b_flags & B_WRITE)
+			iobp->ioattr.priority--;
+	}
+	else if ((lbp->b_flags & B_ASYNC) == 0 || (lbp->b_flags & B_WRITE))
+		iobp->ioattr.priority = kIOStoragePriorityDefault - 1;
+	else
+		iobp->ioattr.priority = kIOStoragePriorityDefault;
 
 	/* Allocate a memory descriptor pointing to the data address */
 	iobp->iomem = IOMemoryDescriptor::withAddress(
