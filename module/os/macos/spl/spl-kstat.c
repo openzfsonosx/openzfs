@@ -701,13 +701,20 @@ kstat_handle_string SYSCTL_HANDLER_ARGS
 	}
 
 	if (!error && req->newptr) {
+		char *inbuf[256];
 
-		/* Copy the new value from user space (copyin done by XNU) */
-		kstat_named_setstr(named, (const char *)(req->newptr));
+		error = SYSCTL_IN(req, inbuf, req->newlen);
 
-		/* and invoke the update operation: last call out */
-		if (ksp->ks_update) {
-			error = ksp->ks_update(ksp, KSTAT_WRITE);
+		if (error == 0) {
+
+			inbuf[req->newlen] = 0;
+
+			/* Copy the new value from user space (copyin done by XNU) */
+			kstat_named_setstr(named, (const char *)inbuf);
+
+			/* and invoke the update operation: last call out */
+			if (ksp->ks_update)
+				error = ksp->ks_update(ksp, KSTAT_WRITE);
 		}
 
 	} else {
