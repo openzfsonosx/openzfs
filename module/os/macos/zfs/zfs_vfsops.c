@@ -699,6 +699,38 @@ zfsvfs_init(zfsvfs_t *zfsvfs, objset_t *os)
 	else if (error != 0)
 		return (error);
 
+	error = zap_lookup(os, MASTER_NODE_OBJ,
+	    zfs_userquota_prop_prefixes[ZFS_PROP_PROJECTQUOTA],
+	    8, 1, &zfsvfs->z_projectquota_obj);
+	if (error == ENOENT)
+		zfsvfs->z_projectquota_obj = 0;
+	else if (error != 0)
+		return (error);
+
+	error = zap_lookup(os, MASTER_NODE_OBJ,
+	    zfs_userquota_prop_prefixes[ZFS_PROP_USEROBJQUOTA],
+	    8, 1, &zfsvfs->z_userobjquota_obj);
+	if (error == ENOENT)
+		zfsvfs->z_userobjquota_obj = 0;
+	else if (error != 0)
+		return (error);
+
+	error = zap_lookup(os, MASTER_NODE_OBJ,
+	    zfs_userquota_prop_prefixes[ZFS_PROP_GROUPOBJQUOTA],
+	    8, 1, &zfsvfs->z_groupobjquota_obj);
+	if (error == ENOENT)
+		zfsvfs->z_groupobjquota_obj = 0;
+	else if (error != 0)
+		return (error);
+
+	error = zap_lookup(os, MASTER_NODE_OBJ,
+	    zfs_userquota_prop_prefixes[ZFS_PROP_PROJECTOBJQUOTA],
+	    8, 1, &zfsvfs->z_projectobjquota_obj);
+	if (error == ENOENT)
+		zfsvfs->z_projectobjquota_obj = 0;
+	else if (error != 0)
+		return (error);
+
 	error = zap_lookup(os, MASTER_NODE_OBJ, ZFS_FUID_TABLES, 8, 1,
 	    &zfsvfs->z_fuid_obj);
 	if (error == ENOENT)
