@@ -3450,7 +3450,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 				/* If FinderInfo is empty > it doesn't exist */
 				// if (bcmp(value, emptyfinfo,
-				//     sizeof (emptyfinfo)) == 0) {
+				//  sizeof (emptyfinfo)) == 0) {
 				// 	error = ENOATTR;
 				// 	kmem_free(value, resid);
 				//	printf("empty, so noattr\n");
@@ -3527,7 +3527,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 
 			/* If Finder Info is empty then it doesn't exist. */
 			/*
-			 * Allow for now, we should weed them out of listxattr as
+			 * Allow for now, we should weed them out of listxattr
 			 * well, and presumably delete xattr in those cases.
 			 * 2021/04/07 - lundman
 			 */
