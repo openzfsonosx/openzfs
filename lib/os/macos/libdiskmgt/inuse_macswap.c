@@ -46,12 +46,12 @@ inuse_macswap(const char *dev_name)
 
 	/* Obtain the swap file prefix (path + prototype basename) */
 	if (sysctlbyname(SWAP_SYSCTL_NAME, NULL, &oldlen, NULL, 0) != 0)
-	  return (0);
+		return (0);
 
 	swap_filename = (char *)malloc(oldlen);
-	if (sysctlbyname(SWAP_SYSCTL_NAME, swap_filename, &oldlen, NULL, 
+	if (sysctlbyname(SWAP_SYSCTL_NAME, swap_filename, &oldlen, NULL,
 	    0) != 0)
-	  return (0);
+		return (0);
 
 	/*
 	 * Get the directory portion of the vm.swapfileprefix sysctl
