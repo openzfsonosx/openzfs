@@ -704,45 +704,14 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 
 		/* Did we change the value ? */
 		if (ks->arc_zfs_arc_max.value.ui64 != zfs_arc_max) {
-
 			/* Assign new value */
 			zfs_arc_max = ks->arc_zfs_arc_max.value.ui64;
 			do_update = B_TRUE;
-
-			/* Update ARC with new value */
-			if (zfs_arc_max > 64<<20 && zfs_arc_max <
-			    physmem * PAGESIZE)
-				arc_c_max = zfs_arc_max;
-
-			arc_c = arc_c_max;
-			arc_p = (arc_c >> 1);
-
-			/* If meta_limit is not set, adjust it automatically */
-			if (!zfs_arc_meta_limit)
-				arc_meta_limit = arc_c_max / 4;
 		}
 
 		if (ks->arc_zfs_arc_min.value.ui64 != zfs_arc_min) {
 			zfs_arc_min = ks->arc_zfs_arc_min.value.ui64;
 			do_update = B_TRUE;
-			if (zfs_arc_min > 64<<20 && zfs_arc_min <= arc_c_max) {
-				arc_c_min = zfs_arc_min;
-				printf("ZFS: set arc_c_min %llu, arc_meta_min "
-				    "%llu, zfs_arc_meta_min %llu\n",
-				    arc_c_min, arc_meta_min, zfs_arc_meta_min);
-				if (arc_c < arc_c_min) {
-					printf("ZFS: raise arc_c %llu to "
-					    "arc_c_min %llu\n", arc_c,
-					    arc_c_min);
-					arc_c = arc_c_min;
-					if (arc_p < (arc_c >> 1)) {
-						printf("ZFS: raise arc_p %llu "
-						    "to %llu\n",
-						    arc_p, (arc_c >> 1));
-						arc_p = (arc_c >> 1);
-					}
-				}
-			}
 		}
 
 		if (ks->arc_zfs_arc_meta_limit.value.ui64 !=
@@ -750,57 +719,36 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 			zfs_arc_meta_limit =
 			    ks->arc_zfs_arc_meta_limit.value.ui64;
 			do_update = B_TRUE;
-			/* Allow the tunable to override if it is reasonable */
-			if (zfs_arc_meta_limit > 0 &&
-			    zfs_arc_meta_limit <= arc_c_max)
-				arc_meta_limit = zfs_arc_meta_limit;
-
-			if (arc_c_min < arc_meta_limit / 2 &&
-			    zfs_arc_min == 0)
-				arc_c_min = arc_meta_limit / 2;
-
-			printf("ZFS: set arc_meta_limit %llu, arc_c_min %llu,"
-			    "zfs_arc_meta_limit %lu\n",
-			    arc_meta_limit, arc_c_min, zfs_arc_meta_limit);
 		}
 
 		if (ks->arc_zfs_arc_meta_min.value.ui64 != zfs_arc_meta_min) {
 			zfs_arc_meta_min  = ks->arc_zfs_arc_meta_min.value.ui64;
 			do_update = B_TRUE;
-			if (zfs_arc_meta_min >= arc_c_min) {
-				printf("ZFS: probable error, zfs_arc_meta_min "
-				    "%llu >= arc_c_min %llu\n",
-				    zfs_arc_meta_min, arc_c_min);
-			}
-			if (zfs_arc_meta_min > 0 &&
-			    zfs_arc_meta_min <= arc_meta_limit)
-				arc_meta_min = zfs_arc_meta_min;
-			printf("ZFS: set arc_meta_min %llu\n", arc_meta_min);
 		}
 
 		if (zfs_arc_grow_retry !=
 		    ks->arc_zfs_arc_grow_retry.value.ui64) {
 			zfs_arc_grow_retry =
 			    ks->arc_zfs_arc_grow_retry.value.ui64;
-			do_update = 1;
+			do_update = B_TRUE;
 		}
 		if (zfs_arc_shrink_shift !=
 		    ks->arc_zfs_arc_shrink_shift.value.ui64) {
 			zfs_arc_shrink_shift =
 			    ks->arc_zfs_arc_shrink_shift.value.ui64;
-			do_update = 1;
+			do_update = B_TRUE;
 		}
 		if (zfs_arc_p_min_shift !=
 		    ks->arc_zfs_arc_p_min_shift.value.ui64) {
 			zfs_arc_p_min_shift =
 			    ks->arc_zfs_arc_p_min_shift.value.ui64;
-			do_update = 1;
+			do_update = B_TRUE;
 		}
 		if(zfs_arc_average_blocksize !=
 		    ks->arc_zfs_arc_average_blocksize.value.ui64) {
 			zfs_arc_average_blocksize =
 			    ks->arc_zfs_arc_average_blocksize.value.ui64;
-			do_update = 1;
+			do_update = B_TRUE;
 		}
 
 		if (do_update)
