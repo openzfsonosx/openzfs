@@ -45,6 +45,8 @@
 void *IOMalloc(vm_size_t size);
 void IOFree(void *address, vm_size_t size);
 
+void *IOMallocAligned(vm_size_t size, vm_offset_t alignment);
+void IOFreeAligned(void *address, vm_size_t size);
 
 /*
  * Statically declared toplevel OID that all kstats
@@ -508,7 +510,7 @@ kstat_handle_raw SYSCTL_HANDLER_ARGS
 	(void) ksp->ks_update(ksp, KSTAT_READ);
 
 	ksp->ks_raw_bufsize = PAGE_SIZE;
-	ksp->ks_raw_buf = IOMalloc(PAGE_SIZE);
+	ksp->ks_raw_buf = IOMallocAligned(PAGE_SIZE, PAGE_SIZE);
 
 	n = 0;
 	has_header = (ksp->ks_raw_ops.headers ||
@@ -549,7 +551,7 @@ restart:
 		}
 		n++;
 	}
-	IOFree(ksp->ks_raw_buf, PAGE_SIZE);
+	IOFreeAligned(ksp->ks_raw_buf, PAGE_SIZE);
 	mutex_exit(ksp->ks_lock);
 	rc = SYSCTL_OUT(req, sbuf_data(sb), sbuf_len(sb));
 	sbuf_delete(sb);

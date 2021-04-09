@@ -72,7 +72,8 @@ typedef struct osx_kstat {
 	kstat_named_t zfs_vdev_read_gap_limit;
 	kstat_named_t zfs_vdev_write_gap_limit;
 
-	kstat_named_t arc_lotsfree_percent;
+	kstat_named_t zfs_arc_lotsfree_percent;
+	kstat_named_t zfs_arc_sys_free;
 	kstat_named_t zfs_dirty_data_max;
 	kstat_named_t zfs_delay_max_ns;
 	kstat_named_t zfs_delay_min_dirty_percent;
@@ -243,7 +244,8 @@ extern int zfs_vdev_read_gap_limit;
 extern int zfs_vdev_write_gap_limit;
 
 extern uint_t arc_reduce_dnlc_percent;
-extern int arc_lotsfree_percent;
+extern int zfs_arc_lotsfree_percent;
+extern uint64_t zfs_arc_sys_free;
 extern hrtime_t zfs_delay_max_ns;
 extern int spa_asize_inflation;
 extern unsigned int	zfetch_max_streams;
