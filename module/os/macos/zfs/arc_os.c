@@ -698,6 +698,7 @@ int
 arc_kstat_update_osx(kstat_t *ksp, int rw)
 {
 	osx_kstat_t *ks = ksp->ks_data;
+	boolean_t do_update = B_FALSE;
 
 	if (rw == KSTAT_WRITE) {
 
@@ -706,6 +707,7 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 
 			/* Assign new value */
 			zfs_arc_max = ks->arc_zfs_arc_max.value.ui64;
+			do_update = B_TRUE;
 
 			/* Update ARC with new value */
 			if (zfs_arc_max > 64<<20 && zfs_arc_max <
@@ -722,6 +724,7 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 
 		if (ks->arc_zfs_arc_min.value.ui64 != zfs_arc_min) {
 			zfs_arc_min = ks->arc_zfs_arc_min.value.ui64;
+			do_update = B_TRUE;
 			if (zfs_arc_min > 64<<20 && zfs_arc_min <= arc_c_max) {
 				arc_c_min = zfs_arc_min;
 				printf("ZFS: set arc_c_min %llu, arc_meta_min "
@@ -746,7 +749,7 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 		    zfs_arc_meta_limit) {
 			zfs_arc_meta_limit =
 			    ks->arc_zfs_arc_meta_limit.value.ui64;
-
+			do_update = B_TRUE;
 			/* Allow the tunable to override if it is reasonable */
 			if (zfs_arc_meta_limit > 0 &&
 			    zfs_arc_meta_limit <= arc_c_max)
@@ -763,6 +766,7 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 
 		if (ks->arc_zfs_arc_meta_min.value.ui64 != zfs_arc_meta_min) {
 			zfs_arc_meta_min  = ks->arc_zfs_arc_meta_min.value.ui64;
+			do_update = B_TRUE;
 			if (zfs_arc_meta_min >= arc_c_min) {
 				printf("ZFS: probable error, zfs_arc_meta_min "
 				    "%llu >= arc_c_min %llu\n",
@@ -774,13 +778,33 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 			printf("ZFS: set arc_meta_min %llu\n", arc_meta_min);
 		}
 
-		zfs_arc_grow_retry = ks->arc_zfs_arc_grow_retry.value.ui64;
-		arc_grow_retry = zfs_arc_grow_retry;
-		zfs_arc_shrink_shift = ks->arc_zfs_arc_shrink_shift.value.ui64;
-		zfs_arc_p_min_shift = ks->arc_zfs_arc_p_min_shift.value.ui64;
-		zfs_arc_average_blocksize =
-		    ks->arc_zfs_arc_average_blocksize.value.ui64;
+		if (zfs_arc_grow_retry !=
+		    ks->arc_zfs_arc_grow_retry.value.ui64) {
+			zfs_arc_grow_retry =
+			    ks->arc_zfs_arc_grow_retry.value.ui64;
+			do_update = 1;
+		}
+		if (zfs_arc_shrink_shift !=
+		    ks->arc_zfs_arc_shrink_shift.value.ui64) {
+			zfs_arc_shrink_shift =
+			    ks->arc_zfs_arc_shrink_shift.value.ui64;
+			do_update = 1;
+		}
+		if (zfs_arc_p_min_shift !=
+		    ks->arc_zfs_arc_p_min_shift.value.ui64) {
+			zfs_arc_p_min_shift =
+			    ks->arc_zfs_arc_p_min_shift.value.ui64;
+			do_update = 1;
+		}
+		if(zfs_arc_average_blocksize !=
+		    ks->arc_zfs_arc_average_blocksize.value.ui64) {
+			zfs_arc_average_blocksize =
+			    ks->arc_zfs_arc_average_blocksize.value.ui64;
+			do_update = 1;
+		}
 
+		if (do_update)
+			arc_tuning_update(B_TRUE);
 	} else {
 
 		ks->arc_zfs_arc_max.value.ui64 = zfs_arc_max;
