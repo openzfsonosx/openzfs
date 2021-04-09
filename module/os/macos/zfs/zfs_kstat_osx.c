@@ -269,6 +269,9 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_vfs_sync_paranoia =
 		    ks->darwin_use_system_sync.value.ui64;
 
+		/* ARC */
+		arc_kstat_update_osx(ksp, rw);
+
 		/* L2ARC */
 		l2arc_write_max = ks->l2arc_write_max.value.ui64;
 		l2arc_write_boost = ks->l2arc_write_boost.value.ui64;
@@ -580,6 +583,9 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->darwin_skip_unlinked_drain.value.ui64 =
 		    zfs_vnop_skip_unlinked_drain;
 		ks->darwin_use_system_sync.value.ui64 = zfs_vfs_sync_paranoia;
+
+		/* ARC */
+		arc_kstat_update_osx(ksp, rw);
 
 		/* L2ARC */
 		ks->l2arc_write_max.value.ui64 = l2arc_write_max;
