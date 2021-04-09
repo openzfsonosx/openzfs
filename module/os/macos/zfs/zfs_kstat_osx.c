@@ -106,7 +106,7 @@ osx_kstat_t osx_kstat = {
 	{ "write_gap_limit",			KSTAT_DATA_INT64  },
 
 	{"zfs_arc_lotsfree_percent",		KSTAT_DATA_INT64  },
-	{"zfs_arc_sys_free",		        KSTAT_DATA_INT64  },
+	{"zfs_arc_sys_free",			KSTAT_DATA_INT64  },
 	{"zfs_dirty_data_max",			KSTAT_DATA_INT64  },
 	{"zfs_delay_max_ns",			KSTAT_DATA_INT64  },
 	{"zfs_delay_min_dirty_percent",		KSTAT_DATA_INT64  },
