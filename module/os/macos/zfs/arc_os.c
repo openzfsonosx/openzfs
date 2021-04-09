@@ -744,10 +744,22 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 			    ks->arc_zfs_arc_p_min_shift.value.ui64;
 			do_update = B_TRUE;
 		}
-		if(zfs_arc_average_blocksize !=
+		if (zfs_arc_average_blocksize !=
 		    ks->arc_zfs_arc_average_blocksize.value.ui64) {
 			zfs_arc_average_blocksize =
 			    ks->arc_zfs_arc_average_blocksize.value.ui64;
+			do_update = B_TRUE;
+		}
+		if (zfs_arc_lotsfree_percent !=
+		    ks->zfs_arc_lotsfree_percent.value.i64) {
+			zfs_arc_lotsfree_percent =
+			    ks->zfs_arc_lotsfree_percent.value.i64;
+			do_update = B_TRUE;
+		}
+		if (zfs_arc_sys_free !=
+		    ks->zfs_arc_sys_free.value.i64) {
+			zfs_arc_sys_free =
+			    ks->zfs_arc_sys_free.value.i64;
 			do_update = B_TRUE;
 		}
 
@@ -767,6 +779,10 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 		ks->arc_zfs_arc_p_min_shift.value.ui64 = zfs_arc_p_min_shift;
 		ks->arc_zfs_arc_average_blocksize.value.ui64 =
 		    zfs_arc_average_blocksize;
+		ks->zfs_arc_lotsfree_percent.value.i64 =
+		    zfs_arc_lotsfree_percent;
+		ks->zfs_arc_sys_free.value.i64 =
+		    zfs_arc_sys_free;
 	}
 	return (0);
 }
