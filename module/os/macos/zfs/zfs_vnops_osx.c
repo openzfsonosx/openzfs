@@ -3393,6 +3393,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	int size = 0;
 	uint64_t resid = ap->a_uio ? zfs_uio_resid(uio) : 0;
 	znode_t *xdzp = NULL, *xzp = NULL;
+	char *value = NULL;
 
 	dprintf("+getxattr vp %p: '%s'\n", ap->a_vp, ap->a_name);
 
@@ -3404,71 +3405,59 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	ZFS_ENTER(zfsvfs);
 
 	if (zfsvfs->z_use_sa && zfsvfs->z_xattr_sa && zp->z_is_sa) {
-		char *value = NULL;
 
 		rw_enter(&zp->z_xattr_lock, RW_READER);
 		if (zp->z_xattr_cached == NULL)
 			error = -zfs_sa_get_xattr(zp);
 		rw_exit(&zp->z_xattr_lock);
 
-		if (!resid) { /* Lookup size */
+		value = kmem_alloc(resid, KM_SLEEP);
+		rw_enter(&zp->z_xattr_lock, RW_READER);
+		size = zpl_xattr_get_sa(vp, ap->a_name, value, resid);
+		rw_exit(&zp->z_xattr_lock);
 
-			rw_enter(&zp->z_xattr_lock, RW_READER);
-			size = zpl_xattr_get_sa(vp, ap->a_name, NULL, 0);
-			rw_exit(&zp->z_xattr_lock);
-			if (size > 0 && ap->a_size != NULL) {
-				*ap->a_size = size;
-			}
-			if (size < 0)
-				error = -size;
+		if (size < 0) {
+			error = -size;
 			goto out;
 		}
 
-		if (resid) {
-			value = kmem_alloc(resid, KM_SLEEP);
-			rw_enter(&zp->z_xattr_lock, RW_READER);
-			size = zpl_xattr_get_sa(vp, ap->a_name, value, resid);
-			rw_exit(&zp->z_xattr_lock);
+		/* Finderinfo checks */
+		if (resid &&
+			bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
+			    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
 
-			if (size < 0) {
-				error = -size;
+			/* Must be 32 bytes */
+			if (resid != sizeof (emptyfinfo) ||
+			    size != sizeof (emptyfinfo)) {
+				error = ERANGE;
 				goto out;
 			}
 
-			/* Finderinfo checks */
-			if (resid &&
-				bcmp(ap->a_name, XATTR_FINDERINFO_NAME,
-					sizeof (XATTR_FINDERINFO_NAME)) == 0) {
+			/* According to HFS zero out some fields */
+			finderinfo_update((uint8_t *)value, zp);
 
-				/* Must be 32 bytes */
-				if (resid != sizeof (emptyfinfo) ||
-					size != sizeof (emptyfinfo)) {
-					error = ERANGE;
-					kmem_free(value, resid);
-					goto out;
-				}
-
-				/* If FinderInfo is empty > it doesn't exist */
-				// if (bcmp(value, emptyfinfo,
-				//  sizeof (emptyfinfo)) == 0) {
-				// 	error = ENOATTR;
-				// 	kmem_free(value, resid);
-				//	printf("empty, so noattr\n");
-				//	goto out;
-				// }
-
-				/* According to HFS zero out some fields */
-				finderinfo_update((uint8_t *)value, zp);
+			/* If FinderInfo is empty > it doesn't exist */
+			if (bcmp(value, emptyfinfo,
+			    sizeof (emptyfinfo)) == 0) {
+				error = ENOATTR;
+				dprintf("empty finderinfo, so noattr\n");
+				goto out;
 			}
 
-			if (size > 0)
-				error = zfs_uiomove(value, size, 0,
-				    uio);
-
-			kmem_free(value, resid);
-
-			goto out;
 		}
+
+
+		if (size > 0) {
+			//  Size lookup ?
+			if (resid == 0) {
+				*ap->a_size = size;
+			} else {
+				error = zfs_uiomove(value, size, UIO_WRITE,
+				    uio);
+			}
+		}
+
+		goto out;
 	}
 
 	/* Legacy xattr */
@@ -3497,7 +3486,6 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 		ssize_t local_resid;
 		zfs_file_t zf;
 		u_int8_t finderinfo[32];
-		static u_int32_t emptyfinfo[8] = {0};
 
 		/* Read the attribute data. */
 		/* FinderInfo is 32 bytes */
@@ -3526,21 +3514,15 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			finderinfo_update((uint8_t *)&finderinfo, zp);
 
 			/* If Finder Info is empty then it doesn't exist. */
-			/*
-			 * Allow for now, we should weed them out of listxattr
-			 * well, and presumably delete xattr in those cases.
-			 * 2021/04/07 - lundman
-			 */
-			// if (bcmp(finderinfo, emptyfinfo,
-			//    sizeof (emptyfinfo)) == 0) {
-			//	error = ENOATTR;
-			// } else {
+			if (bcmp(finderinfo, emptyfinfo,
+			    sizeof (emptyfinfo)) == 0) {
+				error = ENOATTR;
+			} else if (zfs_uio_resid(uio) > 0) {
+				/* Copy out the data we just modified */
+				error = zfs_uiomove(&finderinfo,
+					sizeof (finderinfo), UIO_READ, uio);
 
-			/* Copy out the data we just modified */
-			error = zfs_uiomove(&finderinfo,
-			    sizeof (finderinfo), 0, uio);
-
-			// } /* Not empty */
+			} /* Not empty */
 		} /* Correct size */
 
 		/* We are done */
@@ -3573,6 +3555,8 @@ out:
 
 	if (error == ENOENT)
 		error = ENOATTR;
+	if (value != NULL)
+		kmem_free(value, resid);
 
 	if (cn.cn_nameptr)
 		kmem_free(cn.cn_nameptr, cn.cn_namelen);
@@ -3613,7 +3597,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	int  error = 0;
 	znode_t *xdzp = NULL;
 
-	dprintf("+setxattr vp %p '%s' (enabled: %d) resid %llu\n", ap->a_vp,
+	printf("+setxattr vp %p '%s' (enabled: %d) resid %lu\n", ap->a_vp,
 		ap->a_name, zfsvfs->z_xattr, zfs_uio_resid(uio));
 
 	/* xattrs disabled? */
@@ -3738,9 +3722,17 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 
 		/* Copy in the finderinfo to our space */
 		error = zfs_uiomove(&finderinfo,
-			sizeof (finderinfo), 0, uio);
+			sizeof (finderinfo), UIO_WRITE, uio);
 		if (error)
 			goto out;
+
+		char str[200];
+		printf("xattr as given\n");
+		for (int i = 0; i < 32; i++)
+			snprintf(&str[i * 3], sizeof (str), "%02x ",
+			    finderinfo[i]);
+		printf("%s\n", str);
+
 
 		/* Zero out some fields, according to HFS */
 		finderinfo_update((uint8_t *)&finderinfo, zp);
@@ -3974,6 +3966,28 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 			if (xattr_protected(nvpair_name(nvp)))
 				continue;	 /* skip */
 
+			/* HFS: If it is finderinfo, and it is empty, skip it */
+			if (bcmp(nvpair_name(nvp), XATTR_FINDERINFO_NAME,
+			    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
+				u_int8_t finderinfo[32];
+				int size;
+
+				rw_enter(&zp->z_xattr_lock, RW_WRITER);
+				size = zpl_xattr_get_sa(vp, nvpair_name(nvp),
+				    &finderinfo, sizeof (finderinfo));
+				rw_exit(&zp->z_xattr_lock);
+				if (size == sizeof (finderinfo)) {
+					finderinfo_update((uint8_t *)
+					    &finderinfo, zp);
+					if (bcmp(finderinfo, emptyfinfo,
+					    sizeof (emptyfinfo)) == 0) {
+						dprintf("skipping empty "
+						    "finderinfo\n");
+						// continue; // Skip
+					} // is empty
+				} // Correct size
+			} // finderinfo
+
 			namelen = strlen(nvpair_name(nvp)) + 1; /* Null byte */
 
 			/* Just checking for space requirements? */
@@ -4009,8 +4023,48 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 
 	for (zap_cursor_init(&zc, os, xdzp->z_id);
 	    zap_cursor_retrieve(&zc, &za) == 0; zap_cursor_advance(&zc)) {
+
 		if (xattr_protected(za.za_name))
 			continue;	 /* skip */
+
+
+		/* HFS: If it is finderinfo, and it is empty, skip it */
+		if (bcmp(za.za_name, XATTR_FINDERINFO_NAME,
+		    sizeof (XATTR_FINDERINFO_NAME)) == 0) {
+			u_int8_t finderinfo[32];
+			zfs_file_t zf;
+			ssize_t local_resid = 0;
+			struct componentname cn = { 0 };
+			znode_t *xzp = NULL;
+
+			cn.cn_namelen = strlen(za.za_name) + 1;
+			cn.cn_nameptr = (char *)kmem_zalloc(cn.cn_namelen,
+			    KM_SLEEP);
+
+			/* Lookup the attribute name. */
+			if (zfs_dirlook(xdzp, za.za_name, &xzp, 0, NULL,
+			    &cn) == 0) {
+
+				zf.f_vnode = ZTOV(xzp);
+				zf.f_fd = -1;
+
+				error = zfs_file_pread(&zf, &finderinfo,
+				    sizeof (finderinfo), 0ULL, &local_resid);
+				if (local_resid == 0) {
+					finderinfo_update((uint8_t *)
+					    &finderinfo, zp);
+					if (bcmp(finderinfo, emptyfinfo,
+					    sizeof (emptyfinfo)) == 0) {
+						dprintf("skipping empty "
+						    "finderinfo\n");
+						// continue; // Skip
+					} // is empty
+				} // Correct size
+				zrele(xzp);
+			} // lookup
+		} // finderinfo
+
+
 		/*
 		 * Mac OS X: non-ascii names are UTF-8 NFC on disk
 		 * so convert to NFD before exporting them.
