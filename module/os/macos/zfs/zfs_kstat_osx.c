@@ -105,7 +105,8 @@ osx_kstat_t osx_kstat = {
 	{ "read_gap_limit",			KSTAT_DATA_INT64  },
 	{ "write_gap_limit",			KSTAT_DATA_INT64  },
 
-	{"arc_lotsfree_percent",		KSTAT_DATA_INT64  },
+	{"zfs_arc_lotsfree_percent",		KSTAT_DATA_INT64  },
+	{"zfs_arc_sys_free",			KSTAT_DATA_INT64  },
 	{"zfs_dirty_data_max",			KSTAT_DATA_INT64  },
 	{"zfs_delay_max_ns",			KSTAT_DATA_INT64  },
 	{"zfs_delay_min_dirty_percent",		KSTAT_DATA_INT64  },
@@ -269,6 +270,9 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_vfs_sync_paranoia =
 		    ks->darwin_use_system_sync.value.ui64;
 
+		/* ARC */
+		arc_kstat_update_osx(ksp, rw);
+
 		/* L2ARC */
 		l2arc_write_max = ks->l2arc_write_max.value.ui64;
 		l2arc_write_boost = ks->l2arc_write_boost.value.ui64;
@@ -316,8 +320,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_vdev_write_gap_limit =
 		    ks->zfs_vdev_write_gap_limit.value.i64;
 
-		arc_lotsfree_percent =
-		    ks->arc_lotsfree_percent.value.i64;
 		zfs_dirty_data_max =
 		    ks->zfs_dirty_data_max.value.i64;
 		zfs_delay_max_ns =
@@ -581,6 +583,9 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    zfs_vnop_skip_unlinked_drain;
 		ks->darwin_use_system_sync.value.ui64 = zfs_vfs_sync_paranoia;
 
+		/* ARC */
+		arc_kstat_update_osx(ksp, rw);
+
 		/* L2ARC */
 		ks->l2arc_write_max.value.ui64 = l2arc_write_max;
 		ks->l2arc_write_boost.value.ui64 = l2arc_write_boost;
@@ -627,8 +632,6 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->zfs_vdev_write_gap_limit.value.i64 =
 		    zfs_vdev_write_gap_limit;
 
-		ks->arc_lotsfree_percent.value.i64 =
-		    arc_lotsfree_percent;
 		ks->zfs_dirty_data_max.value.i64 =
 		    zfs_dirty_data_max;
 		ks->zfs_delay_max_ns.value.i64 =
