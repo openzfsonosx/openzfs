@@ -78,7 +78,7 @@ typedef struct zfs_uio {
 } zfs_uio_t;
 
 #define	ZFS_UIO_INIT_XNU(U, X) \
-	zfs_uio_t _U; \
+	zfs_uio_t _U = { 0 }; \
 	zfs_uio_t *U = &_U; \
 	(U)->uio_iov = NULL; \
 	(U)->uio_xnu = X;
