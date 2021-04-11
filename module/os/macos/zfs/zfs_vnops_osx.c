@@ -360,7 +360,7 @@ zfs_vfs_sysctl(int *name, __unused uint_t namelen, user_addr_t oldp,
 			*oldlenp = sizeof (zfs_footprint_stats_t);
 			return (ENOMEM);
 		}
-		footprint = kmem_alloc(copyinsize, KM_SLEEP);
+		footprint = kmem_zalloc(copyinsize, KM_SLEEP);
 
 		max_caches = copyinsize - sizeof (zfs_footprint_stats_t);
 		max_caches += sizeof (kmem_cache_stats_t);
@@ -797,7 +797,7 @@ transfer_out:
 			hardlinks_t *searchnode, *findnode, *sibling;
 			avl_index_t loc;
 
-			searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
+			searchnode = kmem_zalloc(sizeof (hardlinks_t), KM_SLEEP);
 			searchnode->hl_linkid = linkfileid;
 
 			rw_enter(&zfsvfs->z_hardlinks_lock, RW_READER);
@@ -1408,7 +1408,7 @@ static int zfs_remove_hardlink(struct vnode *vp, struct vnode *dvp, char *name)
 	    dzp->z_id, zp->z_id, name);
 
 	// Attempt to remove from hardlink avl, if its there
-	searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
+	searchnode = kmem_zalloc(sizeof (hardlinks_t), KM_SLEEP);
 	searchnode->hl_parent = dzp->z_id == zfsvfs->z_root ? 2 : dzp->z_id;
 	searchnode->hl_fileid = zp->z_id;
 	strlcpy(searchnode->hl_name, name, PATH_MAX);
@@ -1481,7 +1481,7 @@ static int zfs_rename_hardlink(struct vnode *vp, struct vnode *tvp,
 
 
 	// Attempt to remove from hardlink avl, if its there
-	searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
+	searchnode = kmem_zalloc(sizeof (hardlinks_t), KM_SLEEP);
 	searchnode->hl_parent = parent_fid;
 	searchnode->hl_fileid = zp->z_id;
 	strlcpy(searchnode->hl_name, from, PATH_MAX);
@@ -3411,7 +3411,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			error = -zfs_sa_get_xattr(zp);
 		rw_exit(&zp->z_xattr_lock);
 
-		value = kmem_alloc(resid, KM_SLEEP);
+		value = kmem_zalloc(resid, KM_SLEEP);
 		rw_enter(&zp->z_xattr_lock, RW_READER);
 		size = zpl_xattr_get_sa(vp, ap->a_name, value, resid);
 		rw_exit(&zp->z_xattr_lock);
@@ -3452,7 +3452,7 @@ zfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 			if (resid == 0) {
 				*ap->a_size = size;
 			} else {
-				error = zfs_uiomove(value, size, UIO_WRITE,
+				error = zfs_uiomove(value, size, UIO_READ,
 				    uio);
 			}
 		}
@@ -3655,7 +3655,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		}
 
 		size = zfs_uio_resid(uio);
-		value = kmem_alloc(size, KM_SLEEP);
+		value = kmem_zalloc(size, KM_SLEEP);
 
 		size_t bytes;
 
@@ -4588,9 +4588,9 @@ zfs_vnop_readdirattr(struct vnop_readdirattr_args *ap)
 	maxsize = fixedsize;
 	if (alp->commonattr & ATTR_CMN_NAME)
 		maxsize += ZAP_MAXNAMELEN + 1;
-	attrbufptr = (void*)kmem_alloc(maxsize, KM_SLEEP);
+	attrbufptr = (void*)kmem_zalloc(maxsize, KM_SLEEP);
 	if (attrbufptr == NULL) {
-		dprintf("%s kmem_alloc failed\n");
+		dprintf("%s kmem_zalloc failed\n");
 		return (ENOMEM);
 	}
 	attrptr = attrbufptr;
