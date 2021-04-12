@@ -75,13 +75,12 @@ typedef struct zfs_uio {
 	ssize_t		uio_resid;	/* residual count */
 } zfs_uio_t;
 
-#define	uio_segflg(uio)			(uio)->uio_segflg
-#define	uio_offset(uio)			(uio)->uio_loffset
-#define	uio_resid(uio)			(uio)->uio_resid
-#define	uio_iovcnt(uio)			(uio)->uio_iovcnt
-#define	uio_iovlen(uio, idx)		(uio)->uio_iov[(idx)].iov_len
-#define	uio_iovbase(uio, idx)		(uio)->uio_iov[(idx)].iov_base
-#define	uio_setoffset(uio, offset)		(uio)->uio_loffset = (offset)
+#define	zfs_uio_segflg(uio)		(uio)->uio_segflg
+#define	zfs_uio_offset(uio)		(uio)->uio_loffset
+#define	zfs_uio_resid(uio)		(uio)->uio_resid
+#define	zfs_uio_iovcnt(uio)		(uio)->uio_iovcnt
+#define	zfs_uio_iovlen(uio, idx)	(uio)->uio_iov[(idx)].iov_len
+#define	zfs_uio_iovbase(uio, idx)	(uio)->uio_iov[(idx)].iov_base
 
 static inline void
 zfs_uio_iov_at_index(zfs_uio_t *uio, uint_t idx, void **base, uint64_t *len)
