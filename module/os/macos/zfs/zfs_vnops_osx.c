@@ -3597,7 +3597,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	int  error = 0;
 	znode_t *xdzp = NULL;
 
-	printf("+setxattr vp %p '%s' (enabled: %d) resid %lu\n", ap->a_vp,
+	dprintf("+setxattr vp %p '%s' (enabled: %d) resid %lu\n", ap->a_vp,
 		ap->a_name, zfsvfs->z_xattr, zfs_uio_resid(uio));
 
 	/* xattrs disabled? */
