@@ -797,7 +797,8 @@ transfer_out:
 			hardlinks_t *searchnode, *findnode, *sibling;
 			avl_index_t loc;
 
-			searchnode = kmem_zalloc(sizeof (hardlinks_t), KM_SLEEP);
+			searchnode = kmem_zalloc(sizeof (hardlinks_t),
+			    KM_SLEEP);
 			searchnode->hl_linkid = linkfileid;
 
 			rw_enter(&zfsvfs->z_hardlinks_lock, RW_READER);
