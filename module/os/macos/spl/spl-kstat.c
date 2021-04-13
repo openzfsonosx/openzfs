@@ -959,9 +959,6 @@ kstat_install(kstat_t *ksp)
 					    oid_permissions | CTLFLAG_OID2;
 					val->l_oid.oid_fmt = "S";
 					val->l_oid.oid_arg1 = (void*)params;
-
-					named->value.string.addr.ptr = NULL;
-					named->value.string.len = 0;
 					break;
 
 				case KSTAT_DATA_CHAR:
@@ -1070,7 +1067,15 @@ remove_child_sysctls(ekstat_t *e)
 			IOFree(leaf, sizeof (sysctl_leaf_t));
 
 			if (named_base[i].data_type == KSTAT_DATA_STRING) {
-				kstat_named_setstr(&named_base[i], NULL);
+				void *data;
+				int len;
+				data = KSTAT_NAMED_STR_PTR(&named_base[i]);
+				len = KSTAT_NAMED_STR_BUFLEN(&named_base[i]);
+				// kstat_named_setstr(&named_base[i], NULL);
+				if (data != NULL)
+					dprintf(
+					    "%s: unknown if %p:%d was freed.\n",
+					    __func__, data, len);
 			}
 		}
 	}

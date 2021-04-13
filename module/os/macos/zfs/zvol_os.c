@@ -266,8 +266,6 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	if (count == 0)
 		return (0);
 
-	ssize_t start_count = count;
-
 	volsize = zv->zv_volsize;
 	if (count > 0 &&
 	    (position >= volsize))
@@ -342,8 +340,7 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 	}
 	zfs_rangelock_exit(lr);
 
-	int64_t nwritten = start_count - count;
-	dataset_kstats_update_write_kstats(&zv->zv_kstat, nwritten);
+	dataset_kstats_update_write_kstats(&zv->zv_kstat, offset);
 
 	if (sync)
 		zil_commit(zv->zv_zilog, ZVOL_OBJ);
@@ -398,6 +395,8 @@ zvol_os_read_zv(zvol_state_t *zv, uint64_t position,
 		count -= MIN(count, DMU_MAX_ACCESS >> 1) - bytes;
 	}
 	zfs_rangelock_exit(lr);
+
+	dataset_kstats_update_read_kstats(&zv->zv_kstat, offset);
 
 	rw_exit(&zv->zv_suspend_lock);
 	return (error);
@@ -620,6 +619,7 @@ zvol_os_free(zvol_state_t *zv)
 	zfs_rangelock_fini(&zv->zv_rangelock);
 
 	mutex_destroy(&zv->zv_state_lock);
+	dataset_kstats_destroy(&zv->zv_kstat);
 
 	kmem_free(zv->zv_zso, sizeof (struct zvol_state_os));
 	kmem_free(zv, sizeof (zvol_state_t));
@@ -695,6 +695,8 @@ zvol_os_create_minor(const char *name)
 		else
 			zil_replay(os, zv, zvol_replay_vector);
 	}
+
+	dataset_kstats_create(&zv->zv_kstat, zv->zv_objset);
 
 	/* Create the IOKit zvol while owned */
 	if ((error = zvolCreateNewDevice(zv)) != 0) {
