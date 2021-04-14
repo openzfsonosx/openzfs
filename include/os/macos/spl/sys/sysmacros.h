@@ -28,6 +28,8 @@
 #ifndef _SPL_SYSMACROS_H
 #define	_SPL_SYSMACROS_H
 
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 #include <sys/types.h>
 #include <string.h>
 #include <sys/varargs.h>
