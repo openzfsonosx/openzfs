@@ -36,7 +36,7 @@
 	(MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_10)
 #define	AT_FDCWD -2
 #define	openat(fd, path, oflag, ...) \
-	(fd == AT_FDCWD ? open((fd), (path), (oflag), __VA_ARGS__) : -1)
+	(fd == AT_FDCWD ? open((path), (oflag), __VA_ARGS__) : -1)
 #endif
 
 #endif
