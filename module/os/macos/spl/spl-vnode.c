@@ -26,6 +26,7 @@
  *
  */
 
+#include <sys/sysmacros.h>
 #include <sys/vnode.h>
 #include <sys/debug.h>
 #include <sys/malloc.h>
