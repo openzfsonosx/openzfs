@@ -29,6 +29,7 @@
 #include <string.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
+#include "disks_private.h"
 
 extern char *dirname(char *path);
 

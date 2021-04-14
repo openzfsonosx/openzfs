@@ -24,6 +24,7 @@
  */
 
 #include "disks_private.h"
+#include <libdiskmgt.h>
 
 void
 libdiskmgt_init()

@@ -96,16 +96,3 @@ inuse_corestorage(char *slice, nvlist_t *attrs, int *errp)
 
 	return (in_use);
 }
-
-int
-inuse_zvol(char *volume, nvlist_t *attrs, int *errp)
-{
-	void *info = NULL;
-	int in_use = 0;
-	int error;
-
-	init_diskutil_info(&info);
-	get_diskutil_info(volume, &info);
-
-	return (0);
-}

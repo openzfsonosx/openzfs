@@ -30,6 +30,7 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include "disks_private.h"
+#include "libdiskmgt.h"
 
 int
 dm_in_swap_dir(const char *dev_name)
