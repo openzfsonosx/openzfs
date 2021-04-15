@@ -1832,7 +1832,7 @@ set_taskq_thread_attributes(thread_t thread, taskq_t *tq)
 	 * Passivate I/Os for this thread
 	 * (Default is IOPOOL_IMPORTANT)
 	 */
-	throttle_set_thread_io_policy(IOPOL_PASSIVE);
+	spl_throttle_set_thread_io_policy(IOPOL_PASSIVE);
 
 	set_thread_timeshare_named(thread,
 	    tq->tq_name);
