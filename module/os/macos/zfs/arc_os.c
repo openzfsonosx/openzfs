@@ -244,6 +244,7 @@ static void arc_kmem_reap_now(void)
 	/* arc.c will do the heavy lifting */
 	arc_kmem_reap_soon();
 
+#if 0
 	/* Now some OsX additionals */
 	extern kmem_cache_t *abd_chunk_cache;
 	extern kmem_cache_t *znode_cache;
@@ -251,13 +252,14 @@ static void arc_kmem_reap_now(void)
 	kmem_cache_reap_now(abd_chunk_cache);
 	if (znode_cache) kmem_cache_reap_now(znode_cache);
 
-	if (zio_arena_parent != NULL) {
+	if (abd_arena != NULL) {
 		/*
 		 * Ask the vmem arena to reclaim unused memory from its
 		 * quantum caches.
 		 */
-		vmem_qcache_reap(zio_arena_parent);
+		vmem_qcache_reap(abd_arena);
 	}
+#endif
 }
 
 
@@ -440,10 +442,10 @@ arc_reclaim_thread(void *unused)
 				// 2 * SPA_MAXBLOCKSIZE
 				const int64_t large_amount =
 				    32LL * 1024LL * 1024LL;
+#if 0 // very noisy
 				const int64_t huge_amount =
 				    128LL * 1024LL * 1024LL;
 
-#if 0 // very noisy
 				if (to_free > large_amount ||
 				    evicted > huge_amount)
 					dprintf("SPL: %s: post-reap %lld "
@@ -490,13 +492,6 @@ arc_reclaim_thread(void *unused)
 				// this point, try to give memory back to
 				// lower arenas (and possibly xnu).
 
-				int64_t total_freed =
-				    arc_shrink_freed + evicted;
-				if (total_freed >= huge_amount) {
-					if (zio_arena_parent != NULL)
-						vmem_qcache_reap(
-						    zio_arena_parent);
-				}
 				if (arc_shrink_freed > 0)
 					evicted += arc_shrink_freed;
 			} else if (old_to_free > 0) {

@@ -711,6 +711,10 @@ kstat_handle_string SYSCTL_HANDLER_ARGS
 
 			inbuf[req->newlen] = 0;
 
+			/*
+			 * Copy the new value from user space
+			 * (copyin done by XNU)
+			 */
 			kstat_named_setstr(named, (const char *)inbuf);
 
 			/* and invoke the update operation: last call out */

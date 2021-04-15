@@ -3440,7 +3440,7 @@ vmem_init(const char *heap_name,
 	spl_heap_arena_initial_alloc_size = resv_size;
 
 	// kstat.vmem.vmem.heap : kmem_cache_alloc() and similar calls
-	// to handle in-memory datastructures other than arc and zio buffers.
+	// to handle in-memory datastructures other than abd
 
 	heap = vmem_create(heap_name,  // id 16
 	    NULL, 0, heap_quantum,
@@ -3856,10 +3856,7 @@ spl_arc_no_grow_impl(const uint16_t b, const size_t size,
 		spl_arc_no_grow_bits &= ~b_bit;
 	}
 
-	extern bool spl_zio_is_suppressed(const size_t, const uint64_t,
-	    const boolean_t, kmem_cache_t **);
-
-	return (spl_zio_is_suppressed(size, now, buf_is_metadata, kc));
+	return (false);
 }
 
 static inline uint16_t

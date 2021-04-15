@@ -322,7 +322,7 @@ size_t	kmem_max_cached = KMEM_BIG_MAXBUF;	/* maximum kmem_alloc cache */
 // can be 0 or KMF_LITE
 // or KMF_DEADBEEF | KMF_REDZONE | KMF_CONTENTS
 // with or without KMF_AUDIT
-int kmem_flags = KMF_DEADBEEF | KMF_REDZONE | KMF_LITE;
+int kmem_flags = KMF_LITE;
 #else
 int kmem_flags = 0;
 #endif
@@ -4342,7 +4342,7 @@ spl_free_reap_caches(void)
 	if (curtime - last_reap < reap_after)
 		return;
 
-	vmem_qcache_reap(zio_arena_parent);
+	vmem_qcache_reap(abd_arena);
 	kmem_reap();
 	vmem_qcache_reap(kmem_va_arena);
 }
@@ -4785,56 +4785,6 @@ spl_free_thread()
 			}
 		}
 
-		// Adjust in the face of a large ARC.
-		// We don't treat (zfs) metadata and non-metadata
-		// differently here, and leave policy with respect
-		// to the relative value of each up to arc.c.
-		// O3X arc.c does not (yet) take these arena sizes into
-		// account like Illumos's does.
-		uint64_t zio_size = vmem_size_semi_atomic(zio_arena_parent,
-		    VMEM_ALLOC | VMEM_FREE);
-		// wrap this in a basic block for lexical scope SSA convenience
-		if (zio_size > 0) {
-			static uint64_t zio_last_too_big = 0;
-			static int64_t imposed_cap = 75;
-			const uint64_t seconds_of_lower_cap = 10*hz;
-			uint64_t now = time_now;
-			uint32_t zio_pct = (uint32_t)(zio_size * 100ULL /
-			    real_total_memory);
-			// if not hungry for memory, shrink towards a
-			// 75% total memory cap on zfs_file_data
-			if (!lowmem && !emergency_lowmem && zio_pct > 75 &&
-			    (now > zio_last_too_big + seconds_of_lower_cap)) {
-				new_spl_free -= zio_size / 64;
-				zio_last_too_big = now;
-				imposed_cap = 75;
-			} else if (lowmem || emergency_lowmem) {
-				// shrink towards stricter caps if we are hungry
-				// for memory
-				const uint32_t lowmem_cap = 25;
-				const uint32_t emergency_lowmem_cap = 5;
-				// we don't want the lowest cap to be so low
-				// that we will not make any use of the fixed
-				// size reserve
-				if (lowmem && zio_pct > lowmem_cap) {
-					new_spl_free -= zio_size / 32;
-					zio_last_too_big = now;
-					imposed_cap = lowmem_cap;
-				}
-				if (emergency_lowmem && zio_pct >
-				    emergency_lowmem_cap) {
-					new_spl_free -= zio_size / 8;
-					zio_last_too_big = now;
-					imposed_cap = emergency_lowmem_cap;
-				}
-			}
-			if (zio_last_too_big != now &&
-			    now < zio_last_too_big + seconds_of_lower_cap &&
-			    zio_pct > imposed_cap) {
-				new_spl_free -= zio_size / 64;
-			}
-		}
-
 		// try to get 1/64 of spl_heap_arena freed up
 		if (emergency_lowmem && new_spl_free >= 0LL) {
 			extern vmem_t *spl_root_arena;
@@ -5219,7 +5169,7 @@ spl_kmem_init(uint64_t xtotal_memory)
 		    "Tunable Parameters Reference Manual.", kmem_flags);
 #endif /* not DEBUG */
 
-	segkmem_zio_init();
+	segkmem_abd_init();
 
 	kmem_cache_applyall(kmem_cache_magazine_enable, NULL, TQ_SLEEP);
 
@@ -5277,7 +5227,7 @@ spl_kmem_fini(void)
 	// So we explicitly pull them apart piece-by-piece.
 	kmem_cache_fini();
 
-	segkmem_zio_fini();
+	segkmem_abd_fini();
 
 	// Now destroy the vmem arenas used by kmem.
 	vmem_destroy(kmem_default_arena);
@@ -6415,304 +6365,6 @@ ksupp_t ksvec[SPA_MAXBLOCKSIZE >> SPA_MINBLOCKSHIFT] =
 	{ { NULL, NULL, false, 0, 0 } };
 iksupp_t iksvec[SPA_MAXBLOCKSIZE >> SPA_MINBLOCKSHIFT] =
 	{ { NULL } };
-
-static bool spl_zio_no_grow_inited = false;
-
-/*
- * Test that cp is in ks->cp_metadata or ks->cp_filedata; if so just return
- * otherwise, choose the first (and possibly second)  NULL
- * and try to set it to cp.
- * If successful, return. otherwise, sanity check that
- * nobody has set ks->cp_metadata or ks->cp_filedata to cp already, and
- * that ks->cp_metadata != ks->cp_filedata.
- */
-
-static void
-ks_set_cp(ksupp_t *ks, kmem_cache_t *cp, const size_t cachenum)
-{
-
-	ASSERT(cp != NULL);
-	ASSERT(ks != NULL);
-
-	if (ks->cp_metadata == cp || ks->cp_filedata == cp)
-		return;
-
-	const uint64_t b = cachenum;
-
-	bool cp_is_metadata = false;
-
-	vmem_t *vmp = cp->cache_arena;
-
-	ASSERT(vmp == zio_metadata_arena || vmp == zio_arena);
-
-	if (vmp == zio_metadata_arena)
-		cp_is_metadata = true;
-
-	if (cp_is_metadata) {
-		for (uint32_t i = 0; ; i++) {
-			if (i >= 1000000) {
-				panic("SPL: %s: iterated out trying to set "
-				    "ks->cp_metadata (%s)\n", __func__,
-				    cp->cache_name);
-			}
-			kmem_cache_t *expected = NULL;
-			if (__c11_atomic_compare_exchange_strong(
-			    &ks->cp_metadata, &expected, cp,
-			    __ATOMIC_SEQ_CST, __ATOMIC_RELAXED)) {
-				dprintf("SPL: %s: set iskvec[%llu].ks->"
-				    "cp_metadata (%s) OK\n", __func__,
-				    b, cp->cache_name);
-				return;
-			} else if (ks->cp_metadata == cp) {
-				return;
-			} else if (ks->cp_metadata == NULL) {
-				continue;
-			} else {
-				panic("%s: CAS failed for iksvec[%llu]."
-				    "ks->cp_metadata: %s wanted %s set\n",
-				    __func__, b, cp->cache_name,
-				    ks->cp_metadata->cache_name);
-			}
-		}
-	} else {
-		for (int32_t j = 0; ; j++) {
-			if (j >= 1000000) {
-				panic("SPL: %s: iterated out trying to set "
-				    "ks->cp_filedata (%s)\n", __func__,
-				    cp->cache_name);
-			}
-			kmem_cache_t *expected = NULL;
-			if (__c11_atomic_compare_exchange_strong(
-			    &ks->cp_filedata, &expected, cp,
-			    __ATOMIC_SEQ_CST, __ATOMIC_RELAXED)) {
-				dprintf("SPL: %s: set iskvec[%llu].ks->"
-				    "cp_filedata (%s) OK\n", __func__,
-				    b, cp->cache_name);
-				return;
-			} else if (ks->cp_filedata == cp) {
-				return;
-			} else if (ks->cp_filedata == NULL) {
-				continue;
-			} else {
-				panic("%s: CAS failed for iksvec[%llu].ks->"
-				    "cp_metadata: %s wanted %s set\n",
-				    __func__, b, cp->cache_name,
-				    ks->cp_filedata->cache_name);
-			}
-		}
-	}
-}
-
-void
-spl_zio_no_grow_init(void)
-{
-	// this is the logic from zio.c:zio_init()
-
-	ASSERT(spl_zio_no_grow_inited == false);
-
-	size_t c = 0;
-
-	for (c = 0; c < SPA_MAXBLOCKSIZE >> SPA_MINBLOCKSHIFT; c++) {
-		size_t size = (c+1) << SPA_MINBLOCKSHIFT;
-		size_t p2 = size;
-		size_t align = 0;
-
-		while (!ISP2(p2))
-			p2 &= p2 - 1;
-
-		if (size <= 4 * SPA_MINBLOCKSIZE) {
-			align = SPA_MINBLOCKSIZE;
-		} else if (size <= 128 * 1024 && IS_P2ALIGNED(size, p2 >> 4)) {
-			align = MIN(p2 >> 4, PAGESIZE);
-		} else if (IS_P2ALIGNED(size, p2 >> 3)) {
-			align = MIN(p2 >> 3, PAGESIZE);
-		}
-
-		if (align != 0) {
-			iksvec[c].ks_entry = &ksvec[c];
-			iksvec[c].ks_entry->pointed_to++;
-		}
-	}
-
-	while (--c != 0) {
-		ASSERT(iksvec[c].ks_entry != NULL);
-		ASSERT(iksvec[c].ks_entry->pointed_to > 0);
-		if (iksvec[c - 1].ks_entry == NULL) {
-			iksvec[c - 1].ks_entry = iksvec[c].ks_entry;
-			iksvec[c - 1].ks_entry->pointed_to++;
-		}
-	}
-
-	spl_zio_no_grow_inited = true;
-
-	dprintf("SPL: %s done.\n", __func__);
-}
-
-static void
-spl_zio_no_grow_clear()
-{
-	for (size_t c = 0; c < SPA_MAXBLOCKSIZE >> SPA_MINBLOCKSHIFT; c++) {
-		ksupp_t *ks = iksvec[c].ks_entry;
-		ks->cp_metadata = NULL;
-		ks->cp_filedata = NULL;
-		ks->pointed_to = false;
-		ks->suppress_count = 0;
-		ks->last_bumped = 0;
-		iksvec[c].ks_entry = NULL;
-	}
-}
-
-void
-spl_zio_no_grow_fini(void)
-{
-	// zio_fini() is at its end, so the kmem_caches are gone,
-	// consequently this is safe.
-	spl_zio_no_grow_inited = false;
-	spl_zio_no_grow_clear();
-	spl_zio_no_grow_init();
-}
-
-static void
-spl_zio_set_no_grow(const size_t size, kmem_cache_t *cp, const size_t cachenum)
-{
-	ASSERT(spl_zio_no_grow_inited == true);
-	ASSERT(iksvec[cachenum].ks_entry != NULL);
-
-	ksupp_t *ks = iksvec[cachenum].ks_entry;
-
-	// maybe update size->cp mapping vector
-
-	ks_set_cp(ks, cp, cachenum);
-
-	if (ks->cp_metadata != cp && ks->cp_filedata != cp) {
-		panic("ks_cp_set bad for %s", cp->cache_name);
-	}
-
-	// suppress the bucket for two allocations (is _Atomic)
-	ks->suppress_count += 2;
-	ks->last_bumped = zfs_lbolt();
-}
-
-bool
-spl_zio_is_suppressed(const size_t size, const uint64_t now,
-    const boolean_t buf_is_metadata, kmem_cache_t **zp)
-{
-
-	ASSERT(spl_zio_no_grow_inited == true);
-
-	const size_t cachenum = (size - 1) >> SPA_MINBLOCKSHIFT;
-
-	VERIFY3U(cachenum, <, SPA_MAXBLOCKSIZE >> SPA_MINBLOCKSHIFT);
-
-	ksupp_t *ks = iksvec[cachenum].ks_entry;
-
-	if (ks == NULL) {
-		return (false);
-	} else if (ks->pointed_to < 1) {
-		ASSERT(ks->pointed_to > 0); // throw an assertion
-		dprintf("SPL: %s: ERROR: iksvec[%llu].ks_entry->pointed_to "
-		    "== %u for size %llu\n", __func__, (uint64_t)cachenum,
-		    ks->pointed_to, (uint64_t)size);
-		return (false);
-	} else if (ks->suppress_count == 0) {
-		return (false);
-	} else {
-		const uint64_t two_minutes = 120 * hz;
-		if (ks->last_bumped + two_minutes >= now) {
-			ks->suppress_count = 0;
-			ks->last_bumped = now;
-			return (false);
-		} else {
-			ks->suppress_count--;
-		}
-		if (buf_is_metadata) {
-			if (ks->cp_metadata == NULL) {
-				ks_set_cp(ks, zp[cachenum], cachenum);
-				if (ks->cp_metadata != NULL) {
-					atomic_inc_64(
-					    &ks->cp_metadata->arc_no_grow);
-				} else {
-					dprintf("WARNING: %s: ks_set_cp->"
-					    "metadata == NULL after "
-					    "ks_set_cp !size = %lu\n",
-					    __func__, size);
-				}
-			} else {
-				atomic_inc_64(&ks->cp_metadata->arc_no_grow);
-			}
-		} else {
-			if (ks->cp_filedata == NULL) {
-				ks_set_cp(ks, zp[cachenum], cachenum);
-				if (ks->cp_filedata != NULL) {
-					atomic_inc_64(
-					    &ks->cp_filedata->arc_no_grow);
-				} else {
-					dprintf("WARNING: %s: "
-					    "ks_set_cp->filedata == NULL "
-					    "after ks_set_cp !"
-					    "size = %lu\n",
-					    __func__, size);
-				}
-			} else {
-				atomic_inc_64(&ks->cp_filedata->arc_no_grow);
-			}
-
-		}
-		return (true);
-	}
-}
-
-
-/*
- * spl_zio_kmem_cache_alloc(): try to get an allocation without descending
- * to the bucket layer, and if that fails, set a flag for spl_arc_no_grow()
- * then perform the allocation normally.
- */
-
-void *
-spl_zio_kmem_cache_alloc(kmem_cache_t *cp, int kmflag, size_t size,
-    size_t cachenum)
-{
-	// called by:
-	// spl_zio_kmem_cache_alloc(zio_buf_cache[size], kmflag, size, cachenum)
-	// spl_zio_kmem_cache_alloc(zio_data_buf_cache[size], kmflag, size,
-	// cachenum)
-	// those are e.g.
-	// kmem_cache_t *zio_buf_cache[SPA_MAXBLOCKSIZE >> SPAMINBLOCKSHIFT]
-	// and are indexed as size_t cachenum = (size - 1) >> SPA_MIN~BLOCKSHIFT
-	// VERIFY3U(cachenum, <, SPA_MAXBLOCKSIZE >> SPA_MINBLOCKSHIFT);
-
-	// try to get memory from no lower than the bucket_heap
-	void *m = kmem_cache_alloc(cp, kmflag | KM_NO_VBA | KM_NOSLEEP);
-
-	if (m != NULL) {
-		atomic_inc_64(&cp->no_vba_success);
-		return (m);
-	}
-
-	atomic_inc_64(&cp->no_vba_fail);
-
-	// we will have to go below the bucket_heap to a bucket arena.
-	// if the bucket arena cannot obviously satisfy the allocation,
-	// and xnu is tight for memory, then we turn on the no_grow suppression
-
-	extern vmem_t *spl_vmem_bucket_arena_by_size(size_t);
-	extern uint64_t vmem_xnu_useful_bytes_free(void);
-	extern int vmem_canalloc_atomic(vmem_t *, size_t);
-
-	vmem_t *bvmp = spl_vmem_bucket_arena_by_size(size);
-
-	if (! vmem_canalloc_atomic(bvmp, size) &&
-	    vmem_xnu_useful_bytes_free() < 16ULL*1024ULL*1024ULL) {
-		spl_zio_set_no_grow(size, cp, cachenum);
-		atomic_inc_64(&cp->arc_no_grow_set);
-	}
-
-	// perform the allocation as requested
-	void *n = kmem_cache_alloc(cp, kmflag);
-
-	return (n);
-}
 
 /*
  * return true if the reclaim thread should be awakened
