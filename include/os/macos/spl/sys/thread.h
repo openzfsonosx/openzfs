@@ -120,6 +120,8 @@ extern void set_thread_timeshare_named(thread_t,
     char *);
 extern void set_thread_timeshare(thread_t);
 
+extern void spl_throttle_set_thread_io_policy(int);
+
 #define	delay osx_delay
 extern void osx_delay(int);
 
