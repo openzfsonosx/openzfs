@@ -1719,7 +1719,7 @@ taskq_thread_set_cpulimit(taskq_t *tq)
 	if (tq->tq_flags & TASKQ_DUTY_CYCLE) {
 		ASSERT3U(tq->tq_DC, <=, 100);
 		ASSERT3U(tq->tq_DC, >, 0);
-#if (MACOS < 11) && MACOS_IMPURE
+#if defined(MACOS_IMPURE)
 		const uint8_t inpercent = MIN(100, MAX(tq->tq_DC, 1));
 		const uint64_t interval_ns = CPULIMIT_INTERVAL;
 		/*

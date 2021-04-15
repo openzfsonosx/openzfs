@@ -34,6 +34,8 @@
 #include <sys/vnode.h>
 #include <sys/callb.h>
 #include <sys/systm.h>
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 
 uint64_t zfs_threads = 0;
 
@@ -114,14 +116,14 @@ timeout_generic(int type, void (*func)(void *), void *arg,
 	return ((callout_id_t)arg);
 }
 
-#if (MACOS < 11) && MACOS_IMPURE
+#if defined(MACOS_IMPURE)
 extern void throttle_set_thread_io_policy(int priority);
 #endif
 
 void
 spl_throttle_set_thread_io_policy(int priority)
 {
-#if (MACOS < 11) && MACOS_IMPURE
+#if defined(MACOS_IMPURE)
 	throttle_set_thread_io_policy(priority);
 #endif
 }

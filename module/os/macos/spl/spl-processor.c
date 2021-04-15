@@ -50,8 +50,12 @@ static boolean_t cpuid_has_xgetbv = B_FALSE;
 uint32_t
 getcpuid()
 {
-	// return ((uint32_t)cpu_number());
+#if defined(__aarch64__)
+	// Find arm64 solution.
 	return (0);
+#else
+	return ((uint32_t)cpu_number());
+#endif
 }
 
 uint64_t
