@@ -1489,6 +1489,12 @@ taskq_wait_id(taskq_t *tq, taskqid_t id)
 	return (taskq_wait(tq));
 }
 
+void
+taskq_wait_outstanding(taskq_t *tq, taskqid_t id)
+{
+	return (taskq_wait(tq));
+}
+
 /*
  * Suspend execution of tasks.
  *

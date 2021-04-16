@@ -251,7 +251,7 @@ vdev_file_io_start(zio_t *zio)
 	ASSERT(zio->io_type == ZIO_TYPE_READ || zio->io_type == ZIO_TYPE_WRITE);
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 
-	VERIFY3U(taskq_dispatch(system_taskq, vdev_file_io_strategy, zio,
+	VERIFY3U(taskq_dispatch(vdev_file_taskq, vdev_file_io_strategy, zio,
 	    TQ_SLEEP), !=, 0);
 }
 
