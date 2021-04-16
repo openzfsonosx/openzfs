@@ -199,12 +199,14 @@ int	wrap_nvpair_init(void);
 int	wrap_zcommon_init(void);
 int	wrap_icp_init(void);
 int	wrap_lua_init(void);
+int	wrap_zstd_init(void);
 void wrap_avl_fini(void);
 void wrap_unicode_fini(void);
 void wrap_nvpair_fini(void);
 void wrap_zcommon_fini(void);
 void wrap_icp_fini(void);
 void wrap_lua_fini(void);
+void wrap_zstd_fini(void);
 
 #ifdef	__cplusplus
 }

@@ -362,6 +362,7 @@ zfsdev_attach(void)
 	wrap_zcommon_init();
 	wrap_icp_init();
 	wrap_lua_init();
+	wrap_zstd_init();
 
 	tsd_create(&zfsdev_private_tsd, NULL);
 
@@ -376,6 +377,7 @@ zfsdev_detach(void)
 
 	tsd_destroy(&zfsdev_private_tsd);
 
+	wrap_zstd_fini();
 	wrap_lua_fini();
 	wrap_icp_fini();
 	wrap_zcommon_fini();
