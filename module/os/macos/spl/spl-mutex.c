@@ -385,9 +385,6 @@ spl_mutex_tryenter(kmutex_t *mp)
 	VERIFY3U(mp->m_initialised, ==, MUTEX_INIT);
 #endif
 
-	if (mp->m_owner == current_thread())
-		panic("mutex_tryenter: locking against myself!");
-
 	atomic_inc_64(&mp->m_waiters);
 	held = lck_mtx_try_lock((lck_mtx_t *)&mp->m_lock);
 	atomic_dec_64(&mp->m_waiters);
