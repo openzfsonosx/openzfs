@@ -215,9 +215,7 @@ zstd_mempool_reap(struct zstd_pool *zstd_mempool)
 	/* free obsolete slots */
 	for (int i = 0; i < ZSTD_POOL_MAX; i++) {
 		pool = &zstd_mempool[i];
-		if (pool->mem &&
-		    !mutex_owner(&pool->barrier) &&
-		    mutex_tryenter(&pool->barrier)) {
+		if (pool->mem && mutex_tryenter(&pool->barrier)) {
 			/* Free memory if unused object older than 2 minutes */
 			if (pool->mem && gethrestime_sec() > pool->timeout) {
 				vmem_free(pool->mem, pool->size);
@@ -268,8 +266,7 @@ zstd_mempool_alloc(struct zstd_pool *zstd_mempool, size_t size)
 		 *
 		 * The lock is later released by zstd_mempool_free.
 		 */
-		if (!mutex_owner(&pool->barrier) &&
-		    mutex_tryenter(&pool->barrier)) {
+		if (mutex_tryenter(&pool->barrier)) {
 			/*
 			 * Check if objects fits the size, if so we take it and
 			 * update the timestamp.
@@ -294,8 +291,7 @@ zstd_mempool_alloc(struct zstd_pool *zstd_mempool, size_t size)
 	 */
 	for (int i = 0; i < ZSTD_POOL_MAX; i++) {
 		pool = &zstd_mempool[i];
-		if (!mutex_owner(&pool->barrier) &&
-		    mutex_tryenter(&pool->barrier)) {
+		if (mutex_tryenter(&pool->barrier)) {
 			/* Object is free, try to allocate new one */
 			if (!pool->mem) {
 				mem = vmem_alloc(size, KM_SLEEP);
