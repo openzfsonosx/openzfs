@@ -1220,7 +1220,7 @@ zfsctl_snapshot_unmount_node(struct vnode *vp, const char *full_name,
 
 				/* Create condvar to wait for mount to happen */
 
-				zcm = kmem_alloc(
+				zcm = kmem_zalloc(
 				    sizeof (zfsctl_mounts_waiting_t), KM_SLEEP);
 				mutex_init(&zcm->zcm_lock, NULL, MUTEX_DEFAULT,
 				    NULL);
