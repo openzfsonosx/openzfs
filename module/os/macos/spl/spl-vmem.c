@@ -1287,24 +1287,22 @@ vmem_canalloc_atomic(vmem_t *vmp, size_t size)
 static inline uint64_t
 spl_vmem_xnu_useful_bytes_free(void)
 {
-	extern volatile unsigned int spl_vm_page_free_wanted;
-	extern volatile unsigned int spl_vm_page_free_count;
-	extern volatile unsigned int spl_vm_page_free_min;
+	extern _Atomic uint32_t spl_vm_pages_reclaimed;
+	extern _Atomic uint32_t spl_vm_pages_wanted;
+	extern _Atomic uint32_t spl_vm_pressure_level;
 
-	if (spl_vm_page_free_wanted > 0)
+	if (spl_vm_pages_wanted > 0)
+		return (PAGE_SIZE * spl_vm_pages_reclaimed);
+
+	/*
+	 * beware of large magic guard values,
+	 * the pressure enum only goes to 4
+	 */
+	if (spl_vm_pressure_level > 0 &&
+	    spl_vm_pressure_level < 100)
 		return (0);
 
-	uint64_t bytes_free =
-	    (uint64_t)spl_vm_page_free_count * (uint64_t)PAGESIZE;
-	uint64_t bytes_min =
-	    (uint64_t)spl_vm_page_free_min * (uint64_t)PAGESIZE;
-
-	if (bytes_free <= bytes_min)
-		return (0);
-
-	uint64_t useful_free = bytes_free - bytes_min;
-
-	return (useful_free);
+	return (total_memory - segkmem_total_mem_allocated);
 }
 
 uint64_t

@@ -357,7 +357,7 @@ arc_reclaim_thread(void *unused)
 
 		if (free_memory < 0 || manual_pressure > 0) {
 
-			if (free_memory <=
+			if (manual_pressure > 0 || free_memory <=
 			    (arc_c >> arc_no_grow_shift) + SPA_MAXBLOCKSIZE) {
 				arc_no_grow = B_TRUE;
 
@@ -838,18 +838,78 @@ arc_prune_async(int64_t adjust)
 int64_t
 arc_available_memory(void)
 {
-	int64_t lowest = INT64_MAX;
-
-	/* Every 100 calls, free a small amount */
-	if (spa_get_random(100) == 0)
-		lowest = -1024;
-
-	return (lowest);
+	return (arc_free_memory() - arc_sys_free);
 }
 
 int
 arc_memory_throttle(spa_t *spa, uint64_t reserve, uint64_t txg)
 {
+	int64_t available_memory = spl_free_wrapper();
+	int64_t freemem = available_memory / PAGESIZE;
+	static uint64_t page_load = 0;
+	static uint64_t last_txg = 0;
+
+	available_memory =
+	    MIN(available_memory, vmem_size(heap_arena, VMEM_FREE));
+
+	if (txg > last_txg) {
+		last_txg = txg;
+		page_load = 0;
+	}
+
+	if (freemem > physmem * arc_lotsfree_percent / 100) {
+		page_load = 0;
+		return (0);
+	}
+
+	/*
+	 * If we are in pageout, we know that memory is already tight,
+	 * the arc is already going to be evicting, so we just want to
+	 * continue to let page writes occur as quickly as possible.
+	 */
+
+	if (spl_free_manual_pressure_wrapper() != 0 &&
+	    arc_reclaim_in_loop == B_FALSE) {
+		cv_signal(&arc_reclaim_thread_cv);
+		kpreempt(KPREEMPT_SYNC);
+		page_load = 0;
+	}
+
+	if (!spl_minimal_physmem_p() && page_load > 0) {
+		ARCSTAT_INCR(arcstat_memory_throttle_count, 1);
+		printf("ZFS: %s: !spl_minimal_physmem_p(), available_memory "
+		    "== %lld, page_load = %llu, txg = %llu, reserve = %llu\n",
+		    __func__, available_memory, page_load, txg, reserve);
+		if (arc_reclaim_in_loop == B_FALSE)
+			cv_signal(&arc_reclaim_thread_cv);
+		kpreempt(KPREEMPT_SYNC);
+		page_load = 0;
+		return (SET_ERROR(EAGAIN));
+	}
+	if (arc_reclaim_needed() && page_load > 0) {
+		ARCSTAT_INCR(arcstat_memory_throttle_count, 1);
+		printf("ZFS: %s: arc_reclaim_needed(), available_memory "
+		    "== %lld, page_load = %llu, txg = %llu, reserve = %lld\n",
+		    __func__, available_memory, page_load, txg, reserve);
+		if (arc_reclaim_in_loop == B_FALSE)
+			cv_signal(&arc_reclaim_thread_cv);
+		kpreempt(KPREEMPT_SYNC);
+		page_load = 0;
+		return (SET_ERROR(EAGAIN));
+	}
+
+	/* as with sun, assume we are reclaiming */
+	if (available_memory <= 0 || page_load > available_memory / 4) {
+		return (SET_ERROR(ERESTART));
+	}
+
+	if (!spl_minimal_physmem_p()) {
+		page_load += reserve/8;
+		return (0);
+	}
+
+	page_load = 0;
+
 	return (0);
 }
 
@@ -862,7 +922,10 @@ arc_all_memory(void)
 uint64_t
 arc_free_memory(void)
 {
-	return (spa_get_random(arc_all_memory() * 20 / 100));
+	int64_t avail;
+
+	avail = spl_free_wrapper();
+	return (avail >= 0LL ? avail : 0LL);
 }
 
 #endif /* KERNEL */
