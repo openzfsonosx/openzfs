@@ -84,7 +84,7 @@ uint64_t
 arc_default_max(uint64_t min, uint64_t allmem)
 {
 	/* Default to 1/3 of all memory. */
-	return (MAX(allmem / 3, min));
+	return (MAX(allmem, min));
 }
 
 #ifdef _KERNEL
