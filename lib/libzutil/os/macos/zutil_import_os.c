@@ -154,6 +154,7 @@ zpool_open_func(void *arg)
 	    (strncmp(bname, "autofs", 6) == 0) ||
 	    (strncmp(bname, "console", 7) == 0) ||
 	    (strncmp(bname, "zfs", 3) == 0) ||
+	    (strncmp(bname, "oslog_stream", 12) == 0) ||
 	    (strncmp(bname, "com", 3) == 0)) // /dev/com_digidesign_semiface
 		error = 1;
 
