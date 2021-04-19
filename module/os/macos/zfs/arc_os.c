@@ -243,23 +243,6 @@ static void arc_kmem_reap_now(void)
 
 	/* arc.c will do the heavy lifting */
 	arc_kmem_reap_soon();
-
-#if 0
-	/* Now some OsX additionals */
-	extern kmem_cache_t *abd_chunk_cache;
-	extern kmem_cache_t *znode_cache;
-
-	kmem_cache_reap_now(abd_chunk_cache);
-	if (znode_cache) kmem_cache_reap_now(znode_cache);
-
-	if (abd_arena != NULL) {
-		/*
-		 * Ask the vmem arena to reclaim unused memory from its
-		 * quantum caches.
-		 */
-		vmem_qcache_reap(abd_arena);
-	}
-#endif
 }
 
 
@@ -284,6 +267,7 @@ static void
 arc_reclaim_thread(void *unused)
 {
 	hrtime_t growtime = 0;
+
 	callb_cpr_t cpr;
 
 	CALLB_CPR_INIT(&cpr, &arc_reclaim_lock, callb_generic_cpr, FTAG);
@@ -355,6 +339,7 @@ arc_reclaim_thread(void *unused)
 			kmem_cache_reap_now(abd_chunk_cache);
 		}
 
+		const hrtime_t curtime = gethrtime();
 		if (free_memory < 0 || manual_pressure > 0) {
 
 			if (manual_pressure > 0 || free_memory <=
@@ -384,7 +369,6 @@ arc_reclaim_thread(void *unused)
 		 * an exponentially increasing value starting with 500msec.
 		 *
 		 */
-				const hrtime_t curtime = gethrtime();
 				const hrtime_t agr = SEC2NSEC(arc_grow_retry);
 				static int grow_pass = 0;
 
@@ -500,16 +484,75 @@ arc_reclaim_thread(void *unused)
 				    __func__, old_to_free);
 				old_to_free = 0;
 			}
-
 		} else if (free_memory < (arc_c >> arc_no_grow_shift) &&
 		    aggsum_value(&arc_size) >
 		    arc_c_min + SPA_MAXBLOCKSIZE) {
 			// relatively low memory and arc is above arc_c_min
 			arc_no_grow = B_TRUE;
-			growtime = gethrtime() + SEC2NSEC(1);
+			growtime = curtime + SEC2NSEC(1);
 		}
 
-		if (growtime > 0 && gethrtime() >= growtime) {
+		/*
+		 * The abd vmem layer can see a large number of
+		 * frees from the abd kmem cache layer, and unfortunately
+		 * the abd vmem layer might end up fragmented as a result.
+		 *
+		 * Watch for this fragmentation and if it arises
+		 * suppress ARC growth for ten minutes in hopes that
+		 * abd activity driven by ARC replacement or further ARC
+		 * shrinking lets the abd vmem layer defragment.
+		 */
+
+		if (arc_no_grow != B_TRUE) {
+			/*
+			 * The gap is between imported and inuse
+			 * in the abd vmem layer
+			 */
+
+			static hrtime_t when_gap_grew = 0;
+			static int64_t previous_gap = 0;
+
+			int64_t gap = abd_arena_empty_space();
+
+			if (gap == 0) {
+				/*
+				 * no abd vmem layer fragmentation
+				 * so don't adjust arc_no_grow
+				 */
+				previous_gap = 0;
+			} else if (gap > 0 && gap == previous_gap) {
+				if (curtime < when_gap_grew + SEC2NSEC(600)) {
+					/*
+					 * wait up to ten minutes for kmem layer
+					 * to free slabs to abd vmem layer
+					 */
+					arc_no_grow = B_TRUE;
+					growtime = curtime + SEC2NSEC(5);
+				}
+			} else if (gap > 0 && gap > previous_gap) {
+				/*
+				 * kmem layer must have freed slabs
+				 * but vmem layer is holding on because
+				 * of fragmentation.   Don't grow ARC
+				 * for a minute.
+				 */
+				arc_no_grow = B_TRUE;
+				growtime = curtime + SEC2NSEC(60);
+				previous_gap = gap;
+				when_gap_grew = curtime;
+			} else if (gap > 0 && gap < previous_gap) {
+				/*
+				 * vmem layer successfully freeing.
+				 */
+				if (curtime < when_gap_grew + SEC2NSEC(600)) {
+					arc_no_grow = B_TRUE;
+					growtime = curtime + SEC2NSEC(60);
+				}
+				previous_gap = gap;
+			}
+		}
+
+		if (growtime > 0 && curtime >= growtime) {
 			if (arc_no_grow == B_TRUE)
 				dprintf("ZFS: arc growtime expired\n");
 			growtime = 0;

@@ -3815,6 +3815,36 @@ bucket_fragmented(const uint16_t bn, const uint64_t now)
 }
 
 /*
+ * Return an adjusted number of bytes free in the
+ * abd_cache_arena (if it exists), for arc_no_grow
+ * policy: if there's lots of space, don't allow
+ * arc growth for a while to see if the gap
+ * between imported and inuse drops.
+ */
+int64_t
+abd_arena_empty_space(void)
+{
+	extern vmem_t *abd_arena;
+
+	if (abd_arena == NULL)
+		return (0);
+
+	const int64_t imported =
+	    (int64_t)abd_arena->vm_kstat.vk_mem_import.value.ui64;
+	const int64_t inuse =
+	    (int64_t)abd_arena->vm_kstat.vk_mem_inuse.value.ui64;
+
+	/* Hide 10% or 1GiB fragmentation from arc_no_grow */
+	int64_t headroom =
+	    (imported * 90LL / 100LL) - inuse;
+
+	if (headroom < 1024LL*1024LL*1024LL)
+		headroom = 0;
+
+	return (headroom);
+}
+
+/*
  * return true if the bucket for size is fragmented
  */
 static inline bool
