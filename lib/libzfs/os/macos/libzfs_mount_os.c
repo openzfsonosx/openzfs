@@ -148,6 +148,37 @@ out:
 		free(path);
 }
 
+static void
+check_special(zfs_handle_t *zhp)
+{
+	zpool_handle_t *zph = zhp->zpool_hdl;
+	uint64_t feat_refcount;
+	nvlist_t *features;
+
+	/* check that features can be enabled */
+	if (zpool_get_prop_int(zph, ZPOOL_PROP_VERSION, NULL)
+	    < SPA_VERSION_FEATURES)
+		return;
+
+	/* SPA_FEATURE_PROJECT_QUOTA SPA_FEATURE_USEROBJ_ACCOUNTING */
+	features = zpool_get_features(zph);
+	if (!features)
+		return;
+
+	if (nvlist_lookup_uint64(features,
+	    spa_feature_table[SPA_FEATURE_PROJECT_QUOTA].fi_guid,
+	    &feat_refcount) != 0 &&
+	    nvlist_lookup_uint64(features,
+	    spa_feature_table[SPA_FEATURE_USEROBJ_ACCOUNTING].fi_guid,
+	    &feat_refcount) != 0)
+		return;
+
+	printf(gettext("If importing from zfs-1.9.4 (or earlier), "
+	    "then possibly enable features: \n"
+	    "    project_quota & userobj_accounting\n"));
+
+}
+
 /*
  * if (zmount(zhp, zfs_get_name(zhp), mountpoint, MS_OPTIONSTR | flags,
  * MNTTYPE_ZFS, NULL, 0, mntopts, sizeof (mntopts)) != 0) {
@@ -254,11 +285,18 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 #endif
 	rv = mount(fstype, rpath ? rpath : dir, mflag, &mnt_args);
 
-	if (rpath) free(rpath);
-
 	/* Check if we need to create/update icon */
 	if (rv == 0)
 		zfs_mount_seticon(dir);
+	else
+		rv = errno;
+
+	/* 1.9.4 did not have projectquotas, check if user should upgrade */
+	if (rv == EIO)
+		check_special(zhp);
+
+
+	if (rpath) free(rpath);
 
 	return (rv);
 }
