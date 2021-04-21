@@ -511,8 +511,10 @@ arc_reclaim_thread(void *unused)
 
 			static hrtime_t when_gap_grew = 0;
 			static int64_t previous_gap = 0;
+			static int64_t previous_abd_size = 0;
 
 			int64_t gap = abd_arena_empty_space();
+			int64_t abd_size = abd_arena_total_size();
 
 			if (gap == 0) {
 				/*
@@ -520,14 +522,35 @@ arc_reclaim_thread(void *unused)
 				 * so don't adjust arc_no_grow
 				 */
 				previous_gap = 0;
-			} else if (gap > 0 && gap == previous_gap) {
+				previous_abd_size = abd_size;
+			} else if (gap > 0 && gap == previous_gap &&
+			    abd_size == previous_abd_size) {
 				if (curtime < when_gap_grew + SEC2NSEC(600)) {
 					/*
-					 * wait up to ten minutes for kmem layer
+					 * our abd arena is unchanged
+					 * try up to ten minutes for kmem layer
 					 * to free slabs to abd vmem layer
 					 */
 					arc_no_grow = B_TRUE;
-					growtime = curtime + SEC2NSEC(5);
+					growtime = curtime +
+					    SEC2NSEC(arc_grow_retry);
+					previous_abd_size = abd_size;
+				} else {
+					/*
+					 * ten minutes have expired with no
+					 * good result, shrink the arc a little,
+					 * no more than once every
+					 * arc_grow_retry (5) seconds
+					 */
+					arc_no_grow = B_TRUE;
+					growtime = curtime +
+					    SEC2NSEC(arc_grow_retry);
+					previous_abd_size = abd_size;
+
+					const int64_t sb =
+					    arc_c >> arc_shrink_shift;
+					if (arc_c_min + sb > arc_c)
+						arc_reduce_target_size(sb);
 				}
 			} else if (gap > 0 && gap > previous_gap) {
 				/*
@@ -537,18 +560,33 @@ arc_reclaim_thread(void *unused)
 				 * for a minute.
 				 */
 				arc_no_grow = B_TRUE;
-				growtime = curtime + SEC2NSEC(60);
+				growtime = curtime + SEC2NSEC(arc_grow_retry);
 				previous_gap = gap;
 				when_gap_grew = curtime;
+				/*
+				 * but if we're growing the abd
+				 * as well as its gap, shrink
+				 */
+				if (abd_size > previous_abd_size) {
+					const int64_t sb =
+					    arc_c >> arc_shrink_shift;
+					if (arc_c_min + sb > arc_c)
+						arc_reduce_target_size(sb);
+				}
+				previous_abd_size = abd_size;
 			} else if (gap > 0 && gap < previous_gap) {
 				/*
 				 * vmem layer successfully freeing.
 				 */
 				if (curtime < when_gap_grew + SEC2NSEC(600)) {
 					arc_no_grow = B_TRUE;
-					growtime = curtime + SEC2NSEC(60);
+					growtime = curtime +
+					    SEC2NSEC(arc_grow_retry);
 				}
 				previous_gap = gap;
+				previous_abd_size = abd_size;
+			} else {
+				previous_abd_size = abd_size;
 			}
 		}
 

@@ -3844,6 +3844,16 @@ abd_arena_empty_space(void)
 	return (headroom);
 }
 
+int64_t
+abd_arena_total_size(void)
+{
+	extern vmem_t *abd_arena;
+
+	if (abd_arena != NULL)
+		return (abd_arena->vm_kstat.vk_mem_total.value.ui64);
+}
+
+
 /*
  * return true if the bucket for size is fragmented
  */
