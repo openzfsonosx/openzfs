@@ -112,6 +112,91 @@ zfs_dev_flush(int fd)
 	return (0);
 }
 
+static uint64_t
+label_offset(uint64_t size, int l)
+{
+	ASSERT(P2PHASE_TYPED(size, sizeof (vdev_label_t), uint64_t) == 0);
+	return (l * sizeof (vdev_label_t) + (l < VDEV_LABELS / 2 ?
+	    0 : size - VDEV_LABELS * sizeof (vdev_label_t)));
+}
+
+/*
+ * We have had issues with lio_listio() and AIO on BigSur, where
+ * we receive waves of EAGAIN, and have to loop, often up to
+ * 100 times before labels are read. Until this problem can be
+ * understood better, we use the old serial style here.
+ */
+static int
+zpool_read_label_os(int fd, nvlist_t **config, int *num_labels)
+{
+	struct stat64 statbuf;
+	int l, count = 0;
+	vdev_phys_t *label;
+	nvlist_t *expected_config = NULL;
+	uint64_t expected_guid = 0, size;
+	int error;
+
+	*config = NULL;
+
+	if (fstat64_blk(fd, &statbuf) == -1)
+		return (0);
+	size = P2ALIGN_TYPED(statbuf.st_size, sizeof (vdev_label_t), uint64_t);
+
+	error = posix_memalign((void **)&label, PAGESIZE, sizeof (*label));
+	if (error)
+		return (-1);
+
+	for (l = 0; l < VDEV_LABELS; l++) {
+		uint64_t state, guid, txg;
+		off_t offset = label_offset(size, l) + VDEV_SKIP_SIZE;
+
+		if (pread64(fd, label, sizeof (vdev_phys_t),
+		    offset) != sizeof (vdev_phys_t))
+			continue;
+
+		if (nvlist_unpack(label->vp_nvlist,
+		    sizeof (label->vp_nvlist), config, 0) != 0)
+			continue;
+
+		if (nvlist_lookup_uint64(*config, ZPOOL_CONFIG_GUID,
+		    &guid) != 0 || guid == 0) {
+			nvlist_free(*config);
+			continue;
+		}
+		if (nvlist_lookup_uint64(*config, ZPOOL_CONFIG_POOL_STATE,
+		    &state) != 0 || state > POOL_STATE_L2CACHE) {
+			nvlist_free(*config);
+			continue;
+		}
+
+		if (state != POOL_STATE_SPARE && state != POOL_STATE_L2CACHE &&
+		    (nvlist_lookup_uint64(*config, ZPOOL_CONFIG_POOL_TXG,
+		    &txg) != 0 || txg == 0)) {
+			nvlist_free(*config);
+			continue;
+		}
+
+		if (expected_guid) {
+			if (expected_guid == guid)
+				count++;
+
+			nvlist_free(*config);
+		} else {
+			expected_config = *config;
+			expected_guid = guid;
+			count++;
+		}
+	}
+
+	if (num_labels != NULL)
+		*num_labels = count;
+
+	free(label);
+	*config = expected_config;
+
+	return (0);
+}
+
 void
 zpool_open_func(void *arg)
 {
@@ -187,33 +272,15 @@ zpool_open_func(void *arg)
 		return;
 	}
 
-	/*
-	 * zpool_read_label() uses lio_listio; since we are also
-	 * using a tpool thread pool, this will produce occasional
-	 * EAGAINs, which zpool_read_label() deals with gracelessly.
-	 * Here we look for errno == EAGAIN and try again after
-	 * a short delay.
-	 */
-	for (int i = 0; i < 10; i++) {
-		error = zpool_read_label(fd, &config, &num_labels);
-		if (error == 0)
-			break;
-		if (error != 0 && errno == EAGAIN) {
-			int saved_errno = errno;
-			if (zpool_label_disk_wait(rn->rn_name,
-			    DISK_LABEL_WAIT) == 0)
-				continue;
-			else
-				errno = saved_errno;
-		} else
-			break;
-	}
+	error = zpool_read_label_os(fd, &config, &num_labels);
 
 	if (error != 0) {
 		(void) close(fd);
+#ifdef DEBUG
 		printf("%s: zpool_read_label returned error %d "
 		    "(errno: %d name: %s)\n",
 		    __func__, error, errno, rn->rn_name);
+#endif
 		return;
 	}
 
