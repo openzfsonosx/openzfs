@@ -1287,24 +1287,22 @@ vmem_canalloc_atomic(vmem_t *vmp, size_t size)
 static inline uint64_t
 spl_vmem_xnu_useful_bytes_free(void)
 {
-	extern volatile unsigned int spl_vm_page_free_wanted;
-	extern volatile unsigned int spl_vm_page_free_count;
-	extern volatile unsigned int spl_vm_page_free_min;
+	extern _Atomic uint32_t spl_vm_pages_reclaimed;
+	extern _Atomic uint32_t spl_vm_pages_wanted;
+	extern _Atomic uint32_t spl_vm_pressure_level;
 
-	if (spl_vm_page_free_wanted > 0)
+	if (spl_vm_pages_wanted > 0)
+		return (PAGE_SIZE * spl_vm_pages_reclaimed);
+
+	/*
+	 * beware of large magic guard values,
+	 * the pressure enum only goes to 4
+	 */
+	if (spl_vm_pressure_level > 0 &&
+	    spl_vm_pressure_level < 100)
 		return (0);
 
-	uint64_t bytes_free =
-	    (uint64_t)spl_vm_page_free_count * (uint64_t)PAGESIZE;
-	uint64_t bytes_min =
-	    (uint64_t)spl_vm_page_free_min * (uint64_t)PAGESIZE;
-
-	if (bytes_free <= bytes_min)
-		return (0);
-
-	uint64_t useful_free = bytes_free - bytes_min;
-
-	return (useful_free);
+	return (total_memory - segkmem_total_mem_allocated);
 }
 
 uint64_t
@@ -3814,6 +3812,36 @@ bucket_fragmented(const uint16_t bn, const uint64_t now)
 	} else {
 		return (percent_free >= 10);
 	}
+}
+
+/*
+ * Return an adjusted number of bytes free in the
+ * abd_cache_arena (if it exists), for arc_no_grow
+ * policy: if there's lots of space, don't allow
+ * arc growth for a while to see if the gap
+ * between imported and inuse drops.
+ */
+int64_t
+abd_arena_empty_space(void)
+{
+	extern vmem_t *abd_arena;
+
+	if (abd_arena == NULL)
+		return (0);
+
+	const int64_t imported =
+	    (int64_t)abd_arena->vm_kstat.vk_mem_import.value.ui64;
+	const int64_t inuse =
+	    (int64_t)abd_arena->vm_kstat.vk_mem_inuse.value.ui64;
+
+	/* Hide 10% or 1GiB fragmentation from arc_no_grow */
+	int64_t headroom =
+	    (imported * 90LL / 100LL) - inuse;
+
+	if (headroom < 1024LL*1024LL*1024LL)
+		headroom = 0;
+
+	return (headroom);
 }
 
 /*

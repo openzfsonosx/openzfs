@@ -55,22 +55,8 @@
 // OS Interface
 // ===============================================================
 
-// This variable is a count of the number of threads
-// blocked waiting for memory pages to become free.
-// We are using wake indications on this event as a
-// indication of paging activity, and therefore as a
-// proxy to the machine experiencing memory pressure.
-//
-// xnu vm variables
-volatile unsigned int spl_vm_page_free_wanted = 0;
-
 // 3500 kern.spl_vm_page_free_min, rarely changes
-unsigned int spl_vm_page_free_min = 3500;
-
-// will tend to spl_vm_page_free_min smd
-volatile unsigned int spl_vm_page_free_count = 4000;
-
-volatile unsigned int spl_vm_page_speculative_count = 4000;
+const unsigned int spl_vm_page_free_min = 3500;
 
 #define	SMALL_PRESSURE_INCURSION_PAGES (spl_vm_page_free_min >> 5)
 
@@ -84,6 +70,37 @@ static volatile _Atomic int64_t spl_free_manual_pressure = 0;
 static volatile _Atomic boolean_t spl_free_fast_pressure = FALSE;
 static _Atomic bool spl_free_maybe_reap_flag = false;
 static _Atomic uint64_t spl_free_last_pressure = 0;
+
+/*
+ * variables informed by "pure"  mach_vm_pressure interface
+ *
+ * osfmk/vm/vm_pageout.c: "We don't need fully
+ * accurate monitoring anyway..."
+ *
+ * but in macOS_pure we do want modifications of these
+ * variables to be seen by all the other threads
+ * consistently, and asap (there may be hundreds
+ * of simultaneous readers, even if few writers!)
+ */
+_Atomic uint32_t spl_vm_pages_reclaimed = 0;
+_Atomic uint32_t spl_vm_pages_wanted = 0;
+_Atomic uint32_t spl_vm_pressure_level = 0;
+
+/* From osfmk/vm/vm_pageout.h */
+extern kern_return_t mach_vm_pressure_level_monitor(
+    boolean_t wait_for_pressure, unsigned int *pressure_level);
+extern kern_return_t mach_vm_pressure_monitor(
+    boolean_t		wait_for_pressure,
+    unsigned int	nsecs_monitored,
+    unsigned int	*pages_reclaimed_p,
+    unsigned int	*pages_wanted_p);
+
+/*
+ * the spl_pressure_level enum only goes to four,
+ * but we want to watch kstat for whether
+ * mach's pressure is unavailable
+ */
+#define	MAGIC_PRESSURE_UNAVAILABLE 1001001
 
 // Start and end address of kernel memory
 extern vm_offset_t virtual_space_start;
@@ -554,6 +571,10 @@ typedef struct spl_stats {
 	kstat_named_t spl_arc_reclaim_avoided;
 
 	kstat_named_t kmem_free_to_slab_when_fragmented;
+
+	kstat_named_t spl_vm_pages_reclaimed;
+	kstat_named_t spl_vm_pages_wanted;
+	kstat_named_t spl_vm_pressure_level;
 } spl_stats_t;
 
 static spl_stats_t spl_stats = {
@@ -618,6 +639,9 @@ static spl_stats_t spl_stats = {
 	{"spl_arc_reclaim_avoided", KSTAT_DATA_UINT64},
 
 	{"kmem_free_to_slab_when_fragmented", KSTAT_DATA_UINT64},
+	{"spl_vm_pages_reclaimed", KSTAT_DATA_UINT64},
+	{"spl_vm_pages_wanted", KSTAT_DATA_UINT64},
+	{"spl_vm_pressure_level", KSTAT_DATA_UINT64},
 };
 
 static kstat_t *spl_ksp = 0;
@@ -3255,12 +3279,11 @@ static inline bool
 spl_minimal_physmem_p_logic()
 {
 	// do we have enough memory to avoid throttling?
-	if (spl_vm_page_free_wanted > 0)
+	if (spl_vm_pages_wanted > 0 ||
+	    (spl_vm_pressure_level > 0 &&
+	    spl_vm_pressure_level != MAGIC_PRESSURE_UNAVAILABLE))
 		return (false);
-	if (spl_vm_page_free_count < (spl_vm_page_free_min + 512))
-		// 512 pages above 3500 (normal spl_vm_page_free_min)
-		// 2MiB above 13 MiB
-		return (false);
+	// XXX : check reclaiming load?
 	return (true);
 }
 
@@ -3272,7 +3295,7 @@ spl_minimal_physmem_p(void)
 	// we want a small bit of pressure here so that we can compete
 	// a little with the xnu buffer cache
 
-	return (spl_free > -1024LL);
+	return (spl_minimal_physmem_p_logic() && spl_free > -4096LL);
 }
 
 /*
@@ -4193,7 +4216,6 @@ kmem_cache_fini()
 	list_destroy(&freelist);
 }
 
-
 // this is intended to substitute for kmem_avail() in arc.c
 int64_t
 spl_free_wrapper(void)
@@ -4399,8 +4421,9 @@ spl_free_thread()
 
 	CALLB_CPR_INIT(&cpr, &spl_free_thread_lock, callb_generic_cpr, FTAG);
 
-	spl_free = (int64_t)PAGESIZE *
-	    (int64_t)(spl_vm_page_free_count - spl_vm_page_free_min);
+	/* initialize with a reasonably large amount of memory */
+	spl_free = MAX(4*1024*1024*1024,
+	    total_memory * 75ULL / 100ULL);
 
 	mutex_enter(&spl_free_thread_lock);
 
@@ -4431,7 +4454,105 @@ spl_free_thread()
 
 		last_spl_free = spl_free;
 
-		new_spl_free = 0LL;
+		new_spl_free = total_memory -
+		    segkmem_total_mem_allocated;
+
+		/* Ask Mach about pressure */
+
+		/*
+		 * Don't wait for pressure, just report back
+		 * how much has changed while we were asleep
+		 * (cf. the duration of cv_timedwait_hires
+		 * at justwait: below -- 10 msec is an eternity
+		 * on most hardware, and the osfmk/vm/vm_pageout.c
+		 * code is linear in the nsecs_wanted parameter
+		 *
+		 */
+
+		uint32_t pages_reclaimed = 0;
+		uint32_t pages_wanted = 0;
+		kern_return_t kr_mon =
+		    mach_vm_pressure_monitor(false,
+		    MSEC2NSEC(10),
+		    &pages_reclaimed,
+		    &pages_wanted);
+
+		if (kr_mon == KERN_SUCCESS) {
+			spl_vm_pages_reclaimed =
+			    pages_reclaimed;
+			spl_vm_pages_wanted =
+			    pages_wanted;
+		} else {
+			printf("%s:%d : mach_vm_pressure_monitor"
+			    " returned error %d, keeping old"
+			    " values reclaimed %u wanted %u\n",
+			    __FILE__, __LINE__,
+			    kr_mon,
+			    spl_vm_pages_reclaimed,
+			    spl_vm_pages_wanted);
+		}
+
+		/*
+		 * Don't wait for pressure, just report
+		 * back the pressure level
+		 */
+
+		uint32_t pressure_level = 0;
+		kr_mon = mach_vm_pressure_level_monitor(false,
+		    &pressure_level);
+
+		if (kr_mon == KERN_SUCCESS) {
+			spl_vm_pressure_level =
+			    pressure_level;
+		} else if (kr_mon == KERN_FAILURE) {
+			/* optioned out of xnu, use SOS value */
+			spl_vm_pressure_level = MAGIC_PRESSURE_UNAVAILABLE;
+		} else {
+			printf("%s:%d : mach_vm_pressure_level_monitor"
+			    " returned unexpected error %d,"
+			    " keeping old level %d\n",
+			    __FILE__, __LINE__,
+			    kr_mon, spl_vm_pressure_level);
+		}
+
+		if (spl_vm_pressure_level > 0 &&
+		    spl_vm_pressure_level != MAGIC_PRESSURE_UNAVAILABLE) {
+			/* there is pressure */
+			lowmem = true;
+			new_spl_free = -(2LL * PAGE_SIZE * spl_vm_pages_wanted);
+			if (spl_vm_pressure_level > 1) {
+				emergency_lowmem = true;
+				if (new_spl_free > 0)
+					new_spl_free = -(4LL *
+					    PAGE_SIZE *
+					    spl_vm_pages_wanted);
+				spl_free_fast_pressure = TRUE;
+			}
+			spl_free_manual_pressure += PAGE_SIZE *
+			    spl_vm_pages_wanted;
+		} else if (spl_vm_pages_wanted > 0) {
+			/* kVMPressureNormal but pages wanted */
+			/* XXX : additional hysteresis maintained below */
+			new_spl_free -= PAGE_SIZE * spl_vm_pages_wanted;
+		} else {
+			/*
+			 * No pressure. Xnu has freed up some memory
+			 * which we can use.
+			 */
+			if (spl_vm_pages_reclaimed)
+				new_spl_free += PAGE_SIZE *
+				    spl_vm_pages_reclaimed;
+			else {
+				/* grow a little every pressure-free pass */
+				new_spl_free += 1024LL*1024LL;
+			}
+			/*
+			 * Cap, bearing in mind that we deflate
+			 * total_memory by 50% at initialization
+			 */
+			if (new_spl_free > total_memory)
+				new_spl_free = total_memory;
+		}
 
 		/*
 		 * if there is pressure that has not yet reached
@@ -4529,10 +4650,10 @@ spl_free_thread()
 		 * is not very predictable, but generally it should be
 		 * taken seriously when it's positive (it is often falsely 0)
 		 */
-		if ((spl_vm_page_free_wanted > 0 && reserve_low &&
+		if ((spl_vm_pages_wanted > 0 && reserve_low &&
 		    !early_lots_free && !memory_equilibrium &&
-		    !just_alloced) || spl_vm_page_free_wanted >= 1024) {
-			int64_t bminus = (int64_t)spl_vm_page_free_wanted *
+		    !just_alloced) || spl_vm_pages_wanted >= 1024) {
+			int64_t bminus = (int64_t)spl_vm_pages_wanted *
 			    (int64_t)PAGESIZE * -16LL;
 			if (bminus > -16LL*1024LL*1024LL)
 				bminus = -16LL*1024LL*1024LL;
@@ -4545,16 +4666,16 @@ spl_free_thread()
 			previous_highest_pressure = spl_free_manual_pressure;
 			if (new_p > previous_highest_pressure || new_p <= 0) {
 				boolean_t fast = FALSE;
-				if (spl_vm_page_free_wanted >
+				if (spl_vm_pages_wanted >
 				    spl_vm_page_free_min / 8)
 					fast = TRUE;
 				spl_free_set_pressure_both(-16LL * new_spl_free,
 				    fast);
 			}
 			last_disequilibrium = time_now_seconds;
-		} else if (spl_vm_page_free_wanted > 0) {
+		} else if (spl_vm_pages_wanted > 0) {
 			int64_t bytes_wanted =
-			    (int64_t)spl_vm_page_free_wanted *
+			    (int64_t)spl_vm_pages_wanted *
 			    (int64_t)PAGESIZE;
 			new_spl_free -= bytes_wanted;
 			if (reserve_low && !early_lots_free) {
@@ -4567,59 +4688,6 @@ spl_free_thread()
 				}
 			}
 		}
-
-		/*
-		 * these variables are reliably maintained by XNU
-		 * if spl_vm_page_free_count > spl_vm_page_free_min, then XNU
-		 * is scanning pages and we may want to try to free some memory
-		 */
-		int64_t above_min_free_pages = (int64_t)spl_vm_page_free_count -
-		    (int64_t)spl_vm_page_free_min;
-		int64_t above_min_free_bytes = (int64_t)PAGESIZE *
-		    above_min_free_pages;
-
-		/*
-		 * spl_vm_page_free_min normally 3500, page free target
-		 * normally 4000 but not exported so we are not scanning
-		 * if we are 500 pages above spl_vm_page_free_min. even if
-		 * we're scanning we may have plenty of space in the
-		 * reserve arena, in which case we should not react too strongly
-		 */
-
-		if (above_min_free_bytes < (int64_t)PAGESIZE * 500LL &&
-		    reserve_low && !early_lots_free && !memory_equilibrium) {
-			// trigger a reap below
-			lowmem = true;
-		}
-
-		if ((above_min_free_bytes < 0LL && reserve_low &&
-		    !early_lots_free &&	!memory_equilibrium && !just_alloced) ||
-		    above_min_free_bytes <= -4LL*1024LL*1024LL) {
-			int64_t new_p = -1LL * above_min_free_bytes;
-			boolean_t fast = FALSE;
-			emergency_lowmem = true;
-			lowmem = true;
-			recent_lowmem = time_now;
-			last_disequilibrium = time_now_seconds;
-			int64_t spec_bytes =
-			    (int64_t)spl_vm_page_speculative_count
-			    * (int64_t)PAGESIZE;
-			if (spl_vm_page_free_wanted > 0 || new_p > spec_bytes) {
-				// force a stronger reaction from ARC if we are
-				// also low on speculative pages (xnu prefetched
-				// file blocks with no clients yet)
-				fast = TRUE;
-			}
-			spl_free_set_pressure_both(new_p, fast);
-		} else if (above_min_free_bytes < 0LL && !early_lots_free) {
-			lowmem = true;
-			if (recent_lowmem == 0)
-				recent_lowmem = time_now;
-			if (!memory_equilibrium)
-				last_disequilibrium = time_now_seconds;
-		}
-
-		new_spl_free += above_min_free_bytes;
 
 		/*
 		 * If we have already detected a memory shortage
@@ -4676,26 +4744,6 @@ spl_free_thread()
 			spl_free_fast_pressure = FALSE;
 		}
 
-		if (spl_vm_page_speculative_count > 0) {
-			/*
-			 * speculative memory can be squeezed a bit; it is
-			 * file blocks that have been prefetched by xnu but
-			 * are not (yet) in use by any consumer
-			 */
-			if (spl_vm_page_speculative_count / 4 +
-			    spl_vm_page_free_count >
-			    spl_vm_page_free_min) {
-				emergency_lowmem = false;
-				spl_free_fast_pressure = FALSE;
-			}
-			if (spl_vm_page_speculative_count / 2 +
-			    spl_vm_page_free_count >
-			    spl_vm_page_free_min) {
-				lowmem = false;
-				spl_free_fast_pressure = FALSE;
-			}
-		}
-
 		/*
 		 * Stay in a low memory condition for several seconds
 		 * after we first detect that we are in it, giving the
@@ -4706,33 +4754,6 @@ spl_free_thread()
 				lowmem = true;
 			else
 				recent_lowmem = 0;
-		}
-
-		/*
-		 * if we are in a lowmem "hangover", cure it with
-		 * pressure, then wait for the pressure to take
-		 * effect in arc.c code. triggered when we have had
-		 * at least one lowmem in the previous few seconds
-		 * -- possibly two (one that causes a reap, one
-		 * that falls through to the 4 second hold above).
-		 */
-		if (recent_lowmem == time_now && early_lots_free &&
-		    reserve_low) {
-			/*
-			 * we can't grab 64 MiB as a single segment,
-			 * but otherwise have ample memory brought in from xnu,
-			 * but recently we had lowmem... and still have lowmem.
-			 * cure this condition with a dose of pressure.
-			 */
-			if (above_min_free_bytes < 0) {
-				int64_t old_p = spl_free_manual_pressure;
-				if (old_p <= -above_min_free_bytes) {
-					recent_lowmem = 0;
-					spl_free_manual_pressure =
-					    -above_min_free_bytes;
-					goto justwait;
-				}
-			}
 		}
 
 		base = new_spl_free;
@@ -4750,22 +4771,9 @@ spl_free_thread()
 
 			if (combined_free != 0) {
 				const int64_t mb = 1024*1024;
-				if (!lowmem && above_min_free_bytes >
-				    (int64_t)PAGESIZE * 10000LL) {
-					if (above_min_free_bytes < 64LL * mb)
-						new_spl_free += combined_free /
-						    16;
-					else if (above_min_free_bytes <
-					    128LL * mb)
-						new_spl_free += combined_free /
-						    8;
-					else if (above_min_free_bytes <
-					    256LL * mb)
-						new_spl_free += combined_free /
-						    4;
-					else
-						new_spl_free += combined_free /
-						    2;
+				if (!lowmem) {
+					new_spl_free += combined_free /
+					    4;
 				} else {
 					new_spl_free -= 16LL * mb;
 				}
@@ -5006,6 +5014,14 @@ spl_kstat_update(kstat_t *ksp, int rw)
 
 		ks->kmem_free_to_slab_when_fragmented.value.ui64 =
 		    kmem_free_to_slab_when_fragmented;
+
+		ks->spl_vm_pages_reclaimed.value.ui64 =
+		    spl_vm_pages_reclaimed;
+		ks->spl_vm_pages_wanted.value.ui64 =
+		    spl_vm_pages_wanted;
+		ks->spl_vm_pressure_level.value.ui64 =
+		    spl_vm_pressure_level;
+
 	}
 
 	return (0);

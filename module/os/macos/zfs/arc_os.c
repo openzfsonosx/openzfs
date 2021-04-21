@@ -84,7 +84,7 @@ uint64_t
 arc_default_max(uint64_t min, uint64_t allmem)
 {
 	/* Default to 1/3 of all memory. */
-	return (MAX(allmem / 3, min));
+	return (MAX(allmem, min));
 }
 
 #ifdef _KERNEL
@@ -243,23 +243,6 @@ static void arc_kmem_reap_now(void)
 
 	/* arc.c will do the heavy lifting */
 	arc_kmem_reap_soon();
-
-#if 0
-	/* Now some OsX additionals */
-	extern kmem_cache_t *abd_chunk_cache;
-	extern kmem_cache_t *znode_cache;
-
-	kmem_cache_reap_now(abd_chunk_cache);
-	if (znode_cache) kmem_cache_reap_now(znode_cache);
-
-	if (abd_arena != NULL) {
-		/*
-		 * Ask the vmem arena to reclaim unused memory from its
-		 * quantum caches.
-		 */
-		vmem_qcache_reap(abd_arena);
-	}
-#endif
 }
 
 
@@ -284,6 +267,7 @@ static void
 arc_reclaim_thread(void *unused)
 {
 	hrtime_t growtime = 0;
+
 	callb_cpr_t cpr;
 
 	CALLB_CPR_INIT(&cpr, &arc_reclaim_lock, callb_generic_cpr, FTAG);
@@ -355,9 +339,10 @@ arc_reclaim_thread(void *unused)
 			kmem_cache_reap_now(abd_chunk_cache);
 		}
 
+		const hrtime_t curtime = gethrtime();
 		if (free_memory < 0 || manual_pressure > 0) {
 
-			if (free_memory <=
+			if (manual_pressure > 0 || free_memory <=
 			    (arc_c >> arc_no_grow_shift) + SPA_MAXBLOCKSIZE) {
 				arc_no_grow = B_TRUE;
 
@@ -384,7 +369,6 @@ arc_reclaim_thread(void *unused)
 		 * an exponentially increasing value starting with 500msec.
 		 *
 		 */
-				const hrtime_t curtime = gethrtime();
 				const hrtime_t agr = SEC2NSEC(arc_grow_retry);
 				static int grow_pass = 0;
 
@@ -500,16 +484,75 @@ arc_reclaim_thread(void *unused)
 				    __func__, old_to_free);
 				old_to_free = 0;
 			}
-
 		} else if (free_memory < (arc_c >> arc_no_grow_shift) &&
 		    aggsum_value(&arc_size) >
 		    arc_c_min + SPA_MAXBLOCKSIZE) {
 			// relatively low memory and arc is above arc_c_min
 			arc_no_grow = B_TRUE;
-			growtime = gethrtime() + SEC2NSEC(1);
+			growtime = curtime + SEC2NSEC(1);
 		}
 
-		if (growtime > 0 && gethrtime() >= growtime) {
+		/*
+		 * The abd vmem layer can see a large number of
+		 * frees from the abd kmem cache layer, and unfortunately
+		 * the abd vmem layer might end up fragmented as a result.
+		 *
+		 * Watch for this fragmentation and if it arises
+		 * suppress ARC growth for ten minutes in hopes that
+		 * abd activity driven by ARC replacement or further ARC
+		 * shrinking lets the abd vmem layer defragment.
+		 */
+
+		if (arc_no_grow != B_TRUE) {
+			/*
+			 * The gap is between imported and inuse
+			 * in the abd vmem layer
+			 */
+
+			static hrtime_t when_gap_grew = 0;
+			static int64_t previous_gap = 0;
+
+			int64_t gap = abd_arena_empty_space();
+
+			if (gap == 0) {
+				/*
+				 * no abd vmem layer fragmentation
+				 * so don't adjust arc_no_grow
+				 */
+				previous_gap = 0;
+			} else if (gap > 0 && gap == previous_gap) {
+				if (curtime < when_gap_grew + SEC2NSEC(600)) {
+					/*
+					 * wait up to ten minutes for kmem layer
+					 * to free slabs to abd vmem layer
+					 */
+					arc_no_grow = B_TRUE;
+					growtime = curtime + SEC2NSEC(5);
+				}
+			} else if (gap > 0 && gap > previous_gap) {
+				/*
+				 * kmem layer must have freed slabs
+				 * but vmem layer is holding on because
+				 * of fragmentation.   Don't grow ARC
+				 * for a minute.
+				 */
+				arc_no_grow = B_TRUE;
+				growtime = curtime + SEC2NSEC(60);
+				previous_gap = gap;
+				when_gap_grew = curtime;
+			} else if (gap > 0 && gap < previous_gap) {
+				/*
+				 * vmem layer successfully freeing.
+				 */
+				if (curtime < when_gap_grew + SEC2NSEC(600)) {
+					arc_no_grow = B_TRUE;
+					growtime = curtime + SEC2NSEC(60);
+				}
+				previous_gap = gap;
+			}
+		}
+
+		if (growtime > 0 && curtime >= growtime) {
 			if (arc_no_grow == B_TRUE)
 				dprintf("ZFS: arc growtime expired\n");
 			growtime = 0;
@@ -838,18 +881,78 @@ arc_prune_async(int64_t adjust)
 int64_t
 arc_available_memory(void)
 {
-	int64_t lowest = INT64_MAX;
-
-	/* Every 100 calls, free a small amount */
-	if (spa_get_random(100) == 0)
-		lowest = -1024;
-
-	return (lowest);
+	return (arc_free_memory() - arc_sys_free);
 }
 
 int
 arc_memory_throttle(spa_t *spa, uint64_t reserve, uint64_t txg)
 {
+	int64_t available_memory = spl_free_wrapper();
+	int64_t freemem = available_memory / PAGESIZE;
+	static uint64_t page_load = 0;
+	static uint64_t last_txg = 0;
+
+	available_memory =
+	    MIN(available_memory, vmem_size(heap_arena, VMEM_FREE));
+
+	if (txg > last_txg) {
+		last_txg = txg;
+		page_load = 0;
+	}
+
+	if (freemem > physmem * arc_lotsfree_percent / 100) {
+		page_load = 0;
+		return (0);
+	}
+
+	/*
+	 * If we are in pageout, we know that memory is already tight,
+	 * the arc is already going to be evicting, so we just want to
+	 * continue to let page writes occur as quickly as possible.
+	 */
+
+	if (spl_free_manual_pressure_wrapper() != 0 &&
+	    arc_reclaim_in_loop == B_FALSE) {
+		cv_signal(&arc_reclaim_thread_cv);
+		kpreempt(KPREEMPT_SYNC);
+		page_load = 0;
+	}
+
+	if (!spl_minimal_physmem_p() && page_load > 0) {
+		ARCSTAT_INCR(arcstat_memory_throttle_count, 1);
+		printf("ZFS: %s: !spl_minimal_physmem_p(), available_memory "
+		    "== %lld, page_load = %llu, txg = %llu, reserve = %llu\n",
+		    __func__, available_memory, page_load, txg, reserve);
+		if (arc_reclaim_in_loop == B_FALSE)
+			cv_signal(&arc_reclaim_thread_cv);
+		kpreempt(KPREEMPT_SYNC);
+		page_load = 0;
+		return (SET_ERROR(EAGAIN));
+	}
+	if (arc_reclaim_needed() && page_load > 0) {
+		ARCSTAT_INCR(arcstat_memory_throttle_count, 1);
+		printf("ZFS: %s: arc_reclaim_needed(), available_memory "
+		    "== %lld, page_load = %llu, txg = %llu, reserve = %lld\n",
+		    __func__, available_memory, page_load, txg, reserve);
+		if (arc_reclaim_in_loop == B_FALSE)
+			cv_signal(&arc_reclaim_thread_cv);
+		kpreempt(KPREEMPT_SYNC);
+		page_load = 0;
+		return (SET_ERROR(EAGAIN));
+	}
+
+	/* as with sun, assume we are reclaiming */
+	if (available_memory <= 0 || page_load > available_memory / 4) {
+		return (SET_ERROR(ERESTART));
+	}
+
+	if (!spl_minimal_physmem_p()) {
+		page_load += reserve/8;
+		return (0);
+	}
+
+	page_load = 0;
+
 	return (0);
 }
 
@@ -862,7 +965,10 @@ arc_all_memory(void)
 uint64_t
 arc_free_memory(void)
 {
-	return (spa_get_random(arc_all_memory() * 20 / 100));
+	int64_t avail;
+
+	avail = spl_free_wrapper();
+	return (avail >= 0LL ? avail : 0LL);
 }
 
 #endif /* KERNEL */
