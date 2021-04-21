@@ -979,7 +979,7 @@ transfer_out:
 		case HFS_GET_BOOT_INFO:
 			{
 				u_int32_t vcbFndrInfo[8];
-				printf("%s HFS_GET_BOOT_INFO\n", __func__);
+				dprintf("%s HFS_GET_BOOT_INFO\n", __func__);
 				/*
 				 * ZFS booting is not supported, mimic selection
 				 * of a non-root HFS volume
