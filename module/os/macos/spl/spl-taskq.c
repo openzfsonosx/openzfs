@@ -1714,7 +1714,7 @@ taskq_thread_wait(taskq_t *tq, kmutex_t *mx, kcondvar_t *cv,
 #define	CPULIMIT_INTERVAL (MSEC2NSEC(100ULL))
 #define	THREAD_CPULIMIT_BLOCK 0x1
 
-#if (MACOS < 11) && MACOS_IMPURE
+#if defined(MACOS_IMPURE)
 extern int thread_set_cpulimit(int action, uint8_t percentage,
     uint64_t interval_ns);
 #endif

@@ -72,7 +72,10 @@ spl_thread_create_named(
 	if (name == NULL)
 		name = "unnamed zfs thread";
 
+#if	defined(MAC_OS_X_VERSION_10_15) && \
+	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15)
 	thread_set_thread_name(thread, name);
+#endif
 
 	thread_deallocate(thread);
 

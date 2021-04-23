@@ -38,8 +38,8 @@
 #include <stddef.h>
 
 #include <AvailabilityMacros.h>
-#if !defined(MAC_OS_X_VERSION_10_9) ||	\
-	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_9)
+#if !defined(MAC_OS_X_VERSION_10_12) ||	\
+	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_12)
 #include <i386/types.h>
 #include <i386/limits.h>
 #include <sys/_types/_ptrdiff_t.h>
