@@ -30,6 +30,9 @@
 #ifndef OSX_MUTEX_H
 #define	OSX_MUTEX_H
 
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
+
 #include <libkern/locks.h>
 
 #include <libkern/OSAtomic.h>

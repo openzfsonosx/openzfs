@@ -32,13 +32,13 @@
 #define	likely(x)		__builtin_expect(!!(x), 1)
 #define	unlikely(x)		__builtin_expect(!!(x), 0)
 
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 #include_next <sys/types.h>
 #include <string.h>
 #include <sys/sysmacros.h>
 #include <stddef.h>
 
-#include <TargetConditionals.h>
-#include <AvailabilityMacros.h>
 #if !defined(MAC_OS_X_VERSION_10_12) ||	\
 	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_12)
 #include <i386/types.h>

@@ -28,6 +28,9 @@
 #ifndef _SPL_PARAM_H
 #define	_SPL_PARAM_H
 
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
+
 #include_next <sys/param.h>
 #include <mach/vm_param.h>
 
