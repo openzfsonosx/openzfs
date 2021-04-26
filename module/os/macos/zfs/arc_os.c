@@ -26,6 +26,8 @@
  * Copyright 2017 Nexenta Systems, Inc.  All rights reserved.
  */
 
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 #include <IOKit/IOLib.h>
 #include <sys/spa.h>
 #include <sys/zio.h>

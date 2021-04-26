@@ -28,6 +28,7 @@
 #ifdef __cplusplus
 
 #include <IOKit/storage/IOMedia.h>
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 
 #ifdef super

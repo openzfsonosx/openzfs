@@ -28,6 +28,9 @@
 #ifndef _SPL_BYTEORDER_H
 #define	_SPL_BYTEORDER_H
 
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
+
 #include <libkern/OSByteOrder.h>
 #include <machine/byte_order.h>
 

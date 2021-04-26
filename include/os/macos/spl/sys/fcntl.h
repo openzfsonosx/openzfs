@@ -28,6 +28,7 @@
 #ifndef _SPL_FCNTL_H
 #define	_SPL_FCNTL_H
 
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 #if !defined(MAC_OS_X_VERSION_10_9) ||	\
 	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_9)

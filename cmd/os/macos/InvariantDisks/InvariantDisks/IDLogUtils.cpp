@@ -17,6 +17,7 @@
 // Auto Detect the use of ASL or OS Log if it is not already enforced by the
 // build environment
 #if !(defined(ID_USE_ASL) || defined(ID_USE_OS_LOG))
+	#include <TargetConditionals.h>
 	#include <AvailabilityMacros.h>
 	#if defined (MAC_OS_X_VERSION_10_12) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12)
 		#define ID_USE_OS_LOG

@@ -32,6 +32,10 @@
  * We wrap this header to handle that copyinstr()'s final argument is
  * mandatory on OSX. Wrap it to call our ddi_copyinstr to make it optional.
  */
+
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
+
 #include_next <libkern/libkern.h>
 #undef copyinstr
 #define	copyinstr(U, K, L, D) ddi_copyinstr((U), (K), (L), (D))

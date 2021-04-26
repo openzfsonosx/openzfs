@@ -23,6 +23,7 @@
 #define	_LIBSPL_SYS_OSX_TIME_H
 
 #include_next <sys/time.h>
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 
 /*

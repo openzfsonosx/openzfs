@@ -36,6 +36,7 @@
 #include <IOKit/IOLib.h>
 
 #include <sys/taskq.h>
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 
 int
