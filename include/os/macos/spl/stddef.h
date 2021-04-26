@@ -28,6 +28,7 @@
 #ifndef _SPL_STDDEF_H
 #define	_SPL_STDDEF_H
 
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 #if defined(MAC_OS_X_VERSION_10_12) &&	\
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12)
