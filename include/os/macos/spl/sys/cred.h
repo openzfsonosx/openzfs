@@ -39,6 +39,7 @@ typedef struct ucred cred_t;
 #define	KUID_TO_SUID(x)		(x)
 #define	KGID_TO_SGID(x)		(x)
 
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 
 // Older OSX API

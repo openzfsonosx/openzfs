@@ -23,6 +23,7 @@
 #define	_LIBSPL_TIME_H
 
 #include_next <time.h>
+#include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 
 /* Linux also has a timer_create() API we need to emulate. */
