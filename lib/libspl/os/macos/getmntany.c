@@ -224,8 +224,10 @@ MYCFStringCopyUTF8String(CFStringRef aString)
 /*
  * Given "/dev/disk6" connect to IOkit and fetch the dataset
  * name "BOOM/lower", and use it instead.
+ * Return 0 for no match (not ZFS)
+ * Return 1 for ZFS (path expanded)
  */
-static void
+static int
 expand_disk_to_zfs(char *devname, int len)
 {
 	char *result = NULL;
@@ -235,13 +237,13 @@ expand_disk_to_zfs(char *devname, int len)
 	char *device;
 
 	if (strncmp(devname, "/dev/disk", 9) != 0)
-		return;
+		return (0);
 
 	device = &devname[5];
 
 	matchingDict = IOBSDNameMatching(kIOMasterPortDefault, 0, device);
 	if (NULL == matchingDict)
-		return;
+		return (0);
 
 	/*
 	 * Fetch the object with the matching BSD node name.
@@ -252,9 +254,8 @@ expand_disk_to_zfs(char *devname, int len)
 	service = IOServiceGetMatchingService(kIOMasterPortDefault,
 	    matchingDict);
 
-	if (IO_OBJECT_NULL == service) {
-		return;
-	}
+	if (IO_OBJECT_NULL == service)
+		return (0);
 
 	cfstr = IORegistryEntryCreateCFProperty(service,
 	    CFSTR("ZFS Dataset"), kCFAllocatorDefault, 0);
@@ -268,7 +269,9 @@ expand_disk_to_zfs(char *devname, int len)
 	if (result) {
 		strlcpy(devname, result, len);
 		free(result);
+		return (1);
 	}
+	return (0);
 }
 
 void
@@ -338,8 +341,11 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 #undef	OPTADD
 
 	// If a disk is /dev/diskX, lets see if it has "zfs_dataset_name"
-	// set, and if so, use it instead, for mount matching.
-	expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname));
+	// set, and if so, use it instead, for mount matching - also update
+	// fstypename, as libzfs_mnttab_find() checks for it.
+	if (expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname)))
+		strlcpy(sfs->f_fstypename, MNTTYPE_ZFS,
+		    sizeof (sfs->f_fstypename));
 
 	mp->mnt_special = sfs->f_mntfromname;
 	mp->mnt_mountp = sfs->f_mntonname;

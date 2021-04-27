@@ -174,102 +174,103 @@ zfs_findernotify_callback(mount_t mp, __unused void *arg)
 	/* Do some quick checks to see if it is ZFS */
 	struct vfsstatfs *vsf = vfs_statfs(mp);
 
-	// Filesystem ZFS?
-	if (vsf->f_fssubtype == MNTTYPE_ZFS_SUBTYPE) {
-		vfs_context_t kernelctx = spl_vfs_context_kernel();
-		struct vnode *rootvp, *vp;
-		znode_t *zp = NULL;
+	vfs_context_t kernelctx = spl_vfs_context_kernel();
+	struct vnode *rootvp, *vp;
+	znode_t *zp = NULL;
 
-		/*
-		 * Since potentially other filesystems could be using "our"
-		 * fssubtype, and we don't always announce as "zfs" due to
-		 * hfs-mimic requirements, we have to make extra care here to
-		 * make sure this "mp" really is ZFS.
-		 */
-		zfsvfs_t *zfsvfs;
+	/*
+	 * Since potentially other filesystems could be using "our"
+	 * fssubtype, and we don't always announce as "zfs" due to
+	 * hfs-mimic requirements, we have to make extra care here to
+	 * make sure this "mp" really is ZFS.
+	 */
+	zfsvfs_t *zfsvfs;
 
-		zfsvfs = vfs_fsprivate(mp);
+	zfsvfs = vfs_fsprivate(mp);
 
-		/*
-		 * The first entry in struct zfsvfs is the vfs ptr, so they
-		 * should be equal if it is ZFS
-		 */
-		if (!zfsvfs ||
-		    (mp != zfsvfs->z_vfs))
-			return (VFS_RETURNED);
+	/*
+	 * The first entry in struct zfsvfs is the vfs ptr, so they
+	 * should be equal if it is ZFS
+	 */
+	if (!zfsvfs ||
+	    (mp != zfsvfs->z_vfs))
+		return (VFS_RETURNED);
 
-		/* Guard against unmount */
-		ZFS_ENTER_ERROR(zfsvfs, VFS_RETURNED);
+	// Filesystem ZFS? Confirm the location of root_id in zfsvfs
+	if (zfsvfs->z_root != INO_ROOT)
+		return (VFS_RETURNED);
 
-		/* Check if space usage has changed enough to bother updating */
-		uint64_t refdbytes, availbytes, usedobjs, availobjs;
-		uint64_t delta;
-		dmu_objset_space(zfsvfs->z_os,
-		    &refdbytes, &availbytes, &usedobjs, &availobjs);
-		if (availbytes >= zfsvfs->z_findernotify_space) {
-			delta = availbytes - zfsvfs->z_findernotify_space;
-		} else {
-			delta = zfsvfs->z_findernotify_space - availbytes;
-		}
+
+	/* Guard against unmount */
+	ZFS_ENTER_ERROR(zfsvfs, VFS_RETURNED);
+
+	/* Check if space usage has changed enough to bother updating */
+	uint64_t refdbytes, availbytes, usedobjs, availobjs;
+	uint64_t delta;
+	dmu_objset_space(zfsvfs->z_os,
+	    &refdbytes, &availbytes, &usedobjs, &availobjs);
+	if (availbytes >= zfsvfs->z_findernotify_space) {
+		delta = availbytes - zfsvfs->z_findernotify_space;
+	} else {
+		delta = zfsvfs->z_findernotify_space - availbytes;
+	}
 
 #define	ZFS_FINDERNOTIFY_THRESHOLD (1ULL<<20)
 
-		/* Under the limit ? */
-		if (delta <= ZFS_FINDERNOTIFY_THRESHOLD) goto out;
+	/* Under the limit ? */
+	if (delta <= ZFS_FINDERNOTIFY_THRESHOLD) goto out;
 
-		/* Over threadhold, so we will notify finder, remember value */
-		zfsvfs->z_findernotify_space = availbytes;
+	/* Over threadhold, so we will notify finder, remember value */
+	zfsvfs->z_findernotify_space = availbytes;
 
-		/* If old value is zero (first run), don't bother */
-		if (availbytes == delta)
-			goto out;
+	/* If old value is zero (first run), don't bother */
+	if (availbytes == delta)
+		goto out;
 
-		dprintf("ZFS: findernotify %p space delta %llu\n", mp, delta);
+	dprintf("ZFS: findernotify %p space delta %llu\n", mp, delta);
 
-		// Grab the root zp
-		if (zfs_zget(zfsvfs, zfsvfs->z_root, &zp) == 0) {
+	// Grab the root zp
+	if (zfs_zget(zfsvfs, zfsvfs->z_root, &zp) == 0) {
 
-			rootvp = ZTOV(zp);
+		rootvp = ZTOV(zp);
 
-			struct componentname cn;
-			char *tmpname = ".fseventsd";
+		struct componentname cn;
+		char *tmpname = ".fseventsd";
 
-			bzero(&cn, sizeof (cn));
-			cn.cn_nameiop = LOOKUP;
-			cn.cn_flags = ISLASTCN;
-			// cn.cn_context = kernelctx;
-			cn.cn_pnbuf = tmpname;
-			cn.cn_pnlen = sizeof (tmpname);
-			cn.cn_nameptr = cn.cn_pnbuf;
-			cn.cn_namelen = strlen(tmpname);
+		bzero(&cn, sizeof (cn));
+		cn.cn_nameiop = LOOKUP;
+		cn.cn_flags = ISLASTCN;
+		// cn.cn_context = kernelctx;
+		cn.cn_pnbuf = tmpname;
+		cn.cn_pnlen = sizeof (tmpname);
+		cn.cn_nameptr = cn.cn_pnbuf;
+		cn.cn_namelen = strlen(tmpname);
 
-			// Attempt to lookup .Trashes
-			if (!VOP_LOOKUP(rootvp, &vp, &cn, kernelctx)) {
+		// Attempt to lookup .Trashes
+		if (!VOP_LOOKUP(rootvp, &vp, &cn, kernelctx)) {
 
-				// Send the event to wake up Finder
-				struct vnode_attr vattr;
-				// Also calls VATTR_INIT
-				spl_vfs_get_notify_attributes(&vattr);
-				// Fill in vap
-				vnode_getattr(vp, &vattr, kernelctx);
-				// Send event
-				spl_vnode_notify(vp, VNODE_EVENT_ATTRIB,
-				    &vattr);
+			// Send the event to wake up Finder
+			struct vnode_attr vattr;
+			// Also calls VATTR_INIT
+			spl_vfs_get_notify_attributes(&vattr);
+			// Fill in vap
+			vnode_getattr(vp, &vattr, kernelctx);
+			// Send event
+			spl_vnode_notify(vp, VNODE_EVENT_ATTRIB,
+			    &vattr);
 
-				// Cleanup vp
-				vnode_put(vp);
+			// Cleanup vp
+			vnode_put(vp);
 
-			} // VNOP_LOOKUP
+		} // VNOP_LOOKUP
 
-			// Cleanup rootvp
-			vnode_put(rootvp);
+		// Cleanup rootvp
+		vnode_put(rootvp);
 
-		} // VFS_ROOT
+	} // VFS_ROOT
 
 out:
-		ZFS_EXIT(zfsvfs);
-
-	} // SUBTYPE_ZFS
+	ZFS_EXIT(zfsvfs);
 
 	return (VFS_RETURNED);
 }

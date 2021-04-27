@@ -1485,6 +1485,12 @@ zfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap,
 
 	ZFS_ENTER(zfsvfs);
 
+	int mimic_on = 0;
+	struct vfsstatfs *vfsstatfs;
+	vfsstatfs = vfs_statfs(zfsvfs->z_vfs);
+	if (strcmp(vfsstatfs->f_fstypename, "zfs") != 0)
+		mimic_on = 1;
+
 	/*
 	 * Finder will show the old/incorrect size, we can force a sync of the
 	 * pool to make it correct, but that has side effects which are
@@ -1650,10 +1656,7 @@ zfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap,
 			    VOL_CAP_INT_EXTENDED_ATTR;
 		}
 
-		// Check if mimic is on
-		struct vfsstatfs *vfsstatfs;
-		vfsstatfs = vfs_statfs(zfsvfs->z_vfs);
-		if (strcmp(vfsstatfs->f_fstypename, "hfs") == 0) {
+		if (mimic_on) {
 			fsap->f_capabilities.capabilities[
 			    VOL_CAPABILITIES_FORMAT] |=
 			    VOL_CAP_FMT_DECMPFS_COMPRESSION;
@@ -1851,8 +1854,14 @@ zfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap,
 	}
 
 	/* If we are mimicking, we need userland know we are really ZFS */
-	VFSATTR_RETURN(fsap, f_fssubtype, MNTTYPE_ZFS_SUBTYPE);
-
+	if (mimic_on) {
+		VFSATTR_RETURN(fsap, f_fssubtype,
+		    zfsvfs->z_case == ZFS_CASE_SENSITIVE ? 2 : 0);
+	} else {
+		// 0x83 or 0x81 HFS + JOURNAL and optional CASESENSITIVE
+		VFSATTR_RETURN(fsap, f_fssubtype,
+		    zfsvfs->z_case == ZFS_CASE_SENSITIVE ? 0x83 : 0x81);
+	}
 	/*
 	 * According to joshade over at
 	 * https://github.com/joshado/liberate-applefileserver/blob/

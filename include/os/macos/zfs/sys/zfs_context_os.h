@@ -30,8 +30,6 @@
 
 #define	KMALLOC_MAX_SIZE		MAXPHYS
 
-#define	MNTTYPE_ZFS_SUBTYPE ('Z'<<24|'F'<<16|'S'<<8)
-
 #ifndef MAX_UPL_TRANSFER
 #define	MAX_UPL_TRANSFER 256
 #endif
