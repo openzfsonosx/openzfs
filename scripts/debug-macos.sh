@@ -48,9 +48,16 @@ fi
 
 topdir=$topdir/../
 
-for lib in nvpair uutil zpool zfs zfs_core diskmgt; do
+# lib/
+for lib in nvpair uutil zpool zfs zfs_core; do
 	export DYLD_LIBRARY_PATH=$topdir/lib/lib${lib}/.libs:$DYLD_LIBRARY_PATH
 done
+
+# lib/os/macos/
+for lib in diskmgt; do
+	export DYLD_LIBRARY_PATH=$topdir/lib/os/macos/lib${lib}/.libs:$DYLD_LIBRARY_PATH
+done
+
 for c in zdb zfs zpool ztest; do
 	export PATH=${topdir}/cmd/${c}/.libs:$PATH
 done
