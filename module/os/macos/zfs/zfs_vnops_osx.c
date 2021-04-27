@@ -1613,6 +1613,7 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	 *     vsecattr_t *vsecp);
 	 */
 	znode_t *zp = NULL;
+	ap->a_vap->va_mode |= S_IFDIR;
 	error = zfs_mkdir(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr, ap->a_vap,
 	    &zp, cr, /* flags */0, /* vsecp */NULL);
 	if (!error) {
@@ -2102,6 +2103,7 @@ zfs_vnop_symlink(struct vnop_symlink_args *ap)
 
 	/* OS X doesn't need to set vap->va_mode? */
 	znode_t *zp = NULL;
+    ap->a_vap->va_mode |= S_IFLNK;
 	error = zfs_symlink(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr,
 	    ap->a_vap, ap->a_target, &zp, cr, 0);
 	if (!error) {
