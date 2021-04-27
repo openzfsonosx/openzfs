@@ -635,7 +635,6 @@ out:
 	if (fullname != NULL)
 		free(fullname);
 
-	printf("%s: exit\n", __func__);
 }
 
 static int

@@ -55,13 +55,13 @@ static const char *ZVOL_PRODUCT_NAME_PREFIX = "ZVOL ";
 
 /* Wrapper for zvol_state pointer to IOKit device */
 typedef struct zvol_iokit {
-	net_lundman_zfs_zvol_device *dev;
+	org_openzfsonosx_zfs_zvol_device *dev;
 } zvol_iokit_t;
 
-OSDefineMetaClassAndStructors(net_lundman_zfs_zvol_device, IOBlockStorageDevice)
+OSDefineMetaClassAndStructors(org_openzfsonosx_zfs_zvol_device, IOBlockStorageDevice)
 
 bool
-net_lundman_zfs_zvol_device::init(zvol_state_t *c_zv,
+org_openzfsonosx_zfs_zvol_device::init(zvol_state_t *c_zv,
     OSDictionary *properties)
 {
 	zvol_iokit_t *iokitdev = NULL;
@@ -102,7 +102,7 @@ net_lundman_zfs_zvol_device::init(zvol_state_t *c_zv,
 }
 
 bool
-net_lundman_zfs_zvol_device::attach(IOService* provider)
+org_openzfsonosx_zfs_zvol_device::attach(IOService* provider)
 {
 	OSDictionary *protocolCharacteristics = 0;
 	OSDictionary *deviceCharacteristics = 0;
@@ -305,7 +305,7 @@ net_lundman_zfs_zvol_device::attach(IOService* provider)
 }
 
 int
-net_lundman_zfs_zvol_device::renameDevice(void)
+org_openzfsonosx_zfs_zvol_device::renameDevice(void)
 {
 	OSDictionary *deviceDict;
 	OSString *nameStr;
@@ -374,7 +374,7 @@ net_lundman_zfs_zvol_device::renameDevice(void)
 }
 
 int
-net_lundman_zfs_zvol_device::offlineDevice(void)
+org_openzfsonosx_zfs_zvol_device::offlineDevice(void)
 {
 	IOService *client;
 
@@ -393,7 +393,7 @@ net_lundman_zfs_zvol_device::offlineDevice(void)
 }
 
 int
-net_lundman_zfs_zvol_device::onlineDevice(void)
+org_openzfsonosx_zfs_zvol_device::onlineDevice(void)
 {
 	IOService *client;
 
@@ -412,7 +412,7 @@ net_lundman_zfs_zvol_device::onlineDevice(void)
 }
 
 int
-net_lundman_zfs_zvol_device::refreshDevice(void)
+org_openzfsonosx_zfs_zvol_device::refreshDevice(void)
 {
 	IOService *client;
 
@@ -431,7 +431,7 @@ net_lundman_zfs_zvol_device::refreshDevice(void)
 }
 
 int
-net_lundman_zfs_zvol_device::getBSDName(void)
+org_openzfsonosx_zfs_zvol_device::getBSDName(void)
 {
 	IORegistryEntry *ioregdevice = 0;
 	OSObject *bsdnameosobj = 0;
@@ -468,19 +468,19 @@ net_lundman_zfs_zvol_device::getBSDName(void)
 }
 
 void
-net_lundman_zfs_zvol_device::detach(IOService *provider)
+org_openzfsonosx_zfs_zvol_device::detach(IOService *provider)
 {
 	super::detach(provider);
 }
 
 void
-net_lundman_zfs_zvol_device::clearState(void)
+org_openzfsonosx_zfs_zvol_device::clearState(void)
 {
 	zv = NULL;
 }
 
 bool
-net_lundman_zfs_zvol_device::handleOpen(IOService *client,
+org_openzfsonosx_zfs_zvol_device::handleOpen(IOService *client,
     IOOptionBits options, void *argument)
 {
 	IOStorageAccess access = (uintptr_t)argument;
@@ -526,7 +526,7 @@ net_lundman_zfs_zvol_device::handleOpen(IOService *client,
 }
 
 void
-net_lundman_zfs_zvol_device::handleClose(IOService *client,
+org_openzfsonosx_zfs_zvol_device::handleClose(IOService *client,
     IOOptionBits options)
 {
 	super::handleClose(client, options);
@@ -542,7 +542,7 @@ net_lundman_zfs_zvol_device::handleClose(IOService *client,
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::doAsyncReadWrite(
+org_openzfsonosx_zfs_zvol_device::doAsyncReadWrite(
     IOMemoryDescriptor *buffer, UInt64 block, UInt64 nblks,
     IOStorageAttributes *attributes, IOStorageCompletion *completion)
 {
@@ -626,7 +626,7 @@ net_lundman_zfs_zvol_device::doAsyncReadWrite(
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::doDiscard(UInt64 block, UInt64 nblks)
+org_openzfsonosx_zfs_zvol_device::doDiscard(UInt64 block, UInt64 nblks)
 {
 	dprintf("doDiscard called with block, nblks (%llu, %llu)\n",
 	    block, nblks);
@@ -647,7 +647,7 @@ net_lundman_zfs_zvol_device::doDiscard(UInt64 block, UInt64 nblks)
 
 
 IOReturn
-net_lundman_zfs_zvol_device::doUnmap(IOBlockStorageDeviceExtent *extents,
+org_openzfsonosx_zfs_zvol_device::doUnmap(IOBlockStorageDeviceExtent *extents,
     UInt32 extentsCount, UInt32 options = 0)
 {
 	UInt32 i = 0;
@@ -674,7 +674,7 @@ net_lundman_zfs_zvol_device::doUnmap(IOBlockStorageDeviceExtent *extents,
 }
 
 UInt32
-net_lundman_zfs_zvol_device::doGetFormatCapacities(UInt64* capacities,
+org_openzfsonosx_zfs_zvol_device::doGetFormatCapacities(UInt64* capacities,
     UInt32 capacitiesMaxCount) const
 {
 	dprintf("formatCap\n");
@@ -700,7 +700,7 @@ net_lundman_zfs_zvol_device::doGetFormatCapacities(UInt64* capacities,
 }
 
 char *
-net_lundman_zfs_zvol_device::getProductString(void)
+org_openzfsonosx_zfs_zvol_device::getProductString(void)
 {
 	dprintf("getProduct %p\n", zv);
 
@@ -711,7 +711,7 @@ net_lundman_zfs_zvol_device::getProductString(void)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportBlockSize(UInt64 *blockSize)
+org_openzfsonosx_zfs_zvol_device::reportBlockSize(UInt64 *blockSize)
 {
 	dprintf("reportBlockSize %llu\n", *blockSize);
 
@@ -721,7 +721,7 @@ net_lundman_zfs_zvol_device::reportBlockSize(UInt64 *blockSize)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportMaxValidBlock(UInt64 *maxBlock)
+org_openzfsonosx_zfs_zvol_device::reportMaxValidBlock(UInt64 *maxBlock)
 {
 	dprintf("reportMaxValidBlock %llu\n", *maxBlock);
 
@@ -731,7 +731,7 @@ net_lundman_zfs_zvol_device::reportMaxValidBlock(UInt64 *maxBlock)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportMediaState(bool *mediaPresent,
+org_openzfsonosx_zfs_zvol_device::reportMediaState(bool *mediaPresent,
     bool *changedState)
 {
 	dprintf("reportMediaState\n");
@@ -741,7 +741,7 @@ net_lundman_zfs_zvol_device::reportMediaState(bool *mediaPresent,
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportPollRequirements(bool *pollRequired,
+org_openzfsonosx_zfs_zvol_device::reportPollRequirements(bool *pollRequired,
     bool *pollIsExpensive)
 {
 	dprintf("reportPollReq\n");
@@ -751,7 +751,7 @@ net_lundman_zfs_zvol_device::reportPollRequirements(bool *pollRequired,
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportRemovability(bool *isRemovable)
+org_openzfsonosx_zfs_zvol_device::reportRemovability(bool *isRemovable)
 {
 	dprintf("reportRemova\n");
 	if (isRemovable) *isRemovable = false;
@@ -759,7 +759,7 @@ net_lundman_zfs_zvol_device::reportRemovability(bool *isRemovable)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::doEjectMedia(void)
+org_openzfsonosx_zfs_zvol_device::doEjectMedia(void)
 {
 	dprintf("ejectMedia\n");
 /* XXX */
@@ -772,21 +772,21 @@ net_lundman_zfs_zvol_device::doEjectMedia(void)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::doFormatMedia(UInt64 byteCapacity)
+org_openzfsonosx_zfs_zvol_device::doFormatMedia(UInt64 byteCapacity)
 {
 	dprintf("doFormat\n");
 	return (kIOReturnSuccess);
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::doLockUnlockMedia(bool doLock)
+org_openzfsonosx_zfs_zvol_device::doLockUnlockMedia(bool doLock)
 {
 	dprintf("doLockUnlock\n");
 	return (kIOReturnSuccess);
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::doSynchronizeCache(void)
+org_openzfsonosx_zfs_zvol_device::doSynchronizeCache(void)
 {
 	dprintf("doSync\n");
 	if (zv && zv->zv_zilog) {
@@ -796,28 +796,28 @@ net_lundman_zfs_zvol_device::doSynchronizeCache(void)
 }
 
 char *
-net_lundman_zfs_zvol_device::getVendorString(void)
+org_openzfsonosx_zfs_zvol_device::getVendorString(void)
 {
 	dprintf("getVendor\n");
 	return ((char *)"ZVOL");
 }
 
 char *
-net_lundman_zfs_zvol_device::getRevisionString(void)
+org_openzfsonosx_zfs_zvol_device::getRevisionString(void)
 {
 	dprintf("getRevision\n");
 	return ((char *)ZFS_META_VERSION);
 }
 
 char *
-net_lundman_zfs_zvol_device::getAdditionalDeviceInfoString(void)
+org_openzfsonosx_zfs_zvol_device::getAdditionalDeviceInfoString(void)
 {
 	dprintf("getAdditional\n");
 	return ((char *)"ZFS Volume");
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportEjectability(bool *isEjectable)
+org_openzfsonosx_zfs_zvol_device::reportEjectability(bool *isEjectable)
 {
 	dprintf("reportEjecta\n");
 	/*
@@ -831,7 +831,7 @@ net_lundman_zfs_zvol_device::reportEjectability(bool *isEjectable)
 
 /* XXX deprecated function */
 IOReturn
-net_lundman_zfs_zvol_device::reportLockability(bool *isLockable)
+org_openzfsonosx_zfs_zvol_device::reportLockability(bool *isLockable)
 {
 	dprintf("reportLocka\n");
 	if (isLockable) *isLockable = true;
@@ -839,7 +839,7 @@ net_lundman_zfs_zvol_device::reportLockability(bool *isLockable)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::reportWriteProtection(bool *isWriteProtected)
+org_openzfsonosx_zfs_zvol_device::reportWriteProtection(bool *isWriteProtected)
 {
 	dprintf("reportWritePro: %d\n", *isWriteProtected);
 
@@ -855,7 +855,7 @@ net_lundman_zfs_zvol_device::reportWriteProtection(bool *isWriteProtected)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::getWriteCacheState(bool *enabled)
+org_openzfsonosx_zfs_zvol_device::getWriteCacheState(bool *enabled)
 {
 	dprintf("getCacheState\n");
 	if (enabled) *enabled = true;
@@ -863,7 +863,7 @@ net_lundman_zfs_zvol_device::getWriteCacheState(bool *enabled)
 }
 
 IOReturn
-net_lundman_zfs_zvol_device::setWriteCacheState(bool enabled)
+org_openzfsonosx_zfs_zvol_device::setWriteCacheState(bool enabled)
 {
 	dprintf("setWriteCache\n");
 	return (kIOReturnSuccess);
@@ -875,7 +875,7 @@ extern "C" {
 int
 zvolCreateNewDevice(zvol_state_t *zv)
 {
-	net_lundman_zfs_zvol_device *zvol;
+	org_openzfsonosx_zfs_zvol_device *zvol;
 	ZFSPool *pool_proxy;
 	spa_t *spa;
 	dprintf("%s\n", __func__);
@@ -897,7 +897,7 @@ zvolCreateNewDevice(zvol_state_t *zv)
 		return (EINVAL);
 	}
 
-	zvol = new net_lundman_zfs_zvol_device;
+	zvol = new org_openzfsonosx_zfs_zvol_device;
 
 	/* Validate creation, initialize and attach */
 	if (!zvol || zvol->init(zv) == false ||
@@ -932,7 +932,7 @@ zvolCreateNewDevice(zvol_state_t *zv)
 int
 zvolRegisterDevice(zvol_state_t *zv)
 {
-	net_lundman_zfs_zvol_device *zvol;
+	org_openzfsonosx_zfs_zvol_device *zvol;
 	OSDictionary *matching;
 	IOService *service = 0;
 	IOMedia *media = 0;
@@ -1027,7 +1027,7 @@ zvolRegisterDevice(zvol_state_t *zv)
 void *
 zvolRemoveDevice(zvol_iokit_t *iokitdev)
 {
-	net_lundman_zfs_zvol_device *zvol;
+	org_openzfsonosx_zfs_zvol_device *zvol;
 	dprintf("%s\n", __func__);
 
 	if (!iokitdev) {
@@ -1058,7 +1058,7 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 int
 zvolRemoveDeviceTerminate(void *arg)
 {
-	net_lundman_zfs_zvol_device *zvol = (net_lundman_zfs_zvol_device *)arg;
+	org_openzfsonosx_zfs_zvol_device *zvol = (org_openzfsonosx_zfs_zvol_device *)arg;
 
 	IOLog("zvolRemoveDeviceTerminate\n");
 
@@ -1075,7 +1075,7 @@ zvolRemoveDeviceTerminate(void *arg)
 int
 zvolRenameDevice(zvol_state_t *zv)
 {
-	net_lundman_zfs_zvol_device *zvol = NULL;
+	org_openzfsonosx_zfs_zvol_device *zvol = NULL;
 	int error;
 
 	if (!zv || strnlen(zv->zv_name, 1) == 0) {
@@ -1114,7 +1114,7 @@ zvolRenameDevice(zvol_state_t *zv)
 int
 zvolSetVolsize(zvol_state_t *zv)
 {
-	net_lundman_zfs_zvol_device *zvol;
+	org_openzfsonosx_zfs_zvol_device *zvol;
 	int error;
 
 	dprintf("%s\n", __func__);

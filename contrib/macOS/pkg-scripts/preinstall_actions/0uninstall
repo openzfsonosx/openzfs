@@ -2,7 +2,7 @@
 set +e
 date '+%s' >> /tmp/o3x.log
 echo $0 >> /tmp/o3x.log
-pkgutil --pkgs | grep net.lundman.openzfs |\
+pkgutil --pkgs | egrep 'net.lundman.openzfs|org.openzfsonosx.openzfs' |\
 while read apkg
 do
 	for i in {1..2}

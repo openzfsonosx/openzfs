@@ -14,6 +14,15 @@ if [ $(/usr/sbin/kextstat -b net.lundman.zfs | wc -l) -gt 1 ] ; then
 	fi
 fi
 
+if [ $(/usr/sbin/kextstat -b org.openzfsonosx.zfs | wc -l) -gt 1 ] ; then
+	echo "Unloading zfs.kext"
+	/sbin/kextunload -b org.openzfsonosx.zfs
+	if [ $(/usr/sbin/kextstat -b org.openzfsonosx.zfs | wc -l) -gt 1 ] ; then
+		echo "zfs.kext could not be unloaded"
+		exit 2
+	fi
+fi
+
 if [ -c /dev/zfs ] ; then
 	echo "/dev/zfs still exists. zfs kernel extension likely still loaded. Exiting."
 	exit 3

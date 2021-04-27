@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>zfs</string>
 	<key>CFBundleIdentifier</key>
-	<string>net.lundman.zfs</string>
+	<string>org.openzfsonosx.zfs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -38,18 +38,18 @@
 	<string>6C131e</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>net.lundman.zfs</key>
+		<key>org.openzfsonosx.zfs</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>net.lundman.zfs</string>
+			<string>org.openzfsonosx.zfs</string>
 			<key>IOClass</key>
-			<string>net_lundman_zfs_zvol</string>
+			<string>org_openzfsonosx_zfs_zvol</string>
 			<key>IOMatchCategory</key>
-			<string>net_lundman_zfs_zvol</string>
+			<string>org_openzfsonosx_zfs_zvol</string>
 			<key>IOMediaIcon</key>
 			<dict>
 				<key>CFBundleIdentifier</key>
-				<string>net.lundman.zfs</string>
+				<string>org.openzfsonosx.zfs</string>
 				<key>IOBundleResourceFile</key>
 				<string>VolumeIcon.icns</string>
 			</dict>
@@ -58,10 +58,10 @@
 			<key>IOResourceMatch</key>
 			<string>IOBSD</string>
 		</dict>
-		<key>net.lundman.zfs.ZFSDatasetProxy</key>
+		<key>org.openzfsonosx.zfs.ZFSDatasetProxy</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>net.lundman.zfs</string>
+			<string>org.openzfsonosx.zfs</string>
 			<key>IOClass</key>
 			<string>ZFSDatasetProxy</string>
 			<key>IOProbeScore</key>
@@ -71,10 +71,10 @@
 			<key>IOProviderClass</key>
 			<string>ZFSPool</string>
 		</dict>
-		<key>net.lundman.zfs.ZFSDatasetScheme</key>
+		<key>org.openzfsonosx.zfs.ZFSDatasetScheme</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>net.lundman.zfs</string>
+			<string>org.openzfsonosx.zfs</string>
 			<key>IOClass</key>
 			<string>ZFSDatasetScheme</string>
 			<key>IOProbeScore</key>

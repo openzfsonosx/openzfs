@@ -220,7 +220,7 @@ zfs_findernotify_callback(mount_t mp, __unused void *arg)
 	/* Under the limit ? */
 	if (delta <= ZFS_FINDERNOTIFY_THRESHOLD) goto out;
 
-	/* Over threadhold, so we will notify finder, remember value */
+	/* Over threashold, so we will notify finder, remember value */
 	zfsvfs->z_findernotify_space = availbytes;
 
 	/* If old value is zero (first run), don't bother */

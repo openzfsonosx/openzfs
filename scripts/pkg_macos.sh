@@ -325,7 +325,7 @@ function do_notarize
 
     TFILE="out-altool.xml"
     RFILE="req-altool.xml"
-    xcrun altool --notarize-app -f my_package.pkg --primary-bundle-id net.lundman.zfs -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${TFILE}
+    xcrun altool --notarize-app -f my_package.pkg --primary-bundle-id org.openzfsonosx.zfs -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${TFILE}
 
     GUID=$(/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" ${TFILE})
     echo "Uploaded. GUID ${GUID}"
@@ -384,7 +384,7 @@ if [ -n "$PKG_INSTALL_KEY" ]; then
 fi
 
 rm -f my_package.pkg
-pkgbuild --root "${WORKDIR}" --identifier net.lundman.zfs --version "${version}" --scripts "${BASE_DIR}/../contrib/macOS/pkg-scripts/" "${sign[@]}" my_package.pkg
+pkgbuild --root "${WORKDIR}" --identifier org.openzfsonosx.zfs --version "${version}" --scripts "${BASE_DIR}/../contrib/macOS/pkg-scripts/" "${sign[@]}" my_package.pkg
 
 ret=$?
 

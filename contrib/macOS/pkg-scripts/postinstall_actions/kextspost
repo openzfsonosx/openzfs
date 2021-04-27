@@ -11,6 +11,10 @@ else
 	fi
 fi
 
+if [ $(/usr/sbin/kextstat -b org.openzfsonosx.zfs | wc -l) -gt 1 ] ; then
+	printf "\nUnloading zfs.kext...\n"
+	/sbin/kextunload -b org.openzfsonosx.zfs
+fi
 if [ $(/usr/sbin/kextstat -b net.lundman.zfs | wc -l) -gt 1 ] ; then
 	printf "\nUnloading zfs.kext...\n"
 	/sbin/kextunload -b net.lundman.zfs
@@ -38,4 +42,3 @@ else
 fi
 
 exit 0
-

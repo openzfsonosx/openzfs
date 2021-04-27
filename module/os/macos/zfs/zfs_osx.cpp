@@ -49,7 +49,7 @@
 // Define the superclass.
 #define	super IOService
 
-OSDefineMetaClassAndStructors(net_lundman_zfs_zvol, IOService)
+OSDefineMetaClassAndStructors(org_openzfsonosx_zfs_zvol, IOService)
 
 extern "C" {
 
@@ -77,7 +77,7 @@ SYSCTL_STRING(_zfs, OID_AUTO, kext_version,
 extern kern_return_t _start(kmod_info_t *ki, void *data);
 extern kern_return_t _stop(kmod_info_t *ki, void *data);
 
-__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(net.lundman.zfs,
+__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.openzfsonosx.zfs,
     "1.0.0", _start, _stop)
 kmod_start_func_t *_realmain = 0;
 kmod_stop_func_t  *_antimain = 0;
@@ -86,7 +86,7 @@ int _kext_apple_cc = __APPLE_CC__;
 } // Extern "C"
 
 bool
-net_lundman_zfs_zvol::init(OSDictionary* dict)
+org_openzfsonosx_zfs_zvol::init(OSDictionary* dict)
 {
 	bool res;
 
@@ -104,7 +104,7 @@ net_lundman_zfs_zvol::init(OSDictionary* dict)
 }
 
 void
-net_lundman_zfs_zvol::free(void)
+org_openzfsonosx_zfs_zvol::free(void)
 {
 	OSSafeReleaseNULL(_openClients);
 
@@ -113,7 +113,7 @@ net_lundman_zfs_zvol::free(void)
 }
 
 bool
-net_lundman_zfs_zvol::isOpen(const IOService *forClient) const
+org_openzfsonosx_zfs_zvol::isOpen(const IOService *forClient) const
 {
 	bool ret;
 	ret = IOService::isOpen(forClient);
@@ -121,7 +121,7 @@ net_lundman_zfs_zvol::isOpen(const IOService *forClient) const
 }
 
 bool
-net_lundman_zfs_zvol::handleOpen(IOService *client,
+org_openzfsonosx_zfs_zvol::handleOpen(IOService *client,
     IOOptionBits options, void *arg)
 {
 	bool ret = true;
@@ -135,7 +135,7 @@ net_lundman_zfs_zvol::handleOpen(IOService *client,
 }
 
 bool
-net_lundman_zfs_zvol::handleIsOpen(const IOService *client) const
+org_openzfsonosx_zfs_zvol::handleIsOpen(const IOService *client) const
 {
 	bool ret;
 
@@ -147,7 +147,7 @@ net_lundman_zfs_zvol::handleIsOpen(const IOService *client) const
 }
 
 void
-net_lundman_zfs_zvol::handleClose(IOService *client,
+org_openzfsonosx_zfs_zvol::handleClose(IOService *client,
     IOOptionBits options)
 {
 	dprintf("");
@@ -160,7 +160,7 @@ net_lundman_zfs_zvol::handleClose(IOService *client,
 }
 
 IOService*
-net_lundman_zfs_zvol::probe(IOService *provider, SInt32 *score)
+org_openzfsonosx_zfs_zvol::probe(IOService *provider, SInt32 *score)
 {
 	IOService *res = super::probe(provider, score);
 	return (res);
@@ -178,7 +178,7 @@ net_lundman_zfs_zvol::probe(IOService *provider, SInt32 *score)
  */
 
 bool
-net_lundman_zfs_zvol::start(IOService *provider)
+org_openzfsonosx_zfs_zvol::start(IOService *provider)
 {
 	bool res = super::start(provider);
 
@@ -273,7 +273,7 @@ failure:
 
 /* Here we are, at the end of all things */
 void
-net_lundman_zfs_zvol::stop(IOService *provider)
+org_openzfsonosx_zfs_zvol::stop(IOService *provider)
 {
 
 	zfs_boot_fini();
