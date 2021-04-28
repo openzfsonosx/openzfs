@@ -3601,7 +3601,7 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	int  error = 0;
 	znode_t *xdzp = NULL;
 
-	printf("+setxattr vp %p '%s' (enabled: %d) resid %lu\n", ap->a_vp,
+	dprintf("+setxattr vp %p '%s' (enabled: %d) resid %lu\n", ap->a_vp,
 		ap->a_name, zfsvfs->z_xattr, zfs_uio_resid(uio));
 
 	/* xattrs disabled? */
@@ -3729,14 +3729,6 @@ zfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 			sizeof (finderinfo), UIO_WRITE, uio);
 		if (error)
 			goto out;
-
-		char str[200];
-		printf("xattr as given\n");
-		for (int i = 0; i < 32; i++)
-			snprintf(&str[i * 3], sizeof (str), "%02x ",
-			    finderinfo[i]);
-		printf("%s\n", str);
-
 
 		/* Zero out some fields, according to HFS */
 		finderinfo_update((uint8_t *)&finderinfo, zp);
