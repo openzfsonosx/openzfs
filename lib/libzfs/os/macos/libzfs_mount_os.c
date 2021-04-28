@@ -195,6 +195,8 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 	int devdisk = ZFS_DEVDISK_POOLONLY;
 	int ispool = 0;  // the pool dataset, that is
 	int optlen = 0;
+	char *value = NULL;
+	nvlist_t *args = NULL;
 
 	assert(spec != NULL);
 	assert(dir != NULL);
@@ -232,27 +234,51 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 		if ((devdisk == ZFS_DEVDISK_ON) ||
 		    ((devdisk == ZFS_DEVDISK_POOLONLY) &&
 		    ispool)) {
-			(void) strlcpy(zc.zc_name, zhp->zfs_name,
-			    sizeof (zc.zc_name));
-			zc.zc_value[0] = 0;
 
-			rv = zfs_ioctl(zhp->zfs_hdl, ZFS_IOC_PROXY_DATASET,
-			    &zc);
+			strlcpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
+
+			zcmd_alloc_dst_nvlist(zhp->zfs_hdl, &zc, 0);
+
+			args = fnvlist_alloc();
+			fnvlist_add_string(args, ZPOOL_CONFIG_POOL_NAME,
+			    zhp->zfs_name);
+			rv = zcmd_write_src_nvlist(zhp->zfs_hdl, &zc, args);
+
+			if (rv == 0)
+				rv = zfs_ioctl(zhp->zfs_hdl,
+				    ZFS_IOC_PROXY_DATASET, &zc);
+
+			/* Free innvl */
+			nvlist_free(args);
+			args = NULL;
+
+			/* args = outnvl */
+
+			if (zcmd_read_dst_nvlist(zhp->zfs_hdl, &zc, &args) == 0)
+				if (nvlist_exists(args, ZPOOL_CONFIG_PATH))
+					value = fnvlist_lookup_string(args,
+					    ZPOOL_CONFIG_PATH);
+
+			zcmd_free_nvlists(&zc);
 
 #ifdef DEBUG
 			if (rv)
 				fprintf(stderr,
 				    "proxy dataset returns %d '%s'\n",
-				    rv, zc.zc_value);
+				    rv, value ? value : "");
 #endif
 
 			// Mount using /dev/diskX, use temporary buffer to
 			// give it full name
-			if (rv == 0) {
+			if (rv == 0 && value != NULL) {
 				snprintf(zc.zc_name, sizeof (zc.zc_name),
-				    "/dev/%s", zc.zc_value);
+				    "/dev/%s", value);
 				mnt_args.fspec = zc.zc_name;
 			}
+
+			/* free outnvl */
+			if (args != NULL)
+				nvlist_free(args);
 		}
 	}
 

@@ -195,7 +195,8 @@ zfsdev_release(dev_t dev, int flags, int devtype, struct proc *p)
 	return (-error);
 }
 
-static int
+/* !static : so we can dtrace */
+int
 zfsdev_ioctl(dev_t dev, ulong_t cmd, caddr_t arg,  __unused int xflag,
     struct proc *p)
 {
@@ -254,24 +255,39 @@ out:
 #include <sys/ZFSDataset.h>
 #include <sys/ZFSDatasetScheme.h>
 
+static const zfs_ioc_key_t zfs_keys_proxy_dataset[] = {
+	{ZPOOL_CONFIG_POOL_NAME,	DATA_TYPE_STRING,	0},
+};
+
 static int
-zfs_ioc_osx_proxy_dataset(zfs_cmd_t *zc)
+zfs_ioc_osx_proxy_dataset(const char *unused, nvlist_t *innvl,
+    nvlist_t *outnvl)
 {
 	int error;
-	const char *osname;
+	char *osname = NULL;
+	char value[MAXPATHLEN * 2];
+
+	if (nvlist_lookup_string(innvl,
+	    ZPOOL_CONFIG_POOL_NAME, &osname) != 0)
+		return (EINVAL);
 
 	/* XXX Get osname */
-	osname = zc->zc_name;
 
 	/* Create new virtual disk, and return /dev/disk name */
 	error = zfs_osx_proxy_create(osname);
 
 	if (error == 0)
 		error = zfs_osx_proxy_get_bsdname(osname,
-		    zc->zc_value, sizeof (zc->zc_value));
-	if (error == 0)
+		    value, sizeof (value));
+
+	if (error == 0) {
+
+		fnvlist_add_string(outnvl, ZPOOL_CONFIG_POOL_NAME, osname);
+		fnvlist_add_string(outnvl, ZPOOL_CONFIG_PATH, value);
+
 		printf("%s: Created virtual disk '%s' for '%s'\n", __func__,
-		    zc->zc_value, osname);
+		    value, osname);
+	}
 
 	return (error);
 }
@@ -280,9 +296,11 @@ void
 zfs_ioctl_init_os(void)
 {
 	/* APPLE Specific ioctls */
-	zfs_ioctl_register_pool(ZFS_IOC_PROXY_DATASET,
+	zfs_ioctl_register("proxy_dataset", ZFS_IOC_PROXY_DATASET,
 	    zfs_ioc_osx_proxy_dataset, zfs_secpolicy_config,
-	    B_FALSE, POOL_CHECK_NONE);
+	    NO_NAME, POOL_CHECK_NONE,
+	    B_FALSE, B_FALSE, zfs_keys_proxy_dataset,
+	    ARRAY_SIZE(zfs_keys_proxy_dataset));
 }
 
 /* ioctl handler for block device. Relay to zvol */
