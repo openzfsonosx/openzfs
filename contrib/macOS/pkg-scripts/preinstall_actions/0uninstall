@@ -47,6 +47,8 @@ rm -rfv /usr/share/zfs
 rm -rfv /usr/local/libexec/zfs
 rm -rfv /usr/libexec/zfs
 
+rm -rfv /usr/local/zfs
+
 rm -fv /usr/local/share/man/man1/zhack.1
 rm -fv /usr/local/share/man/man1/zpios.1
 rm -fv /usr/local/share/man/man1/ztest.1
