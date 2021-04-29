@@ -8,6 +8,7 @@ dist_man_MANS = \
 	zfs.8 \
 	zfsconcepts.8 \
 	zfsprops.8 \
+	zfsprops-macos.8 \
 	zfs-allow.8 \
 	zfs-bookmark.8 \
 	zfs-change-key.8 \
