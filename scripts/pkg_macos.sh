@@ -49,7 +49,7 @@ WORKDIR="/private/var/tmp/${WORKNAME}"
 
 # If there are two dots "10.15.4", eat it
 OS=$(sw_vers | awk '{if ($1 == "ProductVersion:") print $2;}')
-OS=$(echo "$OS" | awk -F . '{print $1"."$2;}')
+OS=$(echo "$OS" | awk -F . '{if ($1 == 10) print $1"."$2; else print $1}')
 
 
 function usage
@@ -325,7 +325,7 @@ function do_notarize
 
     TFILE="out-altool.xml"
     RFILE="req-altool.xml"
-    xcrun altool --notarize-app -f my_package.pkg --primary-bundle-id org.openzfsonosx.zfs -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${TFILE}
+    xcrun altool --notarize-app -f my_package_new.pkg --primary-bundle-id org.openzfsonosx.zfs -u lundman@lundman.net -p "$PKG_NOTARIZE_KEY" --output-format xml > ${TFILE}
 
     GUID=$(/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" ${TFILE})
     echo "Uploaded. GUID ${GUID}"
@@ -346,9 +346,9 @@ function do_notarize
     done
 
     echo "Stapling PKG ..."
-    xcrun stapler staple my_package.pkg
+    xcrun stapler staple my_package_new.pkg
     ret=$?
-    xcrun stapler validate -v my_package.pkg
+    xcrun stapler validate -v my_package_new.pkg
 
     if [ $ret != 0 ]; then
 	echo "Failed to notarize: $ret"
@@ -394,10 +394,6 @@ if [ $ret != 0 ]; then
     fail "pkgbuild failed"
 fi
 
-if [ -n "$PKG_NOTARIZE_KEY" ]; then
-    do_notarize
-fi
-
 friendly=$(awk '/SOFTWARE LICENSE AGREEMENT FOR macOS/' '/System/Library/CoreServices/Setup Assistant.app/Contents/Resources/en.lproj/OSXSoftwareLicense.rtf' | awk -F 'macOS ' '{print $NF}' | tr -d '\\')
 if [ -z "$friendly" ]; then
     friendly=$(awk '/SOFTWARE LICENSE AGREEMENT FOR OS X/' '/System/Library/CoreServices/Setup Assistant.app/Contents/Resources/en.lproj/OSXSoftwareLicense.rtf' | awk -F 'OS X ' '{print $NF}' | awk '{print substr($0, 0, length($0)-1)}')
@@ -440,7 +436,17 @@ sed -i "" \
 rm -f my_package_new.pkg
 productbuild --distribution distribution_new.xml --resources "${BASE_DIR}/../contrib/macOS/resources/"  --scripts "${BASE_DIR}/../contrib/macOS/product-scripts" "${sign[@]}" --package-path ./my_package.pkg my_package_new.pkg
 
-name="OpenZFSonOsX-${version}-${friendly}-${OS}.pkg"
+if [ -n "$PKG_NOTARIZE_KEY" ]; then
+    do_notarize
+fi
+
+arch=$(uname -m)
+if [ x"$arch" == x"arm64" ]; then
+   name="OpenZFSonOsX-${version}-${friendly}-${OS}-${arch}.pkg"
+else
+   name="OpenZFSonOsX-${version}-${friendly}-${OS}.pkg"
+fi
+
 mv my_package_new.pkg "${name}"
 ls -l "${name}"
 
