@@ -381,3 +381,28 @@ strspn(const char *string,
 	}
 	return (q-string);
 }
+
+#undef strcmp
+int
+spl_strcmp(const char *s1, const char *s2)
+{
+	char c1, c2;
+
+	while (1) {
+		c1 = *s1++;
+		c2 = *s2++;
+
+		if ((c1 == 0) &&
+		    (c2 == 0))
+			break;
+
+		if ((c1 == 0) ||
+		    (c1 < c2))
+			return (-1);
+		if ((c2 == 0) ||
+		    (c1 > c2))
+			return (1);
+	} // while
+
+	return (0);
+}
