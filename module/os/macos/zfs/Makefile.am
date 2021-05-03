@@ -341,7 +341,8 @@ zfs.kext$(EXEEXT): zfs $(PLIST_STRING) $(INFO_PLIST)
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(ZFS_META_VERSION)" zfs.kext/Contents/Info.plist
 	@cp -f $(PLIST_STRING) zfs.kext/Contents/Resources/English.lproj/
 	@cp -f zfs zfs.kext/Contents/MacOS/
-	/usr/libexec/PlistBuddy -c "Add :OSBundleRequired string Root" zfs.kext/Contents/Info.plist
+	@cp -f $(top_srcdir)/contrib/macOS/VolumeIcon.icns zfs.kext/Contents/Resources/VolumeIcon.icns
+/usr/libexec/PlistBuddy -c "Add :OSBundleRequired string Root" zfs.kext/Contents/Info.plist
 	@kextlibs -unsupported -undef-symbols -xml zfs.kext/ || echo "Ignoring errors..(Most of these are expected)"
 
 install-exec-local: zfs.kext
