@@ -473,7 +473,12 @@ zpool_find_import_blkid(libpc_handle_t *hdl, pthread_mutex_t *lock,
 			slice->rn_avl = *slice_cache;
 			slice->rn_hdl = hdl;
 			slice->rn_labelpaths = B_FALSE;
-			slice->rn_order = IMPORT_ORDER_SCAN_OFFSET + i;
+
+			// Make rdisk have a lower priority than disk
+			if (name[0] == 'r')
+				slice->rn_order = IMPORT_ORDER_DEFAULT + i;
+			else
+				slice->rn_order = IMPORT_ORDER_SCAN_OFFSET + i;
 
 			pthread_mutex_lock(lock);
 			if (avl_find(*slice_cache, slice, &where)) {
