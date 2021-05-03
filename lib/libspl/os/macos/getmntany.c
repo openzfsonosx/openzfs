@@ -344,13 +344,15 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 	// set, and if so, use it instead, for mount matching - also update
 	// fstypename, as libzfs_mnttab_find() checks for it.
 	if (expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname)))
-		strlcpy(sfs->f_fstypename, MNTTYPE_ZFS,
-		    sizeof (sfs->f_fstypename));
+		mp->mnt_fstype = strdup(MNTTYPE_ZFS);
+	else
+		mp->mnt_fstype = strdup(sfs->f_fstypename);
 
-	mp->mnt_special = sfs->f_mntfromname;
-	mp->mnt_mountp = sfs->f_mntonname;
-	mp->mnt_fstype = sfs->f_fstypename;
-	mp->mnt_mntopts = mntopts;
+	mp->mnt_special = strdup(sfs->f_mntfromname);
+	mp->mnt_mountp = strdup(sfs->f_mntonname);
+	mp->mnt_mntopts = strdup(mntopts);
+
+	// Apple addition
 	mp->mnt_fssubtype = sfs->f_fssubtype;
 
 }
