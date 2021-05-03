@@ -3859,7 +3859,6 @@ zfs_destroy(zfs_handle_t *zhp, boolean_t defer)
 		int retry = 0;
 		do {
 			if ((retry++) != 1) {
-				printf("retry\n");
 				sleep(1);
 			}
 #endif
