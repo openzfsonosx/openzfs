@@ -259,7 +259,8 @@ zfsctl_vnode_lookup(zfsvfs_t *zfsvfs, uint64_t id,
 	struct vnode *ip = NULL;
 	int error = 0;
 
-	dprintf("%s\n", __func__);
+	dprintf("%s: looking for id %u name '%s'\n", __func__,
+	    id, name);
 
 	while (ip == NULL) {
 
@@ -370,7 +371,7 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 	znode_t *dzp = VTOZ(dvp);
 	zfsvfs_t *zfsvfs = ZTOZSB(dzp);
 	int error = 0;
-	uint64_t id;
+	uint64_t id = ZFSCTL_INO_ROOT;
 
 	dprintf("%s: '%s'\n", __func__, name);
 
@@ -385,7 +386,7 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 		error = dmu_snapshot_lookup(zfsvfs->z_os, name, &id);
 		if (error != 0)
 			goto out;
-		*vpp = zfsctl_vnode_lookup(zfsvfs, ZFSCTL_INO_SNAPDIRS - id,
+		*vpp = zfsctl_vnode_lookup(zfsvfs, ZFSCTL_INO_SHARES - id,
 		    name);
 	}
 
