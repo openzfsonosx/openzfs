@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/fcntl.h>
+#include <libzfs_impl.h>
 
 #define	DIFF(xx) ((mrefp->xx != NULL) && \
 		(mgetp->xx == NULL || strcmp(mrefp->xx, mgetp->xx) != 0))
@@ -343,7 +344,23 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 	// If a disk is /dev/diskX, lets see if it has "zfs_dataset_name"
 	// set, and if so, use it instead, for mount matching - also update
 	// fstypename, as libzfs_mnttab_find() checks for it.
+	int is_actually_zfs = 0;
+
+	// This is rather unattractive, is there a better way.
+	libzfs_handle_t *g_zfs = NULL;
+	if (g_zfs == NULL)
+		g_zfs = libzfs_init();
+
 	if (expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname)))
+		is_actually_zfs = 1;
+	// check if it is a valid dataset (fastpast, first char isn't '/'
+	// in case mimic is enabled
+	else if (sfs->f_mntfromname[0] != '/' &&
+	    g_zfs != NULL &&
+	    zfs_dataset_exists(g_zfs, sfs->f_mntfromname, ZFS_TYPE_DATASET))
+		is_actually_zfs = 1;
+
+	if (is_actually_zfs)
 		mp->mnt_fstype = strdup(MNTTYPE_ZFS);
 	else
 		mp->mnt_fstype = strdup(sfs->f_fstypename);
