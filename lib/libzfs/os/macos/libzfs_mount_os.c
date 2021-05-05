@@ -355,9 +355,8 @@ do_unmount_impl(const char *mntpt, int flags)
 		char *argv[7] = {
 		    "/sbin/umount",
 		    NULL, NULL, NULL, NULL };
-		int rc, count = 1;
+		int count = 1;
 
-		fprintf(stderr, "Fallback umount called\r\n");
 		if (flags & MS_FORCE) {
 			argv[count] = "-f";
 			count++;
