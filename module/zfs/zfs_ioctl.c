@@ -4827,6 +4827,10 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 	boolean_t tofs_was_redacted;
 	zfs_file_t *input_fp;
 
+#ifdef __APPLE__
+	off_t fd_offset = *errflags;
+#endif
+
 	*read_bytes = 0;
 	*errflags = 0;
 	*errors = fnvlist_alloc();
@@ -4834,6 +4838,11 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 
 	if ((error = zfs_file_get(input_fd, &input_fp)))
 		return (error);
+
+#ifdef __APPLE__
+	if (fd_offset > 0)
+		zfs_file_seek(input_fp, &fd_offset, SEEK_SET);
+#endif
 
 	noff = off = zfs_file_off(input_fp);
 	error = dmu_recv_begin(tofs, tosnap, begin_record, force,
@@ -5295,6 +5304,10 @@ zfs_ioc_recv_new(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 	error = nvlist_lookup_nvlist(innvl, ZPOOL_HIDDEN_ARGS, &hidden_args);
 	if (error && error != ENOENT)
 		return (error);
+
+#ifdef __APPLE__
+	nvlist_lookup_uint64(innvl, "input_fd_offset", &errflags);
+#endif
 
 	error = zfs_ioc_recv_impl(tofs, tosnap, origin, recvprops, localprops,
 	    hidden_args, force, resumable, input_fd, begin_record,
