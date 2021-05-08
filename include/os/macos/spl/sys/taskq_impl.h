@@ -57,6 +57,10 @@ typedef struct taskq_ent {
 	kthread_t		*tqent_thread;
 	kcondvar_t		tqent_cv;
 #ifdef __APPLE__
+	kmutex_t		tqent_delay_lock;
+	kcondvar_t		tqent_delay_cv;
+	clock_t			tqent_delay_time;
+
 	/* Used to simulate TS_STOPPED */
 	kmutex_t		tqent_thread_lock;
 	kcondvar_t		tqent_thread_cv;

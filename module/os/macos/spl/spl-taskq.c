@@ -833,8 +833,11 @@ taskq_ent_constructor(void *buf, void *cdrarg, int kmflags)
 	/* Simulate TS_STOPPED */
 	mutex_init(&tqe->tqent_thread_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&tqe->tqent_thread_cv, NULL, CV_DEFAULT, NULL);
+	mutex_init(&tqe->tqent_delay_lock, NULL, MUTEX_DEFAULT, NULL);
+	cv_init(&tqe->tqent_delay_cv, NULL, CV_DEFAULT, NULL);
 #endif /* __APPLE__ */
 
+	tqe->tqent_delay_time = 0;
 	return (0);
 }
 
@@ -850,6 +853,8 @@ taskq_ent_destructor(void *buf, void *cdrarg)
 	/* See comment in taskq_d_thread(). */
 	mutex_destroy(&tqe->tqent_thread_lock);
 	cv_destroy(&tqe->tqent_thread_cv);
+	mutex_destroy(&tqe->tqent_delay_lock);
+	cv_destroy(&tqe->tqent_delay_cv);
 #endif /* __APPLE__ */
 }
 
@@ -1027,8 +1032,9 @@ system_taskq_init(void)
 	    TASKQ_DYNAMIC | TASKQ_PREPOPULATE);
 #endif
 
-	system_delay_taskq = taskq_create("system_delay_taskq", max_ncpus,
-	    minclsyspri, 0, 0, 0);
+	system_delay_taskq = taskq_create_common("system_delay_taskq", 0,
+	    system_taskq_size * max_ncpus, minclsyspri, 4, 512, &p0, 0,
+	    0);
 }
 
 
@@ -1217,8 +1223,9 @@ taskq_bucket_dispatch(taskq_bucket_t *b, task_func_t func, void *arg)
  *	    Actual return value is the pointer to taskq entry that was used to
  *	    dispatch a task. This is useful for debugging.
  */
-taskqid_t
-taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
+static taskqid_t
+taskq_dispatch_impl(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
+    clock_t expire_time)
 {
 	taskq_bucket_t *bucket = NULL;	/* Which bucket needs extension */
 	taskq_ent_t *tqe = NULL;
@@ -1246,6 +1253,10 @@ taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
 		}
 		/* Make sure we start without any flags */
 		tqe->tqent_un.tqent_flags = 0;
+
+		// We could bake this into TQ_ENQUEUE?
+		// Arm the delay logic, if passed-in
+		tqe->tqent_delay_time = expire_time;
 
 		if (flags & TQ_FRONT) {
 			TQ_ENQUEUE_FRONT(tq, tqe, func, arg);
@@ -1376,23 +1387,26 @@ taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
 	return ((taskqid_t)tqe);
 }
 
+taskqid_t
+taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
+{
+	return (taskq_dispatch_impl(tq, func, arg, flags, 0));
+}
+
 /*
- * FIXME, Linux has added the ability to start taskq with a given
- * delay.
+ * Set a taskq to be fired atfer 'expire_time' is met, unless
+ * taskq_cancel_id is called. Used by spa_deadman logic (start
+ * txg IO, and deadman is called if txg isn't synced in time)
  */
 taskqid_t
-taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg,
-    uint_t flags, clock_t expire_time)
+taskq_dispatch_delay(taskq_t *tq,  task_func_t func, void *arg, uint_t tqflags,
+    clock_t expire_time)
 {
-	clock_t timo;
-
 	/* If it has already expired, just dispatch */
-	timo = expire_time - ddi_get_lbolt();
-	if (timo <= 0)
-		return (taskq_dispatch(tq, func, arg, flags));
+	if (expire_time <= ddi_get_lbolt())
+		expire_time = 0;
 
-	/* Insert delayed code here: */
-	return (0);
+	return (taskq_dispatch_impl(tq, func, arg, tqflags, expire_time));
 }
 
 void
@@ -1580,11 +1594,20 @@ taskq_of_curthread(void)
 int
 taskq_cancel_id(taskq_t *tq, taskqid_t id)
 {
-	// taskq_t *task = (taskq_t *) id;
+	taskq_ent_t *task = (taskq_t *)id;
 
-	/* So we want to tell task to stop, and wait until it does */
-	if (!EMPTY_TASKQ(tq))
-		taskq_wait(tq);
+	// delay_taskq active? Linux will call with id==0
+	if (task != NULL) {
+		mutex_enter(&tq->tq_lock);
+		if (task->tqent_delay_time > 0) {
+			// If delay_time is set, we can grab the mutex
+			mutex_enter(&task->tqent_delay_lock);
+			task->tqent_delay_time = 0; // Signal cancel
+			cv_signal(&task->tqent_delay_cv);
+			mutex_exit(&task->tqent_delay_lock);
+		}
+		mutex_exit(&tq->tq_lock);
+	}
 
 	return (0);
 }
@@ -1955,6 +1978,26 @@ taskq_thread(void *arg)
 			freeit = B_FALSE;
 		} else {
 			freeit = B_TRUE;
+		}
+
+
+		// Should we delay?
+		if (tqe->tqent_delay_time > 0) {
+			mutex_enter(&tqe->tqent_delay_lock);
+			int didsleep = 0; // -1 means we timedout, run taskq
+			if (tqe->tqent_delay_time > 0)
+				didsleep = cv_timedwait(&tqe->tqent_delay_cv,
+				    &tqe->tqent_delay_lock,
+				    tqe->tqent_delay_time);
+			mutex_exit(&tqe->tqent_delay_lock);
+
+			// Did we wake up from being canceled?
+			if (tqe->tqent_delay_time == 0 || (didsleep != -1)) {
+				mutex_enter(&tq->tq_lock);
+				if (freeit)
+					taskq_ent_free(tq, tqe);
+				continue;
+			}
 		}
 
 		rw_enter(&tq->tq_threadlock, RW_READER);
@@ -2588,6 +2631,7 @@ taskq_bucket_extend(void *arg)
 	ASSERT(tqe->tqent_thread == NULL);
 
 	tqe->tqent_un.tqent_bucket = b;
+	tqe->tqent_delay_time = 0;
 
 #ifdef __APPLE__
 	/*
