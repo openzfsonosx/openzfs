@@ -255,6 +255,13 @@ out:
 #include <sys/ZFSDataset.h>
 #include <sys/ZFSDatasetScheme.h>
 
+
+static int
+zfs_secpolicy_os_none(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
+{
+	return (0);
+}
+
 static const zfs_ioc_key_t zfs_keys_proxy_dataset[] = {
 	{ZPOOL_CONFIG_POOL_NAME,	DATA_TYPE_STRING,	0},
 };
@@ -297,7 +304,7 @@ zfs_ioctl_init_os(void)
 {
 	/* APPLE Specific ioctls */
 	zfs_ioctl_register("proxy_dataset", ZFS_IOC_PROXY_DATASET,
-	    zfs_ioc_osx_proxy_dataset, zfs_secpolicy_config,
+	    zfs_ioc_osx_proxy_dataset, zfs_secpolicy_os_none,
 	    NO_NAME, POOL_CHECK_NONE,
 	    B_FALSE, B_FALSE, zfs_keys_proxy_dataset,
 	    ARRAY_SIZE(zfs_keys_proxy_dataset));

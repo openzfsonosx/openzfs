@@ -254,7 +254,8 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 
 			/* args = outnvl */
 
-			if (zcmd_read_dst_nvlist(zhp->zfs_hdl, &zc, &args) == 0)
+			if (rv == 0 &&
+			    zcmd_read_dst_nvlist(zhp->zfs_hdl, &zc, &args) == 0)
 				if (nvlist_exists(args, ZPOOL_CONFIG_PATH))
 					value = fnvlist_lookup_string(args,
 					    ZPOOL_CONFIG_PATH);
