@@ -547,13 +547,13 @@ zfs_mount_at(zfs_handle_t *zhp, const char *options, int flags,
  * Unmount a single filesystem.
  */
 static int
-unmount_one(libzfs_handle_t *hdl, const char *mountpoint, int flags)
+unmount_one(zfs_handle_t *zhp, const char *mountpoint, int flags)
 {
 	int error;
 
-	error = do_unmount(hdl, mountpoint, flags);
+	error = do_unmount(zhp, mountpoint, flags);
 	if (error != 0) {
-		return (zfs_error_fmt(hdl, EZFS_UMOUNTFAILED,
+		return (zfs_error_fmt(zhp->zfs_hdl, EZFS_UMOUNTFAILED,
 		    dgettext(TEXT_DOMAIN, "cannot unmount '%s'"),
 		    mountpoint));
 	}
@@ -595,7 +595,7 @@ zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)
 		}
 		zfs_commit_all_shares();
 
-		if (unmount_one(hdl, mntpt, flags) != 0) {
+		if (unmount_one(zhp, mntpt, flags) != 0) {
 			free(mntpt);
 			(void) zfs_shareall(zhp);
 			zfs_commit_all_shares();
@@ -1591,7 +1591,7 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 	 * appropriate.
 	 */
 	for (i = 0; i < used; i++) {
-		if (unmount_one(hdl, mountpoints[i], flags) != 0)
+		if (unmount_one(datasets[i], mountpoints[i], flags) != 0)
 			goto out;
 	}
 
