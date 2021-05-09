@@ -2255,9 +2255,6 @@ zfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 
 	zfs_freevfs(zfsvfs->z_vfs);
 
-	dprintf("zfs_osx_proxy_remove");
-	zfs_osx_proxy_remove(osname);
-
 	return (0);
 }
 

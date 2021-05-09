@@ -299,6 +299,27 @@ zfs_ioc_osx_proxy_dataset(const char *unused, nvlist_t *innvl,
 	return (error);
 }
 
+static const zfs_ioc_key_t zfs_keys_proxy_remove[] = {
+	{ZPOOL_CONFIG_POOL_NAME,	DATA_TYPE_STRING,	0},
+};
+
+static int
+zfs_ioc_osx_proxy_remove(const char *unused, nvlist_t *innvl,
+    nvlist_t *outnvl)
+{
+	int error;
+	char *osname = NULL;
+	char value[MAXPATHLEN * 2];
+
+	if (nvlist_lookup_string(innvl,
+	    ZPOOL_CONFIG_POOL_NAME, &osname) != 0)
+		return (EINVAL);
+
+	zfs_osx_proxy_remove(osname);
+
+	return (0);
+}
+
 void
 zfs_ioctl_init_os(void)
 {
@@ -308,6 +329,11 @@ zfs_ioctl_init_os(void)
 	    NO_NAME, POOL_CHECK_NONE,
 	    B_FALSE, B_FALSE, zfs_keys_proxy_dataset,
 	    ARRAY_SIZE(zfs_keys_proxy_dataset));
+	zfs_ioctl_register("proxy_remove", ZFS_IOC_PROXY_REMOVE,
+	    zfs_ioc_osx_proxy_remove, zfs_secpolicy_config,
+	    NO_NAME, POOL_CHECK_NONE,
+	    B_FALSE, B_FALSE, zfs_keys_proxy_remove,
+	    ARRAY_SIZE(zfs_keys_proxy_remove));
 }
 
 /* ioctl handler for block device. Relay to zvol */

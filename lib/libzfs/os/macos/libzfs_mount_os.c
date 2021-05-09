@@ -371,19 +371,51 @@ do_unmount_impl(const char *mntpt, int flags)
 }
 
 
-void unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags);
+void unmount_snapshots(zfs_handle_t *zhp, const char *mntpt, int flags);
 
 int
-do_unmount(libzfs_handle_t *hdl, const char *mntpt, int flags)
+do_unmount(zfs_handle_t *zhp, const char *mntpt, int flags)
 {
+	int rv = 0;
 	/*
 	 * On OSX, the kernel can not unmount all snapshots for us, as XNU
 	 * rejects the unmount before it reaches ZFS. But we can easily handle
 	 * unmounting snapshots from userland.
 	 */
-	unmount_snapshots(hdl, mntpt, flags);
+	unmount_snapshots(zhp, mntpt, flags);
 
-	return (do_unmount_impl(mntpt, flags));
+	rv = do_unmount_impl(mntpt, flags);
+
+	/* We might need to remove the proxy as well */
+	if (rv == 0) {
+		zfs_cmd_t zc = { "\0" };
+		nvlist_t *args = NULL;
+
+		strlcpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
+
+		zcmd_alloc_dst_nvlist(zhp->zfs_hdl, &zc, 0);
+
+		args = fnvlist_alloc();
+		fnvlist_add_string(args, ZPOOL_CONFIG_POOL_NAME,
+		    zhp->zfs_name);
+		rv = zcmd_write_src_nvlist(zhp->zfs_hdl, &zc, args);
+
+		if (rv == 0)
+			rv = zfs_ioctl(zhp->zfs_hdl, ZFS_IOC_PROXY_REMOVE, &zc);
+
+		/* Free innvl */
+		nvlist_free(args);
+		args = NULL;
+
+		/* args = outnvl */
+
+		zcmd_free_nvlists(&zc);
+
+		// We don't care about proxy failing
+		rv = 0;
+	}
+
+	return (rv);
 }
 
 /*
@@ -391,12 +423,12 @@ do_unmount(libzfs_handle_t *hdl, const char *mntpt, int flags)
  * in them - issue unmount.
  */
 void
-unmount_snapshots(libzfs_handle_t *hdl, const char *mntpt, int flags)
+unmount_snapshots(zfs_handle_t *zhp, const char *mntpt, int flags)
 {
 	struct mnttab entry;
 	int len = strlen(mntpt);
 
-	while (getmntent(hdl->libzfs_mnttab, &entry) == 0) {
+	while (getmntent(zhp->zfs_hdl->libzfs_mnttab, &entry) == 0) {
 		/* Starts with our mountpoint ? */
 		if (strncmp(mntpt, entry.mnt_mountp, len) == 0) {
 			/* The next part is "/.zfs/snapshot/" ? */
