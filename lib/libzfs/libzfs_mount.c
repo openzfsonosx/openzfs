@@ -570,11 +570,11 @@ zfs_mount_at(zfs_handle_t *zhp, const char *options, int flags,
  * Unmount a single filesystem.
  */
 static int
-unmount_one(libzfs_handle_t *hdl, const char *mountpoint, int flags)
+unmount_one(zfs_handle_t *zhp, const char *mountpoint, int flags)
 {
 	int error;
 
-	error = do_unmount(hdl, mountpoint, flags);
+	error = do_unmount(zhp, mountpoint, flags);
 	if (error != 0) {
 		int libzfs_err;
 
@@ -639,7 +639,7 @@ zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)
 		}
 		zfs_commit_all_shares();
 
-		if (unmount_one(hdl, mntpt, flags) != 0) {
+		if (unmount_one(zhp, mntpt, flags) != 0) {
 			free(mntpt);
 			(void) zfs_shareall(zhp);
 			zfs_commit_all_shares();
@@ -1506,13 +1506,18 @@ out:
 	return (ret);
 }
 
+struct sets_s {
+	char *mountpoint;
+	zfs_handle_t *dataset;
+};
+
 static int
 mountpoint_compare(const void *a, const void *b)
 {
-	const char *mounta = *((char **)a);
-	const char *mountb = *((char **)b);
+	const struct sets_s *mounta = (struct sets_s *)a;
+	const struct sets_s *mountb = (struct sets_s *)b;
 
-	return (strcmp(mountb, mounta));
+	return (strcmp(mountb->mountpoint, mounta->mountpoint));
 }
 
 /* alias for 2002/240 */
@@ -1531,8 +1536,7 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 	FILE *mnttab;
 	struct mnttab entry;
 	size_t namelen;
-	char **mountpoints = NULL;
-	zfs_handle_t **datasets = NULL;
+	struct sets_s *sets = NULL;
 	libzfs_handle_t *hdl = zhp->zpool_hdl;
 	int i;
 	int ret = -1;
@@ -1567,35 +1571,27 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 		 */
 		if (used == alloc) {
 			if (alloc == 0) {
-				if ((mountpoints = zfs_alloc(hdl,
-				    8 * sizeof (void *))) == NULL)
-					goto out;
 
-				if ((datasets = zfs_alloc(hdl,
-				    8 * sizeof (void *))) == NULL)
+				if ((sets = zfs_alloc(hdl,
+				    8 * sizeof (struct sets_s))) == NULL)
 					goto out;
 
 				alloc = 8;
 			} else {
 				void *ptr;
 
-				if ((ptr = zfs_realloc(hdl, mountpoints,
-				    alloc * sizeof (void *),
-				    alloc * 2 * sizeof (void *))) == NULL)
+				if ((ptr = zfs_realloc(hdl, sets,
+				    alloc * sizeof (struct sets_s),
+				    alloc * 2 * sizeof (struct sets_s)))
+				    == NULL)
 					goto out;
-				mountpoints = ptr;
-
-				if ((ptr = zfs_realloc(hdl, datasets,
-				    alloc * sizeof (void *),
-				    alloc * 2 * sizeof (void *))) == NULL)
-					goto out;
-				datasets = ptr;
+				sets = ptr;
 
 				alloc *= 2;
 			}
 		}
 
-		if ((mountpoints[used] = zfs_strdup(hdl,
+		if ((sets[used].mountpoint = zfs_strdup(hdl,
 		    entry.mnt_mountp)) == NULL)
 			goto out;
 
@@ -1604,7 +1600,8 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 		 * is only used to determine if we need to remove the underlying
 		 * mountpoint, so failure is not fatal.
 		 */
-		datasets[used] = make_dataset_handle(hdl, entry.mnt_special);
+		sets[used].dataset = make_dataset_handle(hdl,
+		    entry.mnt_special);
 
 		used++;
 	}
@@ -1613,7 +1610,7 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 	 * At this point, we have the entire list of filesystems, so sort it by
 	 * mountpoint.
 	 */
-	qsort(mountpoints, used, sizeof (char *), mountpoint_compare);
+	qsort(sets, used, sizeof (struct sets_s), mountpoint_compare);
 
 	/*
 	 * Walk through and first unshare everything.
@@ -1622,9 +1619,9 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 		zfs_share_proto_t *curr_proto;
 		for (curr_proto = share_all_proto; *curr_proto != PROTO_END;
 		    curr_proto++) {
-			if (is_shared(mountpoints[i], *curr_proto) &&
-			    unshare_one(hdl, mountpoints[i],
-			    mountpoints[i], *curr_proto) != 0)
+			if (is_shared(sets[i].mountpoint, *curr_proto) &&
+			    unshare_one(hdl, sets[i].mountpoint,
+			    sets[i].mountpoint, *curr_proto) != 0)
 				goto out;
 		}
 	}
@@ -1635,13 +1632,14 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 	 * appropriate.
 	 */
 	for (i = 0; i < used; i++) {
-		if (unmount_one(hdl, mountpoints[i], flags) != 0)
+		if (unmount_one(sets[i].dataset, sets[i].mountpoint,
+		    flags) != 0)
 			goto out;
 	}
 
 	for (i = 0; i < used; i++) {
-		if (datasets[i])
-			remove_mountpoint(datasets[i]);
+		if (sets[i].dataset)
+			remove_mountpoint(sets[i].dataset);
 	}
 
 #ifdef __APPLE__
@@ -1653,12 +1651,11 @@ zpool_disable_datasets(zpool_handle_t *zhp, boolean_t force)
 out:
 	(void) fclose(mnttab);
 	for (i = 0; i < used; i++) {
-		if (datasets[i])
-			zfs_close(datasets[i]);
-		free(mountpoints[i]);
+		if (sets[i].dataset)
+			zfs_close(sets[i].dataset);
+		free(sets[i].mountpoint);
 	}
-	free(datasets);
-	free(mountpoints);
+	free(sets);
 
 	return (ret);
 }
