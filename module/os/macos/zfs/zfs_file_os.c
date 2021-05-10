@@ -48,18 +48,28 @@ zfs_file_open(const char *path, int flags, int mode, zfs_file_t **fpp)
 
 	vctx = vfs_context_create((vfs_context_t)0);
 	error = vnode_open(path, flags, mode, 0, &vp, vctx);
-	(void) vfs_context_rele(vctx);
-	if (error == 0 &&
-	    vp != NULL) {
+	if (error == 0 && vp != NULL) {
 		zfs_file_t *zf;
 		zf = (zfs_file_t *)kmem_zalloc(sizeof (zfs_file_t), KM_SLEEP);
 		zf->f_vnode = vp;
 		zf->f_fd = FILE_FD_NOTUSED;
+
+		/* Optional, implemented O_APPEND: set offset to file size. */
+		if (flags & O_APPEND)
+			zf->f_ioflags |= IO_APPEND;
+
+		/* O_TRUNC is broken */
+		if (flags & O_TRUNC) {
+			struct vnode_attr va;
+
+			VATTR_INIT(&va);
+			VATTR_SET(&va, va_data_size, 0);
+			error = vnode_setattr(vp, &va, vctx);
+		}
+
 		*fpp = zf;
 	}
-
-	/* Optional, implemented O_APPEND: set offset to file size. */
-	VERIFY0(flags & O_APPEND);
+	(void) vfs_context_rele(vctx);
 
 	return (error);
 }
@@ -69,7 +79,7 @@ zfs_file_close(zfs_file_t *fp)
 {
 	vfs_context_t vctx;
 	vctx = vfs_context_create((vfs_context_t)0);
-	vnode_close(fp->f_vnode, fp->f_writes ? FWRITE : 0, vctx);
+	vnode_close(fp->f_vnode, fp->f_writes ? FWASWRITTEN : 0, vctx);
 	(void) vfs_context_rele(vctx);
 
 	kmem_free(fp, sizeof (zfs_file_t));
