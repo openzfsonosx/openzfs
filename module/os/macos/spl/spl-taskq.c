@@ -1032,9 +1032,8 @@ system_taskq_init(void)
 	    TASKQ_DYNAMIC | TASKQ_PREPOPULATE);
 #endif
 
-	system_delay_taskq = taskq_create_common("system_delay_taskq", 0,
-	    system_taskq_size * max_ncpus, minclsyspri, 4, 512, &p0, 0,
-	    0);
+	system_delay_taskq = taskq_create("system_delay_taskq", max_ncpus,
+	    minclsyspri, 0, 0, 0);
 }
 
 
