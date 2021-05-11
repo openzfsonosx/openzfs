@@ -55,6 +55,15 @@ extern boolean_t ml_set_interrupts_enabled(boolean_t);
 #include <sys/seg_kmem.h>
 #include <sys/kmem.h>
 
+/*
+ * We could add another field to zfs_cmd_t, but since we should be
+ * moving to the new-style ioctls, send and recv still hang on to old,
+ * we will just (ab)use a field not used on macOS.
+ * We use this field to keep userland's file offset pointer, and kernel
+ * fp_offset in sync, as we have no means to access "fp_offset" in XNU.
+ */
+#define	zc_fd_offset zc_zoneid
+
 /* Since Linux code uses vmem_free() and we already have one: */
 #define	vmem_free(A, B)			zfs_kmem_free((A), (B))
 #define	vmem_alloc(A, B)		zfs_kmem_alloc((A), (B))

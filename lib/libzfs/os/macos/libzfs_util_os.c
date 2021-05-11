@@ -497,6 +497,24 @@ pipe_io_relay(void *arg)
  * thread to relay IO. As used by sendrecv, we are given a FD it wants
  * to send to the kernel, and we'll replace it with the pipe FD instead.
  * If pipe/fork already exists, use same descriptors. (multiple send/recv)
+ *
+ * In addition to this, upstream will do their "zfs send" by having the kernel
+ * look in fd->f_offset for the userland file-position, then update it
+ * again after IO completes, so userland is kept in-sync.
+ *
+ * In XNU, we have no access to "f_offset". For "zfs send", it is possible
+ * to change the "fd" to have O_APPEND, then have kernel use IO_APPEND
+ * when writing to it. Once back in userland, any write()s will SEEK_END
+ * due to O_APPEND. This was tested, but it feels "questionable" to
+ * add O_APPEND to a file descriptor opened by the shell (zfs send > file).
+ * Even though this would work for "zfs send", we also need "zfs recv" to
+ * work.
+ *
+ * So now when zfs adds the "fd" to either "zc", or the "innvl", to pass it
+ * to the kernel via ioctl() - annoyingly we still have OLD and NEW ioctl
+ * for send and recv - we will also pass the file offset, either in
+ * zc.zoneid (not used in XNU) or innvl "input_fd_offset".
+ * Since the kernel might do writes, we need to SEEK_END once we return.
  */
 void
 libzfs_macos_wrapfd(int *srcfd, boolean_t send)
