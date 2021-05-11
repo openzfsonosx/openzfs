@@ -1254,8 +1254,7 @@ taskq_dispatch_impl(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
 		/* Make sure we start without any flags */
 		tqe->tqent_un.tqent_flags = 0;
 
-		// We could bake this into TQ_ENQUEUE?
-		// Arm the delay logic, if passed-in
+		/* If expire_time is set, this arms the cv_timedwait */
 		tqe->tqent_delay_time = expire_time;
 
 		if (flags & TQ_FRONT) {
@@ -1594,7 +1593,8 @@ taskq_of_curthread(void)
 int
 taskq_cancel_id(taskq_t *tq, taskqid_t id)
 {
-	taskq_ent_t *task = (taskq_t *)id;
+	taskq_ent_t *task = (taskq_ent_t *)id;
+	int dowait = 0;
 
 	// delay_taskq active? Linux will call with id==0
 	if (task != NULL) {
@@ -1602,12 +1602,16 @@ taskq_cancel_id(taskq_t *tq, taskqid_t id)
 		if (task->tqent_delay_time > 0) {
 			// If delay_time is set, we can grab the mutex
 			mutex_enter(&task->tqent_delay_lock);
-			task->tqent_delay_time = 0; // Signal cancel
-			cv_signal(&task->tqent_delay_cv);
+			task->tqent_delay_time = -1; // Signal cancel
+			cv_broadcast(&task->tqent_delay_cv);
 			mutex_exit(&task->tqent_delay_lock);
+			dowait = 1;
 		}
 		mutex_exit(&tq->tq_lock);
 	}
+
+	if (dowait)
+		taskq_wait_id(tq, id);
 
 	return (0);
 }
@@ -1982,18 +1986,24 @@ taskq_thread(void *arg)
 
 
 		// Should we delay?
-		if (tqe->tqent_delay_time > 0) {
-			mutex_enter(&tqe->tqent_delay_lock);
+		if (tqe->tqent_delay_time != 0) {
 			int didsleep = 0; // -1 means we timedout, run taskq
-			if (tqe->tqent_delay_time > 0)
+
+			mutex_enter(&tqe->tqent_delay_lock);
+			/* Only sleep if not cancelled */
+			if (tqe->tqent_delay_time > 0 &&
+			    tqe->tqent_delay_time != -1) {
+				ASSERT(tqe->tqent_delay_time != -1);
 				didsleep = cv_timedwait(&tqe->tqent_delay_cv,
 				    &tqe->tqent_delay_lock,
 				    tqe->tqent_delay_time);
+			}
 			mutex_exit(&tqe->tqent_delay_lock);
 
 			// Did we wake up from being canceled?
-			if (tqe->tqent_delay_time == 0 || (didsleep != -1)) {
+			if (tqe->tqent_delay_time == -1 || (didsleep != -1)) {
 				mutex_enter(&tq->tq_lock);
+				tqe->tqent_delay_time = 0;
 				if (freeit)
 					taskq_ent_free(tq, tqe);
 				continue;
