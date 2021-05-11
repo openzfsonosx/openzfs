@@ -3851,6 +3851,7 @@ abd_arena_total_size(void)
 
 	if (abd_arena != NULL)
 		return (abd_arena->vm_kstat.vk_mem_total.value.ui64);
+	return (0LL);
 }
 
 
