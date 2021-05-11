@@ -1609,9 +1609,6 @@ taskq_cancel_id(taskq_t *tq, taskqid_t id)
 		mutex_exit(&tq->tq_lock);
 	}
 
-	if (dowait)
-		taskq_wait_id(tq, id);
-
 	return (0);
 }
 
