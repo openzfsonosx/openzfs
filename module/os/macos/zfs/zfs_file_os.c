@@ -36,7 +36,7 @@
  *
  * Returns 0 on success underlying error on failure.
  */
-int
+noinline int
 zfs_file_open(const char *path, int flags, int mode, zfs_file_t **fpp)
 {
 	struct vnode *vp = NULL;
@@ -95,11 +95,11 @@ zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
 	/* If we came with a 'fd' use it, as it can handle pipes. */
 	if (fp->f_fd == FILE_FD_NOTUSED)
 		error = zfs_vn_rdwr(UIO_WRITE, fp->f_vnode, (caddr_t)buf, count,
-		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    *off, UIO_SYSSPACE, fp->f_ioflags, RLIM64_INFINITY,
 		    kcred, &local_resid);
 	else
 		error = spl_vn_rdwr(UIO_WRITE, fp, (caddr_t)buf, count,
-		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
+		    *off, UIO_SYSSPACE, fp->f_ioflags, RLIM64_INFINITY,
 		    kcred, &local_resid);
 
 	if (error != 0)
@@ -405,12 +405,20 @@ zfs_file_unlink(const char *path)
  *
  * Returns 0 on success EBADF on failure.
  */
+int file_flags(int, int *);
 int
 zfs_file_get(int fd, zfs_file_t **fpp)
 {
 	*fpp = getf(fd);
 	if (*fpp == NULL)
 		return (EBADF);
+
+	int flags = 0;
+	if (file_flags(fd, &flags) == 0) {
+		if (flags & O_APPEND) {
+			(*fpp)->f_ioflags = IO_APPEND;
+		}
+	}
 	return (0);
 }
 

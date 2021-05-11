@@ -52,6 +52,7 @@ struct spl_fileproc {
 	void		*f_proc;	/* opaque */
 	void		*f_fp;		/* opaque */
 	int		f_writes;	/* did write? for close sync */
+	int		f_ioflags;	/* IO_APPEND */
 	minor_t		f_file;		/* minor of the file */
 	void		*f_private;	/* zfsdev_state_t */
 };
