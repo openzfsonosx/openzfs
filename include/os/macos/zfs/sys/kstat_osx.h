@@ -200,6 +200,13 @@ typedef struct osx_kstat {
 	kstat_named_t vdev_validate_skip;
 	kstat_named_t zfs_zevent_len_max;
 	kstat_named_t zio_slow_io_ms;
+	kstat_named_t l2arc_mfuonly;
+	kstat_named_t zfs_multihost_history;
+	kstat_named_t zfs_rebuild_scrub_enabled;
+	kstat_named_t zfs_txg_history;
+	kstat_named_t vdev_file_physical_ashift;
+	kstat_named_t zvol_volmode;
+	kstat_named_t zfs_zevent_retain_max;
 } osx_kstat_t;
 
 extern unsigned int zfs_vnop_ignore_negatives;
@@ -361,6 +368,13 @@ extern int zfs_vdev_min_ms_count;
 extern int vdev_validate_skip;
 extern int zfs_zevent_len_max;
 extern int zio_slow_io_ms;
+extern int l2arc_mfuonly;
+extern int zfs_multihost_history;
+extern int zfs_rebuild_scrub_enabled;
+extern int zfs_txg_history;
+extern unsigned long vdev_file_physical_ashift;
+extern unsigned int zvol_volmode;
+extern unsigned int zfs_zevent_retain_max;
 
 int kstat_osx_init(void);
 void kstat_osx_fini(void);

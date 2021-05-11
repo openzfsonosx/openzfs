@@ -233,6 +233,13 @@ osx_kstat_t osx_kstat = {
 	{"vdev_validate_skip",			KSTAT_DATA_UINT64  },
 	{"zfs_zevent_len_max",			KSTAT_DATA_UINT64  },
 	{"zio_slow_io_ms",			KSTAT_DATA_UINT64  },
+	{"l2arc_mfuonly",			KSTAT_DATA_UINT64  },
+	{"zfs_multihost_history",			KSTAT_DATA_UINT64  },
+	{"zfs_rebuild_scrub_enabled",			KSTAT_DATA_UINT64  },
+	{"zfs_txg_history",			KSTAT_DATA_UINT64  },
+	{"vdev_file_physical_ashift",			KSTAT_DATA_UINT64  },
+	{"zvol_volmode",			KSTAT_DATA_UINT64  },
+	{"zfs_zevent_retain_max",			KSTAT_DATA_UINT64  },
 
 };
 
@@ -561,6 +568,15 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zfs_zevent_len_max = ks->zfs_zevent_len_max.value.ui64;
 		zio_slow_io_ms = ks->zio_slow_io_ms.value.ui64;
 
+		l2arc_mfuonly = ks->l2arc_mfuonly.value.ui64;
+		zfs_multihost_history = ks->zfs_multihost_history.value.ui64;
+		zfs_rebuild_scrub_enabled =
+		    ks->zfs_rebuild_scrub_enabled.value.ui64;
+		zfs_txg_history = ks->zfs_txg_history.value.ui64;
+		vdev_file_physical_ashift =
+		    ks->vdev_file_physical_ashift.value.ui64;
+		zvol_volmode = ks->zvol_volmode.value.ui64;
+		zfs_zevent_retain_max = ks->zfs_zevent_retain_max.value.ui64;
 
 	} else {
 
@@ -839,6 +855,17 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->vdev_validate_skip.value.ui64 = vdev_validate_skip;
 		ks->zfs_zevent_len_max.value.ui64 = zfs_zevent_len_max;
 		ks->zio_slow_io_ms.value.ui64 = zio_slow_io_ms;
+
+		ks->l2arc_mfuonly.value.ui64 = l2arc_mfuonly;
+		ks->zfs_multihost_history.value.ui64 = zfs_multihost_history;
+		ks->zfs_rebuild_scrub_enabled.value.ui64 =
+		    zfs_rebuild_scrub_enabled;
+		ks->zfs_txg_history.value.ui64 = zfs_txg_history;
+		ks->vdev_file_physical_ashift.value.ui64 =
+		    vdev_file_physical_ashift;
+		ks->zvol_volmode.value.ui64 = zvol_volmode;
+		ks->zfs_zevent_retain_max.value.ui64 = zfs_zevent_retain_max;
+
 	}
 
 	return (0);
