@@ -201,7 +201,7 @@ abd_alloc_struct_impl(size_t size)
 	size_t abd_size = MAX(sizeof (abd_t),
 	    offsetof(abd_t, abd_u.abd_scatter.abd_chunks[chunkcnt]));
 	abd_t *abd = kmem_zalloc(abd_size, KM_PUSHPAGE);
-	ASSERT3P(abd, !=, NULL);
+	abd->abd_orig_size = abd_size;
 	ABDSTAT_INCR(abdstat_struct_size, abd_size);
 
 	return (abd);
@@ -214,6 +214,8 @@ abd_free_struct_impl(abd_t *abd)
 	    abd_scatter_chunkcnt(abd);
 	ssize_t size = MAX(sizeof (abd_t),
 	    offsetof(abd_t, abd_u.abd_scatter.abd_chunks[chunkcnt]));
+	if (!abd_is_linear(abd) && !abd_is_gang(abd))
+		VERIFY3U(abd->abd_orig_size, ==, size);
 	kmem_free(abd, size);
 	ABDSTAT_INCR(abdstat_struct_size, -size);
 }
