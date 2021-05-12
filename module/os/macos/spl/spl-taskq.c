@@ -1033,14 +1033,14 @@ system_taskq_init(void)
 #endif
 
 	system_delay_taskq = taskq_create("system_delay_taskq", max_ncpus,
-	    minclsyspri, 0, 0, 0);
+	    minclsyspri, max_ncpus, INT_MAX, TASKQ_PREPOPULATE);
 }
 
 
 void
 system_taskq_fini(void)
 {
-	if (system_taskq)
+	if (system_delay_taskq)
 		taskq_destroy(system_delay_taskq);
 	if (system_taskq)
 		taskq_destroy(system_taskq);
@@ -1593,18 +1593,35 @@ int
 taskq_cancel_id(taskq_t *tq, taskqid_t id)
 {
 	taskq_ent_t *task = (taskq_ent_t *)id;
-	int dowait = 0;
 
 	// delay_taskq active? Linux will call with id==0
 	if (task != NULL) {
 		mutex_enter(&tq->tq_lock);
-		if (task->tqent_delay_time > 0) {
+		if (task->tqent_delay_time != 0) {
 			// If delay_time is set, we can grab the mutex
 			mutex_enter(&task->tqent_delay_lock);
-			task->tqent_delay_time = -1; // Signal cancel
-			cv_broadcast(&task->tqent_delay_cv);
+
+			// -2 already canceled
+			// -1 cancelling
+			// >0 sleeping
+			if (task->tqent_delay_time > 0 &&
+			    task->tqent_delay_time != -1 &&
+			    task->tqent_delay_time != -2) {
+				task->tqent_delay_time = -1; // Signal cancel
+				cv_broadcast(&task->tqent_delay_cv);
+
+			mutex_exit(&tq->tq_lock);
+
+			// Wait for -2, so we are sure it is stopped.
+			while (task->tqent_delay_time != -2)
+				cv_wait(&task->tqent_delay_cv,
+				    &task->tqent_delay_lock);
+
+			}
+
 			mutex_exit(&task->tqent_delay_lock);
-			dowait = 1;
+			return (0);
+
 		}
 		mutex_exit(&tq->tq_lock);
 	}
@@ -1984,26 +2001,34 @@ taskq_thread(void *arg)
 		// Should we delay?
 		if (tqe->tqent_delay_time != 0) {
 			int didsleep = 0; // -1 means we timedout, run taskq
-
 			mutex_enter(&tqe->tqent_delay_lock);
 			/* Only sleep if not cancelled */
 			if (tqe->tqent_delay_time > 0 &&
-			    tqe->tqent_delay_time != -1) {
-				ASSERT(tqe->tqent_delay_time != -1);
+			    tqe->tqent_delay_time != -1 &&
+			    tqe->tqent_delay_time != -2) {
+				VERIFY(tqe->tqent_delay_time != -1);
+				VERIFY(tqe->tqent_delay_time != -2);
 				didsleep = cv_timedwait(&tqe->tqent_delay_cv,
 				    &tqe->tqent_delay_lock,
 				    tqe->tqent_delay_time);
 			}
-			mutex_exit(&tqe->tqent_delay_lock);
 
 			// Did we wake up from being canceled?
 			if (tqe->tqent_delay_time == -1 || (didsleep != -1)) {
+
+				// Signal we quit
+				tqe->tqent_delay_time = -2;
+				cv_signal(&tqe->tqent_delay_cv);
+				mutex_exit(&tqe->tqent_delay_lock);
+
+				// Pretend we ran "->func()", loop back to idle
 				mutex_enter(&tq->tq_lock);
-				tqe->tqent_delay_time = 0;
 				if (freeit)
 					taskq_ent_free(tq, tqe);
 				continue;
 			}
+			tqe->tqent_delay_time = 0;
+			mutex_exit(&tqe->tqent_delay_lock);
 		}
 
 		rw_enter(&tq->tq_threadlock, RW_READER);
