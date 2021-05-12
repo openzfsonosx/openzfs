@@ -341,7 +341,6 @@ abd_get_offset_scatter(abd_t *abd, abd_t *sabd, size_t off)
 	 * if we own the underlying data buffer, which is not true in
 	 * this case. Therefore, we don't ever use ABD_FLAG_META here.
 	 */
-	abd->abd_flags = 0;
 
 	ABD_SCATTER(abd).abd_offset = new_offset % zfs_abd_chunk_size;
 	ABD_SCATTER(abd).abd_chunk_size = zfs_abd_chunk_size;
