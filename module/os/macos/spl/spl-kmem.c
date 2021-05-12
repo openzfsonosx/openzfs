@@ -339,7 +339,8 @@ size_t	kmem_max_cached = KMEM_BIG_MAXBUF;	/* maximum kmem_alloc cache */
 // can be 0 or KMF_LITE
 // or KMF_DEADBEEF | KMF_REDZONE | KMF_CONTENTS
 // with or without KMF_AUDIT
-int kmem_flags = KMF_LITE;
+// int kmem_flags = KMF_LITE;
+int kmem_flags = KMF_DEADBEEF | KMF_REDZONE | KMF_CONTENTS | KMF_AUDIT;
 #else
 int kmem_flags = KMF_LITE;
 #endif
