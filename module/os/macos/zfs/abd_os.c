@@ -200,7 +200,7 @@ abd_alloc_struct_impl(size_t size)
 	 */
 	size_t abd_size = MAX(sizeof (abd_t),
 	    offsetof(abd_t, abd_u.abd_scatter.abd_chunks[chunkcnt]));
-	abd_t *abd = kmem_alloc(abd_size, KM_PUSHPAGE);
+	abd_t *abd = kmem_zalloc(abd_size, KM_PUSHPAGE);
 	ASSERT3P(abd, !=, NULL);
 	ABDSTAT_INCR(abdstat_struct_size, abd_size);
 
@@ -314,13 +314,40 @@ abd_alloc_for_io(size_t size, boolean_t is_metadata)
 }
 
 abd_t *
-abd_get_offset_scatter(abd_t *abd, abd_t *sabd, size_t off)
+abd_get_offset_scatter(abd_t *abd, abd_t *sabd, size_t off, size_t size)
 {
 	abd_verify(sabd);
 	ASSERT3U(off, <=, sabd->abd_size);
 
 	size_t new_offset = ABD_SCATTER(sabd).abd_offset + off;
-	size_t chunkcnt = abd_scatter_chunkcnt(sabd) -
+
+	/*
+	 * chunkcnt is abd_chunkcnt_for_bytes(size), which rounds
+	 * up to the nearest chunk, but we also must take care
+	 * of the offset *in the leading chunk*
+	 */
+	size_t chunkcnt = abd_chunkcnt_for_bytes(
+	    (new_offset % zfs_abd_chunk_size) + size);
+
+	VERIFY3U(chunkcnt, <=, abd_scatter_chunkcnt(sabd));
+
+	/*
+	 * this counts too many chunks; in the abd_get_zeros
+	 * case the offset will be 0, size might be e.g. 4k or 32k
+	 * but abd_scatter_chunkcnt(sabd) == 4096 (for 16MB data)
+	 * so we are carrying many superfluous chunks.
+	 *
+	 * moreover, abd->abd_size will be set to e.g.  4k or 32k in the
+	 * caller, and abd->abd_size (+ offset) is what is used to determine
+	 * how much to kmem_free() in abd_alloc_free_impl()
+	 *
+	 * apart from the heap corruption of getting the kmem_free size wrong,
+	 * carrying too many chunks for a given abd_size is wasteful,
+	 * especially since if sabd hads many chunks, we will be unable to use
+	 * the abd passed in to hold only one chunk or just a few
+	 */
+
+	size_t old_chunkcnt = abd_scatter_chunkcnt(sabd) -
 	    (new_offset / zfs_abd_chunk_size);
 
 	/*
