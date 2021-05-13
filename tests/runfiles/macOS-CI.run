@@ -269,9 +269,9 @@ tests = ['removal_all_vdev', 'removal_cancel', 'removal_check_space',
     'remove_indirect']
 tags = ['functional', 'removal']
 
-[tests/functional/resilver]
+[tests/functional/replacement]
 tests = ['resilver_restart_001', 'resilver_restart_002']
-tags = ['functional', 'resilver']
+tags = ['functional', 'replacement']
 
 [tests/functional/rsend]
 tests = ['recv_dedup', 'recv_dedup_encrypted_zvol', 'rsend_001_pos',

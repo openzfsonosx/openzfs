@@ -50,7 +50,12 @@ function cleanup
 log_onexit cleanup
 
 # A file is already created in setup.ksh.  Inject read errors on the first disk.
-log_must zinject -d $DISK1 -e io -T read -f 100 $TESTPOOL
+if ! is_macos; then
+	log_must zinject -d $DISK1 -e io -T read -f 100 $TESTPOOL
+else
+	# error type 'io' seems to be broken on macOS so use 'corrupt' instead
+	log_must zinject -d $DISK1 -e corrupt -T read -f 100 $TESTPOOL
+fi
 
 # Make the scrub slow
 log_must zinject -d $DISK1 -D10:1 $TESTPOOL

@@ -21,7 +21,9 @@
 . $STF_SUITE/include/libtest.shlib
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
-zdbout=${TMPDIR:-$TEST_BASE_DIR}/zdbout.$$
+TMPDIR=${TMPDIR:-$TEST_BASE_DIR}
+TMPDIR=$(realpath $TMPDIR)
+zdbout="$TMPDIR/zdbout.$$"
 
 if is_linux; then
 	log_unsupported "ZDB fails during concurrent pool activity."

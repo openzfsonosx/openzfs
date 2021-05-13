@@ -38,7 +38,7 @@ function verify_truncate # <filename> <filesize> <option>
 	typeset option="$3"
 
 	log_must mkfile $sizeavg $filename # always start with $sizeavg
-	if is_freebsd; then
+	if ( is_freebsd || is_macos ); then
 		typeset -i timestm="$(stat -f "%m" $filename)"
 		typeset -i timestc="$(stat -f "%c" $filename)"
 		log_must sleep 1

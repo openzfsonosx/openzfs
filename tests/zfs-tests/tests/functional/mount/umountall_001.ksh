@@ -47,6 +47,8 @@ if is_linux; then
 	typeset mounts=$(mount | awk '{if ($5 == "zfs") print $3}')
 elif is_freebsd; then
 	typeset mounts=$(mount -p | awk '{if ($3 == "zfs") print $2}')
+elif is_macos; then
+	typeset mounts=$(mountp | awk '{if ($3 == "zfs") print $2}')
 else
 	typeset mounts=$(mount -p | awk '{if ($4 == "zfs") print $3}')
 fi
@@ -62,7 +64,7 @@ if is_linux; then
 	if [[ -z $mounts ]]; then
 		mounts=$(awk '/zfs/ { print $2 }' /proc/mounts)
 	fi
-elif is_freebsd; then
+elif (is_freebsd || is_macos); then
 	# Umountall and umount not supported on FreeBSD
 	mounts=$(mount -t zfs | sort -r | awk '{print $3}')
 else

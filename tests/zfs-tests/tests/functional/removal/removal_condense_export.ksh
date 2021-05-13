@@ -87,6 +87,7 @@ sync_pool $TESTPOOL
 sleep 4
 sync_pool $TESTPOOL
 log_must zpool export $TESTPOOL
+sudo rm /etc/zfs/zpool.cache
 zdb -e -p $REMOVEDISKPATH $TESTPOOL | grep 'Condensing indirect vdev' || \
     log_fail "Did not export during a condense."
 log_must zdb -e -p $REMOVEDISKPATH -cudi $TESTPOOL

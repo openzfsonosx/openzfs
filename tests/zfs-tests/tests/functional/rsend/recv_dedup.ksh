@@ -48,6 +48,6 @@ log_must eval "zstream redup $sendfile | zfs recv -d $TESTPOOL/recv"
 
 log_must mkdir /$TESTPOOL/tar
 log_must tar --directory /$TESTPOOL/tar -xzf $tarfile
-log_must diff -r /$TESTPOOL/tar /$TESTPOOL/recv
+log_must diff -x '.Spotlight-V100' -x '.VolumeIcon.icns' -x '.fseventsd' -r /$TESTPOOL/tar /$TESTPOOL/recv
 
 log_pass "zfs can receive dedup send streams with 'zstream redup'"

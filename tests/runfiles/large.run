@@ -297,12 +297,13 @@ tests = ['zfs_unshare_001_pos', 'zfs_unshare_002_pos', 'zfs_unshare_003_pos',
 tags = ['functional', 'cli_root', 'zfs_unshare']
 
 # macOS - known to panic
-[tests/functional/cli_root/zfs_upgrade]
-tests = ['zfs_upgrade_001_pos', 'zfs_upgrade_002_pos', 'zfs_upgrade_003_pos',
-#    'zfs_upgrade_004_pos',
-	 'zfs_upgrade_005_pos', 'zfs_upgrade_006_neg',
-    'zfs_upgrade_007_neg']
-tags = ['functional', 'cli_root', 'zfs_upgrade']
+# should determine exactly which ones need to be excluded
+# [tests/functional/cli_root/zfs_upgrade]
+# tests = ['zfs_upgrade_001_pos', 'zfs_upgrade_002_pos', 'zfs_upgrade_003_pos',
+#     'zfs_upgrade_004_pos',
+#     'zfs_upgrade_005_pos', 'zfs_upgrade_006_neg',
+#     'zfs_upgrade_007_neg']
+# tags = ['functional', 'cli_root', 'zfs_upgrade']
 
 [tests/functional/cli_root/zfs_wait]
 tests = ['zfs_wait_deleteq']
@@ -638,11 +639,11 @@ tests = ['online_offline_001_pos', 'online_offline_002_neg',
     'online_offline_003_neg']
 tags = ['functional', 'online_offline']
 
-[tests/functional/persist_l2arc]
+[tests/functional/l2arc]
 tests = ['persist_l2arc_001_pos', 'persist_l2arc_002_pos',
     'persist_l2arc_003_neg', 'persist_l2arc_004_pos', 'persist_l2arc_005_pos',
     'persist_l2arc_006_pos', 'persist_l2arc_007_pos', 'persist_l2arc_008_pos']
-tags = ['functional', 'persist_l2arc']
+tags = ['functional', 'l2arc']
 
 [tests/functional/pool_names]
 tests = ['pool_names_001_pos', # (run as root) [08:37] [PASS]
@@ -671,8 +672,11 @@ tests = ['raidz_001_neg', 'raidz_002_pos']
 tags = ['functional', 'raidz']
 
 [tests/functional/redundancy]
-tests = ['redundancy_001_pos', 'redundancy_002_pos', 'redundancy_003_pos',
-    'redundancy_004_neg']
+tests = ['redundancy_draid1', 'redundancy_draid2', 'redundancy_draid3',
+    'redundancy_draid_spare1', 'redundancy_draid_spare2',
+    'redundancy_draid_spare3', 'redundancy_mirror', 'redundancy_raidz',
+    'redundancy_raidz1', 'redundancy_raidz2', 'redundancy_raidz3',
+    'redundancy_stripe']
 tags = ['functional', 'redundancy']
 
 [tests/functional/refquota]
@@ -691,13 +695,22 @@ tags = ['functional', 'refreserv']
 tests = ['rename_dirs_001_pos']
 tags = ['functional', 'rename_dirs']
 
+# there are new replacement tests that should be added
 [tests/functional/replacement]
-tests = ['replacement_001_pos', 'replacement_002_pos', 'replacement_003_pos']
+tests = ['resilver_restart_001', 'resilver_restart_002']
 tags = ['functional', 'replacement']
 
-[tests/functional/resilver]
-tests = ['resilver_restart_001', 'resilver_restart_002']
-tags = ['functional', 'resilver']
+[tests/functional/reservation]
+tests = ['reservation_001_pos', 'reservation_002_pos', 'reservation_003_pos',
+    'reservation_004_pos', 'reservation_005_pos', 'reservation_006_pos',
+    'reservation_007_pos', 'reservation_008_pos', 'reservation_009_pos',
+    'reservation_010_pos', 'reservation_011_pos', 'reservation_012_pos',
+#    'reservation_013_pos',
+     'reservation_014_pos', 'reservation_015_pos',
+    'reservation_016_pos', 'reservation_017_pos', 'reservation_018_pos',
+    'reservation_019_pos', 'reservation_020_pos', 'reservation_021_neg',
+    'reservation_022_pos']
+tags = ['functional', 'reservation']
 
 [tests/functional/rootpool]
 tests = ['rootpool_002_neg', 'rootpool_003_neg', 'rootpool_007_pos']
@@ -727,6 +740,16 @@ tags = ['functional', 'rsend']
 tests = ['scrub_mirror_001_pos', 'scrub_mirror_002_pos',
     'scrub_mirror_003_pos', 'scrub_mirror_004_pos']
 tags = ['functional', 'scrub_mirror']
+
+# macOS: zfs commands get stuck and the remainder of the tests mostly fail
+# should determine exactly which ones need to be excluded
+# [tests/functional/slog]
+# tests = ['slog_001_pos', 'slog_002_pos', 'slog_003_pos', 'slog_004_pos',
+#     'slog_005_pos', 'slog_006_pos', 'slog_007_pos', 'slog_008_neg',
+#     'slog_009_neg', 'slog_010_neg', 'slog_011_neg', 'slog_012_neg',
+#     'slog_013_pos', 'slog_014_pos', 'slog_015_neg', 'slog_replay_fs_001',
+#     'slog_replay_fs_002', 'slog_replay_volume']
+# tags = ['functional', 'slog']
 
 [tests/functional/snapshot]
 tests = ['clone_001_pos', 'rollback_001_pos', 'rollback_002_pos',

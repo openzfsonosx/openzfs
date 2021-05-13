@@ -57,6 +57,10 @@ DEVS=$(get_pool_devices ${TESTPOOL} ${DEV_RDSKDIR})
 log_note "$DEVS"
 [[ -n $DEVS ]] && set -A DISK $DEVS
 
+if is_macos; then
+	zpool export testpool
+fi
+
 log_must dd if=/dev/${DISK[0]} of=/dev/${DISK[1]} bs=1K count=256 conv=notrunc
 
 for x in 0 1 ; do
@@ -66,6 +70,10 @@ for x in 0 1 ; do
 	[ $config_count -ne ${config_count[$x]} ] && \
 		log_fail "zdb produces an incorrect number of configuration dumps."
 done
+
+if is_macos; then
+	zpool import testpool
+fi
 
 cleanup
 

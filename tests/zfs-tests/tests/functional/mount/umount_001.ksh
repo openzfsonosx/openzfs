@@ -44,11 +44,11 @@
 #
 
 for fs in 1 2 3; do
-	log_must mounted $TESTDIR.$fs
+	log_must mounted $(realpath $TESTDIR.$fs)
 	log_must zfs umount $TESTPOOL/$TESTFS.$fs
-	log_must unmounted $TESTDIR.$fs
+	log_must unmounted $(realpath $TESTDIR.$fs)
 	log_must zfs mount $TESTPOOL/$TESTFS.$fs
-	log_must mounted $TESTDIR.$fs
+	log_must mounted $(realpath $TESTDIR.$fs)
 done
 
 log_pass "All file systems are unmounted"
