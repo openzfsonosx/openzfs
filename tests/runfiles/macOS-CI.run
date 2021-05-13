@@ -22,56 +22,6 @@ failsafe = callbacks/zfs_failsafe
 outputdir = /var/tmp/test_results
 tags = ['functional']
 
-[tests/functional/snapshot]
-tests = ['clone_001_pos', 'rollback_001_pos', 'rollback_002_pos',
-    'rollback_003_pos', 'snapshot_001_pos', 'snapshot_002_pos',
-    'snapshot_003_pos', 'snapshot_004_pos', 'snapshot_005_pos',
-    'snapshot_006_pos', 'snapshot_007_pos', 'snapshot_008_pos',
-    'snapshot_009_pos', 'snapshot_010_pos', 'snapshot_011_pos',
-    'snapshot_012_pos', 'snapshot_013_pos', 'snapshot_014_pos',
-    'snapshot_017_pos']
-tags = ['functional', 'snapshot']
-
-[tests/functional/threadsappend]
-tests = ['threadsappend_001_pos']
-tags = ['functional', 'threadsappend']
-
-[tests/functional/upgrade]
-tests = ['upgrade_userobj_001_pos', 'upgrade_readonly_pool']
-tags = ['functional', 'upgrade']
-
-[tests/functional/userquota]
-tests = [
-    'userquota_001_pos', 'userquota_002_pos', 'userquota_003_pos',
-    'userquota_004_pos', 'userquota_005_neg', 'userquota_006_pos',
-    'userquota_007_pos', 'userquota_008_pos', 'userquota_009_pos',
-    'userquota_010_pos', 'userquota_011_pos', 'userquota_012_neg',
-    'userspace_001_pos', 'userspace_002_pos']
-tags = ['functional', 'userquota']
-
-[tests/functional/vdev_zaps]
-tests = ['vdev_zaps_001_pos', 'vdev_zaps_002_pos', 'vdev_zaps_003_pos',
-    'vdev_zaps_004_pos', 'vdev_zaps_005_pos', 'vdev_zaps_006_pos',
-    'vdev_zaps_007_pos']
-tags = ['functional', 'vdev_zaps']
-
-[tests/functional/xattr]
-tests = ['xattr_001_pos', 'xattr_002_neg', 'xattr_003_neg', 'xattr_004_pos',
-    'xattr_005_pos', 'xattr_006_pos', 'xattr_007_neg',
-    'xattr_011_pos', 'xattr_012_pos', 'xattr_013_pos']
-tags = ['functional', 'xattr']
-
-[tests/functional/zvol/zvol_cli]
-tests = ['zvol_cli_001_pos', 'zvol_cli_002_pos', 'zvol_cli_003_neg']
-tags = ['functional', 'zvol', 'zvol_cli']
-
-[tests/functional/zvol/zvol_misc]
-tests = ['zvol_misc_002_pos', 'zvol_misc_hierarchy', 'zvol_misc_rename_inuse',
-    'zvol_misc_snapdev', 'zvol_misc_volmode', 'zvol_misc_zil']
-tags = ['functional', 'zvol', 'zvol_misc']
-
-[tests/functional/log_spacemap]
-tests = ['log_spacemap_import_logs']
-pre =
-post =
-tags = ['functional', 'log_spacemap']
+[tests/functional/raidz]
+tests = ['raidz_001_neg', 'raidz_002_pos']
+tags = ['functional', 'raidz']
