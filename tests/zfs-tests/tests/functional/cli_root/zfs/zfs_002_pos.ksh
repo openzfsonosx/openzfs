@@ -48,7 +48,7 @@ function cleanup
 {
 	unset ZFS_ABORT
 
-	if is_freebsd && [[ -n $savedcorefile ]]; then
+	if (is_freebsd || is_macos) && [[ -n $savedcorefile ]]; then
 		sysctl kern.corefile=$savedcorefile
 	fi
 
@@ -100,7 +100,7 @@ if is_linux; then
 	echo "$corefile" >/proc/sys/kernel/core_pattern
 	echo 0 >/proc/sys/kernel/core_uses_pid
 	export ASAN_OPTIONS="abort_on_error=1:disable_coredump=0"
-elif is_freebsd; then
+elif is_freebsd || is_macos; then
 	ulimit -c unlimited
 	savedcorefile=$(sysctl -n kern.corefile)
 	log_must sysctl kern.corefile=$corepath/core.%N

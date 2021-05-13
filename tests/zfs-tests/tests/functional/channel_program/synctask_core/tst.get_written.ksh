@@ -37,6 +37,15 @@ function cleanup
 log_onexit cleanup
 
 log_must zfs create $fs
+
+if is_macos; then
+	touch /$fs/.metadata_never_index
+	zfs unmount $fs
+	zfs mount $fs
+	rm /$fs/.VolumeIcon.icns
+	create_snapshot $fs "spotlight"
+fi
+
 create_snapshot $fs $TESTSNAP
 
 log_must_program $TESTPOOL - <<-EOF
@@ -46,7 +55,7 @@ log_must_program $TESTPOOL - <<-EOF
 EOF
 
 log_must mkdir $dir
-sync
+zpool sync
 
 log_must_program $TESTPOOL - <<-EOF
 	ans, setpoint = zfs.get_prop("$fs", "written@$TESTSNAP")

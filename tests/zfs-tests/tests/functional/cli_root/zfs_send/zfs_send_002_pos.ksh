@@ -81,12 +81,21 @@ function do_testing # <prop> <prop_value>
 		log_fail "'zfs receive' fails to restore $rstfs"
 	! snapexists $rstfssnap && \
 		log_fail "'zfs receive' fails to restore $rstfssnap"
+
+	if is_macos; then
+		log_must zfs mount $rstfs@$TESTSNAP
+	fi
+
 	if [[ ! -e $rstfile ]] || [[ ! -e $rstsnapfile ]]; then
 		log_fail " Data lost after receiving stream"
 	fi
 
 	compare_cksum $origfile $rstfile
 	compare_cksum $origsnapfile $rstsnapfile
+
+	if is_macos; then
+		log_must zfs unmount $rstfs@$TESTSNAP
+	fi
 
 	#Destroy datasets and stream for next testing
 	log_must zfs destroy $snap

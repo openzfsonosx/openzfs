@@ -125,7 +125,7 @@ log_must rm -rf /$TESTPOOL/$TESTFS/dict
 # TX_SETATTR
 log_must touch /$TESTPOOL/$TESTFS/setattr
 log_must chmod 567 /$TESTPOOL/$TESTFS/setattr
-if is_freebsd; then
+if is_freebsd || is_macos; then
 	log_must chgrp wheel /$TESTPOOL/$TESTFS/setattr
 else
 	log_must chgrp root /$TESTPOOL/$TESTFS/setattr
@@ -213,7 +213,7 @@ log_must ls_xattr /$TESTPOOL/$TESTFS/xattr.dir
 log_must ls_xattr /$TESTPOOL/$TESTFS/xattr.file
 
 log_note "Verify working set diff:"
-log_must diff -r /$TESTPOOL/$TESTFS $TESTDIR/copy
+log_must diff --exclude=".*" -r /$TESTPOOL/$TESTFS $TESTDIR/copy
 
 log_note "Verify file checksum:"
 typeset checksum1=$(sha256digest /$TESTPOOL/$TESTFS/payload)

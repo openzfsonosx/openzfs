@@ -63,7 +63,9 @@ export NO_DATASETS="no datasets available"
 
 # Default directory used for test files
 # NOTE: remove trailing "/", some functions rely on this to do pattern matching
-export TEST_BASE_DIR="$(dirname ${FILEDIR:-/var/tmp}/.)"
+TEST_BASE_DIR="$(dirname ${FILEDIR:-/var/tmp}/.)"
+TEST_BASE_DIR="$(realpath $TEST_BASE_DIR)"
+export TEST_BASE_DIR
 
 # Default to compression ON
 export COMPRESSION_PROP=on
@@ -155,7 +157,7 @@ done
 
 export MAX_PARTITIONS=8
 
-case $(uname -o) in
+case $(uname -s) in
 GNU/Linux)
 	unpack_opts="--sparse -xf"
 	pack_opts="--sparse -cf"
@@ -217,15 +219,15 @@ illumos)
 	NEWFS_DEFAULT_FS="ufs"
 	SLICE_PREFIX="s"
 	;;
-darwin)
+Darwin)
 	unpack_opts="xv"
 	pack_opts="cf"
 	verbose="v"
 	unpack_preserve="xpf"
 	pack_preserve="cpf"
 
-	ZVOL_DEVDIR="/var/run/zfs/"
-	ZVOL_RDEVDIR="/var/run/zfs/"
+	ZVOL_DEVDIR="/var/run/zfs/zvol/dsk"
+	ZVOL_RDEVDIR="/var/run/zfs/zvol/rdsk"
 	DEV_DSKDIR="/dev"
 	DEV_RDSKDIR="/dev"
 	DEV_MPATHDIR="/dev/multipath"

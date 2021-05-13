@@ -32,7 +32,7 @@ function cleanup
 {
 	datasetexists $TESTPOOL && destroy_pool $TESTPOOL
 	for DISK in $DISKS; do
-		zpool labelclear -f $DEV_RDSKDIR/$DISK
+		zpool labelclear -f $DISK
 	done
 }
 

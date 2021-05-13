@@ -71,7 +71,12 @@ done
 
 #verify that zfs mount fails with volume and snapshot
 log_must zfs snapshot $TESTPOOL/$TESTFS@$TESTSNAP
-log_mustnot eval "zfs mount $TESTPOOL/$TESTFS@$TESTSNAP >/dev/null 2>&1"
+if ! is_macos; then
+	log_mustnot eval "zfs mount $TESTPOOL/$TESTFS@$TESTSNAP >/dev/null 2>&1"
+else
+	log_must eval "zfs mount $TESTPOOL/$TESTFS@$TESTSNAP >/dev/null 2>&1"
+	log_must eval "zfs unmount $TESTPOOL/$TESTFS@$TESTSNAP >/dev/null 2>&1"
+fi
 
 if is_global_zone; then
 	log_must zfs create -V 10m $TESTPOOL/$TESTVOL

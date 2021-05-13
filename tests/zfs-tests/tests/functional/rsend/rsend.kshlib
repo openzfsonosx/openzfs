@@ -204,7 +204,7 @@ function cmp_ds_cont
 	srcdir=$(get_prop mountpoint $src_fs)
 	dstdir=$(get_prop mountpoint $dst_fs)
 
-	diff -r $srcdir $dstdir > /dev/null 2>&1
+	diff -x '.Spotlight-V100' -x '.VolumeIcon.icns' -x '.fseventsd' -r $srcdir $dstdir > /dev/null 2>&1
 	return $?
 }
 
@@ -846,6 +846,12 @@ function recursive_cksum
 		find $1 -type f -exec sh -c 'sha256 -q {}; lsextattr -q \
 		    system {} | sha256 -q; lsextattr -q user {} | sha256 -q' \
 		    \; | sort | sha256 -q
+		;;
+	Darwin)
+		find $1 -type f -exec sh -c 'sha256sum {}; xattr -lv {} | \
+		    sha256sum' \; | \
+		    sort -k 2 | awk '{ print $1 }' | sha256sum | \
+		    awk '{ print $1 }'
 		;;
 	*)
 		find $1 -type f -exec sh -c 'sha256sum {}; getfattr \

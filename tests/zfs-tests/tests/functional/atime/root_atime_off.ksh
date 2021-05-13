@@ -64,11 +64,18 @@ do
 
 	if [[ $dst == $TESTPOOL/$TESTFS@$TESTSNAP ]]; then
 		mtpt=$(snapshot_mountpoint $dst)
+		if is_macos; then
+			log_must zfs mount $TESTPOOL/$TESTFS@$TESTSNAP
+		fi
 	else
 		log_must zfs set atime=off $(dirname $dst)
 	fi
 
 	log_mustnot check_atime_updated $mtpt/$TESTFILE
+
+	if [[ $dst == $TESTPOOL/$TESTFS@$TESTSNAP ]] && is_macos; then
+		log_must zfs unmount $TESTPOOL/$TESTFS@$TESTSNAP
+	fi
 done
 
 log_pass "Verify the property atime=off passed."

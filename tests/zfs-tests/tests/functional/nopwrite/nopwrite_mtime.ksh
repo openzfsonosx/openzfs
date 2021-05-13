@@ -51,7 +51,7 @@ if is_linux; then
 	o_atime=$(stat -c %X $TESTDIR/clone/file)
 	o_ctime=$(stat -c %Z $TESTDIR/clone/file)
 	o_mtime=$(stat -c %Y $TESTDIR/clone/file)
-elif is_freebsd; then
+elif ( is_freebsd || is_macos ); then
 	o_atime=$(stat -f "%a" $TESTDIR/clone/file)
 	o_ctime=$(stat -f "%c" $TESTDIR/clone/file)
 	o_mtime=$(stat -f "%m" $TESTDIR/clone/file)
@@ -70,7 +70,7 @@ if is_linux; then
 	atime=$(stat -c %X $TESTDIR/clone/file)
 	ctime=$(stat -c %Z $TESTDIR/clone/file)
 	mtime=$(stat -c %Y $TESTDIR/clone/file)
-elif is_freebsd; then
+elif ( is_freebsd || is_macos ); then
 	atime=$(stat -f "%a" $TESTDIR/clone/file)
 	ctime=$(stat -f "%c" $TESTDIR/clone/file)
 	mtime=$(stat -f "%m" $TESTDIR/clone/file)

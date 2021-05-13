@@ -58,6 +58,10 @@ DEVS=$(get_pool_devices ${TESTPOOL} ${DEV_RDSKDIR})
 log_note "$DEVS"
 [[ -n $DEVS ]] && set -A DISK $DEVS
 
+if is_macos; then
+	log_must zpool export $TESTPOOL
+fi
+
 log_must dd if=/dev/zero of=$DEV_RDSKDIR/${DISK[1]} bs=1K count=256 conv=notrunc
 log_must truncate -s 0 $TEMPFILE
 
@@ -72,6 +76,10 @@ zdb -l $DEV_RDSKDIR/${DISK[1]}
 zdb -l $TEMPFILE
 [[ $? -ne 2 ]] &&
 	log_fail "zdb -l exit codes are incorrect."
+
+if is_macos; then
+	log_must zpool import $TESTPOOL
+fi
 
 cleanup
 

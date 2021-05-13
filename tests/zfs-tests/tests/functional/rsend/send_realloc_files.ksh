@@ -64,7 +64,7 @@ if is_kmemleak; then
 	# to avoid timeout due to reduced performance.
 	nr_files=100
 	passes=2
-elif is_freebsd; then
+elif is_freebsd || is_macos; then
 	# Use fewer passes and files on FreeBSD to avoid timeout.
 	nr_files=500
 	passes=2

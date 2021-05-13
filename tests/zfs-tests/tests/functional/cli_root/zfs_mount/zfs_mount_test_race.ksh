@@ -39,6 +39,7 @@
 verify_runnable "both"
 
 TMPDIR=${TMPDIR:-$TEST_BASE_DIR}
+TMPDIR=$(realpath $TMPDIR)
 MNTPT=$TMPDIR/zfs_mount_test_race_mntpt
 DISK1="$TMPDIR/zfs_mount_test_race_disk1"
 DISK2="$TMPDIR/zfs_mount_test_race_disk2"

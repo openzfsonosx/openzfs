@@ -66,6 +66,9 @@ FILEDIFF="$TESTDIR/zfs-diff.txt"
 # 1. Create a filesystem with both files and directories, then snapshot it
 log_must zfs create $DATASET
 MNTPOINT="$(get_prop mountpoint $DATASET)"
+log_must echo "MOUNTPOINT: $MNTPOINT"
+MNTPOINT=$(realpath "$MNTPOINT")
+log_must echo "REALMOUNTPOINT: $MNTPOINT"
 log_must touch "$MNTPOINT/fremoved"
 log_must touch "$MNTPOINT/frenamed"
 log_must touch "$MNTPOINT/fmodified"
@@ -84,6 +87,8 @@ log_must touch "$MNTPOINT/dmodified/file"
 log_must touch "$MNTPOINT/fcreated"
 log_must mkdir "$MNTPOINT/dcreated"
 log_must zfs snapshot "$TESTSNAP2"
+log_must echo "actual diff:"
+log_must zfs diff -F testpool/testfs/fs@snap1 testpool/testfs/fs@snap2
 verify_object_change "$MNTPOINT/fremoved" "-"
 verify_object_change "$MNTPOINT/frenamed.new" "R"
 verify_object_change "$MNTPOINT/fmodified" "M"

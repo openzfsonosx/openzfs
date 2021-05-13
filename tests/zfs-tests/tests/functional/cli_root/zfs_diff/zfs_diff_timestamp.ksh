@@ -65,6 +65,14 @@ MNTPOINT="$(get_prop mountpoint $DATASET)"
 FILEDIFF="$TESTDIR/zfs-diff.txt"
 FILENUM=5
 
+if is_macos; then
+	log_must rm -rfv "$MNTPOINT/.{,_.}{fseventsd,Spotlight-V*}"
+	log_must mkdir -pv "$MNTPOINT/.fseventsd"
+	log_must touch "$MNTPOINT/.fseventsd/no_log" "$MNTPOINT/.metadata_never_index"
+	log_must mdutil -i off "$MNTPOINT"
+	log_must mdutil -X "$MNTPOINT"
+fi
+
 # 1. Create a snapshot
 log_must zfs snapshot "$TESTSNAP1"
 
@@ -84,7 +92,9 @@ do
 		continue;
 	fi
 
-	if is_freebsd; then
+	log_must echo PATH
+	log_must echo "$PATH"
+	if ( is_freebsd || is_macos ); then
 		filetime="$(stat -f "%c" $file)"
 	else
 		filetime="$(stat -c '%Z' $file)"
