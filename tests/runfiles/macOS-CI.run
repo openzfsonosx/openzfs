@@ -22,6 +22,120 @@ failsafe = callbacks/zfs_failsafe
 outputdir = /var/tmp/test_results
 tags = ['functional']
 
-[tests/functional/raidz]
-tests = ['raidz_001_neg', 'raidz_002_pos']
-tags = ['functional', 'raidz']
+[tests/functional/cli_root/zpool_create]
+tests = ['zpool_create_001_pos', 'zpool_create_002_pos',
+    'zpool_create_003_pos', 'zpool_create_004_pos', 'zpool_create_005_pos',
+    'zpool_create_006_pos', 'zpool_create_007_neg', 'zpool_create_008_pos',
+    'zpool_create_009_neg', 'zpool_create_010_neg', 'zpool_create_011_neg',
+    'zpool_create_012_neg', 'zpool_create_014_neg', 'zpool_create_015_neg',
+    'zpool_create_017_neg', 'zpool_create_018_pos', 'zpool_create_019_pos',
+    'zpool_create_020_pos', 'zpool_create_021_pos', 'zpool_create_022_pos',
+    'zpool_create_023_neg',
+#    'zpool_create_024_pos',
+    'zpool_create_encrypted', 'zpool_create_crypt_combos',
+    'zpool_create_features_001_pos', 'zpool_create_features_002_pos',
+    'zpool_create_features_003_pos', 'zpool_create_features_004_neg',
+    'zpool_create_features_005_pos',
+    'create-o_ashift', 'zpool_create_tempname']
+tags = ['functional', 'cli_root', 'zpool_create']
+
+[tests/functional/cli_root/zpool_destroy]
+tests = ['zpool_destroy_001_pos', 'zpool_destroy_002_pos',
+    'zpool_destroy_003_neg']
+pre =
+post =
+tags = ['functional', 'cli_root', 'zpool_destroy']
+
+[tests/functional/cli_root/zpool_detach]
+tests = ['zpool_detach_001_neg']
+tags = ['functional', 'cli_root', 'zpool_detach']
+
+[tests/functional/cli_root/zpool_events]
+tests = ['zpool_events_clear', 'zpool_events_cliargs', 'zpool_events_follow',
+    'zpool_events_poolname', 'zpool_events_errors']
+tags = ['functional', 'cli_root', 'zpool_events']
+
+[tests/functional/cli_root/zpool_export]
+tests = ['zpool_export_001_pos', 'zpool_export_002_pos',
+    'zpool_export_003_neg', 'zpool_export_004_pos']
+tags = ['functional', 'cli_root', 'zpool_export']
+
+[tests/functional/cli_root/zpool_history]
+tests = ['zpool_history_001_neg', 'zpool_history_002_pos']
+tags = ['functional', 'cli_root', 'zpool_history']
+
+[tests/functional/cli_root/zpool_import]
+tests = ['zpool_import_001_pos', 'zpool_import_002_pos',
+    'zpool_import_003_pos', 'zpool_import_004_pos', 'zpool_import_005_pos',
+    'zpool_import_006_pos', 'zpool_import_007_pos', 'zpool_import_008_pos',
+    'zpool_import_009_neg', 'zpool_import_010_pos', 'zpool_import_011_neg',
+    'zpool_import_012_pos', 'zpool_import_013_neg', 'zpool_import_014_pos',
+    'zpool_import_015_pos',
+    'zpool_import_features_001_pos', 'zpool_import_features_002_neg',
+    'zpool_import_features_003_pos', 'zpool_import_missing_001_pos',
+    'zpool_import_missing_002_pos', 'zpool_import_missing_003_pos',
+    'zpool_import_rename_001_pos', 'zpool_import_all_001_pos',
+    'zpool_import_encrypted', 'zpool_import_encrypted_load',
+    'zpool_import_errata3', 'zpool_import_errata4',
+    'import_cachefile_device_added',
+    'import_cachefile_device_removed',
+    'import_cachefile_device_replaced',
+    'import_cachefile_mirror_attached',
+    'import_cachefile_mirror_detached',
+    'import_cachefile_shared_device',
+    'import_devices_missing',
+    'import_paths_changed',
+#    'import_rewind_config_changed',
+    'import_rewind_device_replaced']
+tags = ['functional', 'cli_root', 'zpool_import']
+
+[tests/functional/cli_root/zpool_labelclear]
+tests = ['zpool_labelclear_active', 'zpool_labelclear_exported',
+    'zpool_labelclear_removed', 'zpool_labelclear_valid']
+pre =
+post =
+tags = ['functional', 'cli_root', 'zpool_labelclear']
+
+[tests/functional/cli_root/zpool_initialize]
+tests = ['zpool_initialize_attach_detach_add_remove',
+    'zpool_initialize_import_export',
+    'zpool_initialize_offline_export_import_online',
+    'zpool_initialize_online_offline',
+    'zpool_initialize_split',
+    'zpool_initialize_start_and_cancel_neg',
+    'zpool_initialize_start_and_cancel_pos',
+    'zpool_initialize_suspend_resume',
+    'zpool_initialize_unsupported_vdevs',
+    'zpool_initialize_verify_checksums',
+    'zpool_initialize_verify_initialized']
+pre =
+tags = ['functional', 'cli_root', 'zpool_initialize']
+
+[tests/functional/cli_root/zpool_offline]
+tests = ['zpool_offline_001_pos', 'zpool_offline_002_neg',
+    'zpool_offline_003_pos']
+tags = ['functional', 'cli_root', 'zpool_offline']
+
+[tests/functional/cli_root/zpool_online]
+tests = ['zpool_online_001_pos', 'zpool_online_002_neg']
+tags = ['functional', 'cli_root', 'zpool_online']
+
+[tests/functional/cli_root/zpool_remove]
+tests = ['zpool_remove_001_neg', 'zpool_remove_002_pos',
+    'zpool_remove_003_pos']
+tags = ['functional', 'cli_root', 'zpool_remove']
+
+[tests/functional/cli_root/zpool_replace]
+tests = ['zpool_replace_001_neg', 'replace-o_ashift', 'replace_prop_ashift']
+tags = ['functional', 'cli_root', 'zpool_replace']
+
+[tests/functional/cli_root/zpool_resilver]
+tests = ['zpool_resilver_bad_args', 'zpool_resilver_restart']
+tags = ['functional', 'cli_root', 'zpool_resilver']
+
+[tests/functional/cli_root/zpool_scrub]
+tests = ['zpool_scrub_001_neg', 'zpool_scrub_002_pos', 'zpool_scrub_003_pos',
+    'zpool_scrub_004_pos', 'zpool_scrub_005_pos',
+    'zpool_scrub_encrypted_unloaded', 'zpool_scrub_print_repairing',
+    'zpool_scrub_offline_device', 'zpool_scrub_multiple_copies']
+tags = ['functional', 'cli_root', 'zpool_scrub']
