@@ -228,7 +228,8 @@ static void
 abd_alloc_zero_scatter(void)
 {
 	size_t n = abd_chunkcnt_for_bytes(SPA_MAXBLOCKSIZE);
-	abd_zero_buf = kmem_zalloc(zfs_abd_chunk_size, KM_SLEEP);
+	abd_zero_buf = kmem_cache_alloc(abd_chunk_cache, KM_SLEEP);
+	bzero(abd_zero_buf, zfs_abd_chunk_size);
 	abd_zero_scatter = abd_alloc_struct(SPA_MAXBLOCKSIZE);
 
 	abd_zero_scatter->abd_flags |= ABD_FLAG_OWNER | ABD_FLAG_ZEROS;
@@ -255,7 +256,7 @@ abd_free_zero_scatter(void)
 
 	abd_free_struct(abd_zero_scatter);
 	abd_zero_scatter = NULL;
-	kmem_free(abd_zero_buf, zfs_abd_chunk_size);
+	kmem_cache_free(abd_chunk_cache, abd_zero_buf);
 }
 
 void
