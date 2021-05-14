@@ -4514,7 +4514,6 @@ spl_free_reap_caches(void)
 	if (curtime - last_reap < reap_after)
 		return;
 
-	vmem_qcache_reap(abd_arena);
 	kmem_reap();
 	vmem_qcache_reap(kmem_va_arena);
 }
