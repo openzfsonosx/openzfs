@@ -61,6 +61,8 @@ struct leak {
 	char		location_function[SPL_DEBUG_MUTEX_MAXCHAR];
 	uint64_t	location_line;
 	void		*mp;
+#define	SPL_DEBUG_MUTEX_STACK 6
+	void		*stack[SPL_DEBUG_MUTEX_STACK];
 
 	uint64_t	wdlist_locktime;	// time lock was taken
 	char		wdlist_file[32];	// storing holder
@@ -188,12 +190,15 @@ spl_mutex_subsystem_fini(void)
 
 		} // for all nodes
 
-		printf("  mutex %p : %s %s %llu : # leaks: %u\n",
+		printf("  mutex %p : %s %s %llu : # leaks: %u stack:\n",
 		    leak->mp,
 		    leak->location_file,
 		    leak->location_function,
 		    leak->location_line,
 		    found);
+
+		for (int i = 1; i < SPL_DEBUG_MUTEX_STACK; i++)
+			printf("%p  ", leak->stack[i]);
 
 		FREE(leak, M_TEMP);
 		total += found;
@@ -205,6 +210,9 @@ spl_mutex_subsystem_fini(void)
 
 	while (wdlist_exit != 2)
 		delay(hz>>4);
+
+	// if (total > 0)
+	//	panic("found leaks");
 
 	lck_mtx_destroy((lck_mtx_t *)&mutex_list_mutex.m_lock, zfs_mutex_group);
 	list_destroy(&mutex_list);
@@ -259,6 +267,8 @@ spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type, void *ibc)
 		strlcpy(leak->location_function, fn, SPL_DEBUG_MUTEX_MAXCHAR);
 		leak->location_line = line;
 		leak->mp = mp;
+
+		getpcstack(leak->stack, SPL_DEBUG_MUTEX_STACK);
 
 		mutex_enter(&mutex_list_mutex);
 		list_link_init(&leak->mutex_leak_node);
