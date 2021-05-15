@@ -256,6 +256,13 @@ static kstat_t		*osx_kstat_ksp;
 
 extern kstat_t *arc_ksp;
 
+void
+moo(void *arg)
+{
+	uint64_t val = (uint64_t)arg;
+	printf("moo(%llu) ran\n", val);
+}
+
 static int osx_kstat_update(kstat_t *ksp, int rw)
 {
 	osx_kstat_t *ks = ksp->ks_data;
@@ -355,8 +362,41 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    ks->spa_max_replication_override.value.i64;
 		spa_mode_global =
 		    ks->spa_mode_global.value.i64;
-		zfs_flags =
-		    ks->zfs_flags.value.i64;
+
+		if (ks->zfs_flags.value.i64 == 999) {
+			clock_t now;
+			kmutex_t lock;
+			kcondvar_t cv;
+			mutex_init(&lock, NULL, MUTEX_DEFAULT, NULL);
+			cv_init(&cv, NULL, CV_DEFAULT, NULL);
+			mutex_enter(&lock);
+			now = ddi_get_lbolt();
+			printf("sleeping for 10 second. bolt: %llu\n",
+			    ddi_get_lbolt());
+			struct timespec ts;
+			ts.tv_sec = 10;
+			ts.tv_nsec = 0;
+			int r = msleep((void *)&cv, (lck_mtx_t *)&lock.m_lock,
+			    0, "test baby", &ts);
+			printf("sleep() %d bolt: %llu: diff %llu\n",
+			    r, ddi_get_lbolt(), ddi_get_lbolt() - now);
+			mutex_exit(&lock);
+			mutex_destroy(&lock);
+			cv_destroy(&cv);
+
+			now = ddi_get_lbolt();
+			printf("launching 3 delay threads 5,3,7: now %lu\n",
+			    now);
+			taskq_dispatch_delay(system_delay_taskq, moo, (void *)5,
+			    TQ_SLEEP, ddi_get_lbolt() + SEC_TO_TICK(5));
+			taskq_dispatch_delay(system_delay_taskq, moo, (void *)3,
+			    TQ_SLEEP, ddi_get_lbolt() + SEC_TO_TICK(3));
+			taskq_dispatch_delay(system_delay_taskq, moo, (void *)7,
+			    TQ_SLEEP, ddi_get_lbolt() + SEC_TO_TICK(7));
+		} else {
+			zfs_flags =
+			    ks->zfs_flags.value.i64;
+		}
 		zfs_txg_timeout =
 		    ks->zfs_txg_timeout.value.i64;
 		zfs_vdev_cache_max =
