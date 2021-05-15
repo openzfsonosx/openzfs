@@ -892,8 +892,6 @@ taskq_delay_dispatcher_thread(void *notused)
 		 * otherwise, sleep on list_head (lowest in the list)
 		 */
 		tqdnode = list_head(&tqd_list);
-		printf("%s: %p going to sleep (until %lu)\n", __func__, tqdnode,
-		    tqdnode ? tqdnode->tqd_time : 0);
 
 		if (tqdnode == NULL)
 			(void) cv_wait(&tqd_delay_cv, &tqd_delay_lock);
@@ -909,16 +907,9 @@ taskq_delay_dispatcher_thread(void *notused)
 		tqdnode = list_head(&tqd_list);
 		if (tqdnode != NULL) {
 			clock_t now = ddi_get_lbolt();
-
-			printf("%s: %p awoke: node %lu <= now %lu\n",
-			    __func__, tqdnode,
-			    tqdnode->tqd_time, now);
-
 			/* Time has arrived */
 			if (tqdnode->tqd_time <= now) {
 				list_remove(&tqd_list, tqdnode);
-				printf("%s: %p removed and executing\n",
-				    __func__, tqdnode);
 				taskq_dispatch(tqdnode->tqd_taskq,
 				    tqdnode->tqd_func, tqdnode->tqd_arg,
 				    tqdnode->tqd_tqflags);
@@ -963,8 +954,6 @@ taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg, uint_t tqflags,
 	tqdnode->tqd_tqflags = tqflags;
 
 	mutex_enter(&tqd_delay_lock);
-	printf("%s: %p new node: %lu\n",
-	    __func__, tqdnode, expire_time);
 
 	/* Insert sorted on time */
 	tqdelay_t *runner;
@@ -973,22 +962,11 @@ taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg, uint_t tqflags,
 	    runner = list_next(&tqd_list, runner))
 		if (tqdnode->tqd_time < runner->tqd_time) {
 			list_insert_before(&tqd_list, runner, tqdnode);
-			printf("%s: %p inserted into list: %ld then %ld\n",
-			    __func__, tqdnode,
-			    tqdnode->tqd_time,
-			    runner->tqd_time);
 			break;
 		}
 	if (runner == NULL) {
 		list_insert_tail(&tqd_list, tqdnode);
-		printf("%s: %p inserted at tail\n",
-		    __func__, tqdnode);
 	}
-	printf("The supposed ordered list is now:\n");
-	for (runner = list_head(&tqd_list);
-	    runner != NULL;
-	    runner = list_next(&tqd_list, runner))
-		printf("%p delay %lu\n", runner, runner->tqd_time);
 
 	/* We have added to the list, wake the thread up */
 	cv_broadcast(&tqd_delay_cv);
@@ -1006,8 +984,6 @@ taskq_cancel_id(taskq_t *tq, taskqid_t id)
 	/* delay_taskq active? Linux will call with id==NULL */
 	if (task != NULL) {
 
-		printf("%s: %p wanting to cancel\n", __func__, task);
-
 		/* Don't trust 'task' until it is found in the list */
 		mutex_enter(&tqd_delay_lock);
 
@@ -1023,8 +999,6 @@ taskq_cancel_id(taskq_t *tq, taskqid_t id)
 				 * free the memory as "time" is passed in as a
 				 * variable.
 				 */
-				printf("%s: %p cancel found, removed\n",
-				    __func__, task);
 				list_remove(&tqd_list, tqdnode);
 				cv_signal(&tqd_delay_cv);
 				mutex_exit(&tqd_delay_lock);
