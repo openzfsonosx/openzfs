@@ -387,7 +387,7 @@ do_unmount(zfs_handle_t *zhp, const char *mntpt, int flags)
 	rv = do_unmount_impl(mntpt, flags);
 
 	/* We might need to remove the proxy as well */
-	if (rv == 0) {
+	if (rv == 0 && zhp != NULL) {
 		zfs_cmd_t zc = { "\0" };
 		nvlist_t *args = NULL;
 
@@ -427,6 +427,9 @@ unmount_snapshots(zfs_handle_t *zhp, const char *mntpt, int flags)
 {
 	struct mnttab entry;
 	int len = strlen(mntpt);
+
+	if (zhp == NULL)
+		return;
 
 	while (getmntent(zhp->zfs_hdl->libzfs_mnttab, &entry) == 0) {
 		/* Starts with our mountpoint ? */
