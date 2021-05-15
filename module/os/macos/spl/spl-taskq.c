@@ -502,6 +502,7 @@
 #include <mach/thread_act.h>
 #include <mach/thread_policy.h>
 #endif
+#include <sys/list.h>
 
 static kmem_cache_t *taskq_ent_cache, *taskq_cache;
 
@@ -833,11 +834,7 @@ taskq_ent_constructor(void *buf, void *cdrarg, int kmflags)
 	/* Simulate TS_STOPPED */
 	mutex_init(&tqe->tqent_thread_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&tqe->tqent_thread_cv, NULL, CV_DEFAULT, NULL);
-	mutex_init(&tqe->tqent_delay_lock, NULL, MUTEX_DEFAULT, NULL);
-	cv_init(&tqe->tqent_delay_cv, NULL, CV_DEFAULT, NULL);
 #endif /* __APPLE__ */
-
-	tqe->tqent_delay_time = 0;
 	return (0);
 }
 
@@ -853,9 +850,207 @@ taskq_ent_destructor(void *buf, void *cdrarg)
 	/* See comment in taskq_d_thread(). */
 	mutex_destroy(&tqe->tqent_thread_lock);
 	cv_destroy(&tqe->tqent_thread_cv);
-	mutex_destroy(&tqe->tqent_delay_lock);
-	cv_destroy(&tqe->tqent_delay_cv);
 #endif /* __APPLE__ */
+}
+
+
+struct tqdelay {
+	// list
+	list_node_t tqd_listnode;
+	// time (list sorted on this)
+	clock_t	tqd_time;
+	// func
+	taskq_t *tqd_taskq;
+	task_func_t	*tqd_func;
+	void *tqd_arg;
+	uint_t tqd_tqflags;
+};
+
+typedef struct tqdelay tqdelay_t;
+
+static list_t tqd_list;
+static kmutex_t	tqd_delay_lock;
+static kcondvar_t tqd_delay_cv;
+static int tqd_do_exit = 0;
+
+static void
+taskq_delay_dispatcher_thread(void *notused)
+{
+	callb_cpr_t		cpr;
+
+	dprintf("%s: starting\n", __func__);
+	CALLB_CPR_INIT(&cpr, &tqd_delay_lock, callb_generic_cpr, FTAG);
+
+	mutex_enter(&tqd_delay_lock);
+	while (tqd_do_exit == 0) {
+		int didsleep = 0;
+		tqdelay_t *tqdnode;
+		CALLB_CPR_SAFE_BEGIN(&cpr);
+
+		/*
+		 * If list is empty, just sleep until signal,
+		 * otherwise, sleep on list_head (lowest in the list)
+		 */
+		tqdnode = list_head(&tqd_list);
+
+		if (tqdnode == NULL)
+			(void) cv_wait(&tqd_delay_cv, &tqd_delay_lock);
+		else
+			didsleep = cv_timedwait(&tqd_delay_cv,
+			    &tqd_delay_lock, tqdnode->tqd_time);
+		CALLB_CPR_SAFE_END(&cpr, &tqd_delay_lock);
+
+		if (tqd_do_exit != 0)
+			break;
+
+		/* If we got a node, and we slept until expired, run it. */
+		tqdnode = list_head(&tqd_list);
+		if (tqdnode != NULL) {
+			clock_t now = ddi_get_lbolt();
+			/* Time has arrived */
+			if (tqdnode->tqd_time <= now) {
+				list_remove(&tqd_list, tqdnode);
+				taskq_dispatch(tqdnode->tqd_taskq,
+				    tqdnode->tqd_func, tqdnode->tqd_arg,
+				    tqdnode->tqd_tqflags);
+				kmem_free(tqdnode, sizeof (tqdelay_t));
+			}
+		}
+	}
+
+	tqd_do_exit = 0;
+	cv_broadcast(&tqd_delay_cv);
+	CALLB_CPR_EXIT(&cpr);		/* drops lock */
+	dprintf("%s: exit\n", __func__);
+	thread_exit();
+}
+
+taskqid_t
+taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg, uint_t tqflags,
+    clock_t expire_time)
+{
+	tqdelay_t *tqdnode;
+
+	tqdnode = kmem_alloc(sizeof (tqdelay_t), KM_SLEEP);
+
+	/* If it has already expired, just dispatch */
+	if (expire_time <= ddi_get_lbolt()) {
+		(void) taskq_dispatch(tq, func, arg, tqflags);
+		/*
+		 * We free the node here, and still return the pointer.
+		 * If they call taskq_cancel_id() the pointer wil not be
+		 * in the list, so nothing happens.
+		 * We could make this use something like KMEM_ZERO_SIZE_PTR
+		 * but perhaps the callers expect unique ids?
+		 */
+		kmem_free(tqdnode, sizeof (tqdelay_t));
+		return ((taskqid_t)tqdnode);
+	}
+
+	tqdnode->tqd_time   = expire_time;
+	tqdnode->tqd_taskq  = tq;
+	tqdnode->tqd_func   = func;
+	tqdnode->tqd_arg    = arg;
+	tqdnode->tqd_tqflags = tqflags;
+
+	mutex_enter(&tqd_delay_lock);
+
+	/* Insert sorted on time */
+	tqdelay_t *runner;
+	for (runner = list_head(&tqd_list);
+	    runner != NULL;
+	    runner = list_next(&tqd_list, runner))
+		if (tqdnode->tqd_time < runner->tqd_time) {
+			list_insert_before(&tqd_list, runner, tqdnode);
+			break;
+		}
+	if (runner == NULL) {
+		list_insert_tail(&tqd_list, tqdnode);
+	}
+
+	/* We have added to the list, wake the thread up */
+	cv_broadcast(&tqd_delay_cv);
+	mutex_exit(&tqd_delay_lock);
+
+	return ((taskqid_t)tqdnode);
+}
+
+int
+taskq_cancel_id(taskq_t *tq, taskqid_t id)
+{
+	tqdelay_t *task = (tqdelay_t *)id;
+	tqdelay_t *tqdnode;
+
+	/* delay_taskq active? Linux will call with id==NULL */
+	if (task != NULL) {
+
+		/* Don't trust 'task' until it is found in the list */
+		mutex_enter(&tqd_delay_lock);
+
+		for (tqdnode = list_head(&tqd_list);
+		    tqdnode != NULL;
+		    tqdnode = list_next(&tqd_list, tqdnode)) {
+
+			if (tqdnode == task) {
+				/*
+				 * task exists and needs to be cancelled.
+				 * remove it from list, and wake the thread up
+				 * as it might be sleeping on this node. We can
+				 * free the memory as "time" is passed in as a
+				 * variable.
+				 */
+				list_remove(&tqd_list, tqdnode);
+				cv_signal(&tqd_delay_cv);
+				mutex_exit(&tqd_delay_lock);
+
+				kmem_free(tqdnode, sizeof (tqdelay_t));
+
+				return (1);
+
+			} // task == tqdnode
+		} // for
+		mutex_exit(&tqd_delay_lock);
+	} // task != NULL
+	return (0);
+}
+
+void
+taskq_start_delay_thread(void)
+{
+	list_create(&tqd_list, sizeof (tqdelay_t),
+	    offsetof(tqdelay_t, tqd_listnode));
+	mutex_init(&tqd_delay_lock, NULL, MUTEX_DEFAULT, NULL);
+	cv_init(&tqd_delay_cv, NULL, CV_DEFAULT, NULL);
+	tqd_do_exit = 0;
+	(void) thread_create(NULL, 0, taskq_delay_dispatcher_thread,
+	    NULL, 0, &p0, TS_RUN, minclsyspri);
+}
+
+void
+taskq_stop_delay_thread(void)
+{
+	tqdelay_t *tqdnode;
+
+	mutex_enter(&tqd_delay_lock);
+	tqd_do_exit = 1;
+	/*
+	 * The reclaim thread will set arc_reclaim_thread_exit back to
+	 * FALSE when it is finished exiting; we're waiting for that.
+	 */
+	while (tqd_do_exit) {
+		cv_signal(&tqd_delay_cv);
+		cv_wait(&tqd_delay_cv, &tqd_delay_lock);
+	}
+	mutex_exit(&tqd_delay_lock);
+	mutex_destroy(&tqd_delay_lock);
+	cv_destroy(&tqd_delay_cv);
+
+	while ((tqdnode = list_head(&tqd_list)) != NULL) {
+		list_remove(&tqd_list, tqdnode);
+		kmem_free(tqdnode, sizeof (tqdelay_t));
+	}
+
+	list_destroy(&tqd_list);
 }
 
 int
@@ -1034,12 +1229,17 @@ system_taskq_init(void)
 
 	system_delay_taskq = taskq_create("system_delay_taskq", max_ncpus,
 	    minclsyspri, max_ncpus, INT_MAX, TASKQ_PREPOPULATE);
+
+	taskq_start_delay_thread();
+
 }
 
 
 void
 system_taskq_fini(void)
 {
+	taskq_stop_delay_thread();
+
 	if (system_delay_taskq)
 		taskq_destroy(system_delay_taskq);
 	if (system_taskq)
@@ -1222,9 +1422,8 @@ taskq_bucket_dispatch(taskq_bucket_t *b, task_func_t func, void *arg)
  *	    Actual return value is the pointer to taskq entry that was used to
  *	    dispatch a task. This is useful for debugging.
  */
-static taskqid_t
-taskq_dispatch_impl(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
-    clock_t expire_time)
+taskqid_t
+taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
 {
 	taskq_bucket_t *bucket = NULL;	/* Which bucket needs extension */
 	taskq_ent_t *tqe = NULL;
@@ -1252,9 +1451,6 @@ taskq_dispatch_impl(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
 		}
 		/* Make sure we start without any flags */
 		tqe->tqent_un.tqent_flags = 0;
-
-		/* If expire_time is set, this arms the cv_timedwait */
-		tqe->tqent_delay_time = expire_time;
 
 		if (flags & TQ_FRONT) {
 			TQ_ENQUEUE_FRONT(tq, tqe, func, arg);
@@ -1383,28 +1579,6 @@ taskq_dispatch_impl(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
 	mutex_exit(&tq->tq_lock);
 
 	return ((taskqid_t)tqe);
-}
-
-taskqid_t
-taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
-{
-	return (taskq_dispatch_impl(tq, func, arg, flags, 0));
-}
-
-/*
- * Set a taskq to be fired atfer 'expire_time' is met, unless
- * taskq_cancel_id is called. Used by spa_deadman logic (start
- * txg IO, and deadman is called if txg isn't synced in time)
- */
-taskqid_t
-taskq_dispatch_delay(taskq_t *tq,  task_func_t func, void *arg, uint_t tqflags,
-    clock_t expire_time)
-{
-	/* If it has already expired, just dispatch */
-	if (expire_time <= ddi_get_lbolt())
-		expire_time = 0;
-
-	return (taskq_dispatch_impl(tq, func, arg, tqflags, expire_time));
 }
 
 void
@@ -1581,52 +1755,6 @@ taskq_t *
 taskq_of_curthread(void)
 {
 	return (tsd_get(taskq_tsd));
-}
-
-/*
- * Cancel an already dispatched task given the task id.  Still pending tasks
- * will be immediately canceled, and if the task is active the function will
- * block until it completes.  Preallocated tasks which are canceled must be
- * freed by the caller.
- */
-int
-taskq_cancel_id(taskq_t *tq, taskqid_t id)
-{
-	taskq_ent_t *task = (taskq_ent_t *)id;
-
-	// delay_taskq active? Linux will call with id==0
-	if (task != NULL) {
-		mutex_enter(&tq->tq_lock);
-		if (task->tqent_delay_time != 0) {
-			// If delay_time is set, we can grab the mutex
-			mutex_enter(&task->tqent_delay_lock);
-
-			// -2 already canceled
-			// -1 cancelling
-			// >0 sleeping
-			if (task->tqent_delay_time > 0 &&
-			    task->tqent_delay_time != -1 &&
-			    task->tqent_delay_time != -2) {
-				task->tqent_delay_time = -1; // Signal cancel
-				cv_broadcast(&task->tqent_delay_cv);
-
-			mutex_exit(&tq->tq_lock);
-
-			// Wait for -2, so we are sure it is stopped.
-			while (task->tqent_delay_time != -2)
-				cv_wait(&task->tqent_delay_cv,
-				    &task->tqent_delay_lock);
-
-			}
-
-			mutex_exit(&task->tqent_delay_lock);
-			return (0);
-
-		}
-		mutex_exit(&tq->tq_lock);
-	}
-
-	return (0);
 }
 
 /*
@@ -1941,8 +2069,9 @@ taskq_thread(void *arg)
 				 * tq_nthreads_target to 0)
 				 */
 				if (thread_id == tq->tq_nthreads ||
-				    tq->tq_nthreads_target == 0)
+				    tq->tq_nthreads_target == 0) {
 					break;
+				}
 
 				/* Wait for higher thread_ids to exit */
 				(void) taskq_thread_wait(tq, &tq->tq_lock,
@@ -1995,40 +2124,6 @@ taskq_thread(void *arg)
 			freeit = B_FALSE;
 		} else {
 			freeit = B_TRUE;
-		}
-
-
-		// Should we delay?
-		if (tqe->tqent_delay_time != 0) {
-			int didsleep = 0; // -1 means we timedout, run taskq
-			mutex_enter(&tqe->tqent_delay_lock);
-			/* Only sleep if not cancelled */
-			if (tqe->tqent_delay_time > 0 &&
-			    tqe->tqent_delay_time != -1 &&
-			    tqe->tqent_delay_time != -2) {
-				VERIFY(tqe->tqent_delay_time != -1);
-				VERIFY(tqe->tqent_delay_time != -2);
-				didsleep = cv_timedwait(&tqe->tqent_delay_cv,
-				    &tqe->tqent_delay_lock,
-				    tqe->tqent_delay_time);
-			}
-
-			// Did we wake up from being canceled?
-			if (tqe->tqent_delay_time == -1 || (didsleep != -1)) {
-
-				// Signal we quit
-				tqe->tqent_delay_time = -2;
-				cv_signal(&tqe->tqent_delay_cv);
-				mutex_exit(&tqe->tqent_delay_lock);
-
-				// Pretend we ran "->func()", loop back to idle
-				mutex_enter(&tq->tq_lock);
-				if (freeit)
-					taskq_ent_free(tq, tqe);
-				continue;
-			}
-			tqe->tqent_delay_time = 0;
-			mutex_exit(&tqe->tqent_delay_lock);
 		}
 
 		rw_enter(&tq->tq_threadlock, RW_READER);
@@ -2662,7 +2757,6 @@ taskq_bucket_extend(void *arg)
 	ASSERT(tqe->tqent_thread == NULL);
 
 	tqe->tqent_un.tqent_bucket = b;
-	tqe->tqent_delay_time = 0;
 
 #ifdef __APPLE__
 	/*
