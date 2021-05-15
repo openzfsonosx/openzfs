@@ -25,7 +25,7 @@
 #include <sys/time.h>
 #include <sys/mutex.h>
 
-#define	hz	10  /* frequency when using gethrtime() >> 23 for lbolt */
+#define	hz	100  /* sysctl kern.clockrate */
 
 typedef enum {
 	CV_DEFAULT,
