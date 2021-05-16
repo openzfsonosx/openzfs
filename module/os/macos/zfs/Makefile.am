@@ -16,6 +16,7 @@ zfs_CPPFLAGS = \
 	-DKERNEL_PRIVATE \
 	-DDRIVER_PRIVATE \
 	-DNAMEDSTREAMS=1 \
+	-D__DARWIN_64_BIT_INO_T=1 \
 	-DAPPLE \
 	-DNeXT \
 	-include $(top_builddir)/zfs_config.h \

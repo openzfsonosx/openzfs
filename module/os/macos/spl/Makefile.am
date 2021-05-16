@@ -9,6 +9,7 @@ libspl_la_CPPFLAGS= \
 	-DKERNEL \
 	-DKERNEL_PRIVATE \
 	-DDRIVER_PRIVATE \
+	-D__DARWIN_64_BIT_INO_T=1 \
 	-DAPPLE \
 	-DNeXT \
 	-include $(top_builddir)/zfs_config.h \
