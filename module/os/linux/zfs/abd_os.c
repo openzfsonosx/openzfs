@@ -760,7 +760,8 @@ abd_alloc_for_io(size_t size, boolean_t is_metadata)
 }
 
 abd_t *
-abd_get_offset_scatter(abd_t *abd, abd_t *sabd, size_t off)
+abd_get_offset_scatter(abd_t *abd, abd_t *sabd, size_t off,
+    __unused size_t size)
 {
 	int i = 0;
 	struct scatterlist *sg = NULL;
