@@ -51,6 +51,7 @@ uint64_t zfs_active_mutex = 0;
 #include <sys/list.h>
 static list_t mutex_list;
 static kmutex_t mutex_list_mutex;
+static kcondvar_t mutex_list_cv;
 
 
 struct leak {
@@ -84,10 +85,14 @@ spl_wdlist_check(void *ignored)
 	struct leak *mp;
 	printf("SPL: Mutex watchdog is alive\n");
 
+	mutex_enter(&mutex_list_mutex);
 	while (!wdlist_exit) {
-		delay(hz * SPL_MUTEX_WATCHDOG_SLEEP);
+
+		(void) cv_timedwait(&mutex_list_cv,
+		    &mutex_list_mutex, ddi_get_lbolt() +
+		    SEC_TO_TICK(SPL_MUTEX_WATCHDOG_SLEEP));
+
 		uint64_t noe = gethrestime_sec();
-		lck_mtx_lock((lck_mtx_t *)&mutex_list_mutex.m_lock);
 		for (mp = list_head(&mutex_list);
 		    mp;
 		    mp = list_next(&mutex_list, mp)) {
@@ -100,11 +105,13 @@ spl_wdlist_check(void *ignored)
 				    mp->wdlist_line);
 			} // if old
 		} // for all
-		lck_mtx_unlock((lck_mtx_t *)&mutex_list_mutex.m_lock);
 	} // while not exit
 
+	wdlist_exit = 0;
+	cv_signal(&mutex_list_cv);
+	mutex_exit(&mutex_list_mutex);
+
 	printf("SPL: watchdog thread exit\n");
-	wdlist_exit = 2;
 	thread_exit();
 }
 #endif
@@ -135,11 +142,14 @@ spl_mutex_subsystem_init(void)
 
 	list_create(&mutex_list, sizeof (struct leak),
 	    offsetof(struct leak, mutex_leak_node));
+	/* We can not call mutex_init() as it would use "leak" */
 	lck_mtx_init((lck_mtx_t *)&mutex_list_mutex.m_lock, zfs_mutex_group,
 	    zfs_lock_attr);
 	mutex_list_mutex.m_initialised = MUTEX_INIT;
+	cv_init(&mutex_list_cv, NULL, CV_DEFAULT, NULL);
 
-	(void) thread_create(NULL, 0, spl_wdlist_check, 0, 0, 0, 0, 92);
+	(void) thread_create(NULL, 0, spl_wdlist_check, 0, 0, 0, 0,
+	    maxclsyspri);
 #endif
 	return (0);
 }
@@ -152,8 +162,6 @@ spl_mutex_subsystem_fini(void)
 #ifdef SPL_DEBUG_MUTEX
 	uint64_t total = 0;
 	printf("Dumping leaked mutex allocations...\n");
-
-	wdlist_exit = 1;
 
 	mutex_enter(&mutex_list_mutex);
 	while (1) {
@@ -203,10 +211,17 @@ spl_mutex_subsystem_fini(void)
 	printf("Dumped %llu leaked allocations. Wait for watchdog "
 	    "to exit..\n", total);
 
-	while (wdlist_exit != 2)
-		delay(hz>>4);
-
+	/* Asking for it to quit */
+	mutex_enter(&mutex_list_mutex);
+	wdlist_exit = 1;
+	while (wdlist_exit) {
+		cv_signal(&mutex_list_cv);
+		cv_wait(&mutex_list_cv, &mutex_list_mutex);
+	}
+	mutex_exit(&mutex_list_mutex);
+	/* We can not call mutex_destroy() as it uses leak */
 	lck_mtx_destroy((lck_mtx_t *)&mutex_list_mutex.m_lock, zfs_mutex_group);
+	cv_destroy(&mutex_list_cv);
 	list_destroy(&mutex_list);
 #endif
 

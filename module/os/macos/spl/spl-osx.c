@@ -93,7 +93,7 @@ osx_delay(int ticks)
 	}
 
 	// ticks are 10 msec units
-	int64_t ticks_to_go = (int64_t)ticks * 10LL;
+	int64_t ticks_to_go = (int64_t)ticks;
 	// zfs_lbolt() is in 10 mec units
 	int64_t start_tick = (int64_t)zfs_lbolt();
 	int64_t end_tick = start_tick + (int64_t)ticks_to_go;
