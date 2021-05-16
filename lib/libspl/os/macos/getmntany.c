@@ -28,9 +28,6 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved	*/
 
-/* Make sure the string members are 1024 */
-#define	_DARWIN_FEATURE_64_BIT_INODE
-
 #include <stdio.h>
 #include <string.h>
 #include <mntent.h>
