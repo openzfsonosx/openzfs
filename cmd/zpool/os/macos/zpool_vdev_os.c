@@ -88,6 +88,18 @@ check_slice(const char *path, int force, boolean_t isspare)
 	return (0);
 }
 
+/*
+ * Validate that a disk including all partitions are safe to use.
+ *
+ * For EFI labeled disks this can done relatively easily with the libefi
+ * library.  The partition numbers are extracted from the label and used
+ * to generate the expected /dev/ paths.  Each partition can then be
+ * checked for conflicts.
+ *
+ * For non-EFI labeled disks (MBR/EBR/etc) the same process is possible
+ * but due to the lack of a readily available libraries this scanning is
+ * not implemented.  Instead only the device path as given is checked.
+ */
 static int
 check_disk(const char *path, int force,
     boolean_t isspare, boolean_t iswholedisk)
@@ -95,18 +107,22 @@ check_disk(const char *path, int force,
 	struct dk_gpt *vtoc;
 	char slice_path[MAXPATHLEN];
 	int err = 0;
-	int slice_err = 0;
 	int fd, i;
+	int flags = O_RDONLY|O_DIRECT;
 
 	if (!iswholedisk)
 		return (check_slice(path, force, isspare));
 
-	if ((fd = open(path, O_RDONLY|O_DIRECT)) < 0) {
-		check_error(errno);
+	/* only spares can be shared, other devices require exclusive access */
+	if (!isspare)
+		flags |= O_EXCL;
+
+	if ((fd = open(path, flags)) < 0) {
 		return (-1);
 	}
+
 	/*
-	 * Expected to fail for non-EFI labled disks.  Just check the device
+	 * Expected to fail for non-EFI labeled disks.  Just check the device
 	 * as given and do not attempt to detect and scan partitions.
 	 */
 	err = efi_alloc_and_read(fd, &vtoc);
@@ -125,7 +141,7 @@ check_disk(const char *path, int force,
 		(void) close(fd);
 
 		if (force) {
-			/* Partitions will no be created using the backup */
+			/* Partitions will now be created using the backup */
 			return (0);
 		} else {
 			vdev_error(gettext("%s contains a corrupt primary "
@@ -133,17 +149,17 @@ check_disk(const char *path, int force,
 			return (-1);
 		}
 	}
+
 	for (i = 0; i < vtoc->efi_nparts; i++) {
 		if (vtoc->efi_parts[i].p_tag == V_UNASSIGNED ||
 		    uuid_is_null((uchar_t *)&vtoc->efi_parts[i].p_guid))
 			continue;
 		(void) snprintf(slice_path, sizeof (slice_path),
 		    "%ss%d", path, i+1);
-		slice_err = check_slice(slice_path, force, isspare);
 
-		// Latch the first error that occurs
-		if (err == 0)
-			err = slice_err;
+		err = check_slice(slice_path, force, isspare);
+		if (err)
+			break;
 	}
 
 	efi_free(vtoc);
@@ -152,18 +168,11 @@ check_disk(const char *path, int force,
 	return (err);
 }
 
-
 int
-check_device(const char *name, boolean_t force,
+check_device(const char *path, boolean_t force,
     boolean_t isspare, boolean_t iswholedisk)
 {
-	char path[MAXPATHLEN];
 	int error;
-
-	if (strncmp(name, _PATH_DEV, sizeof (_PATH_DEV) - 1) != 0)
-		snprintf(path, sizeof (path), "%s%s", _PATH_DEV, name);
-	else
-		strlcpy(path, name, sizeof (path));
 
 	error = check_disk(path, force, isspare, iswholedisk);
 	if (error != 0)

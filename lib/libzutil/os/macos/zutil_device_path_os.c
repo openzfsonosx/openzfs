@@ -32,10 +32,6 @@
 #include <libzutil.h>
 
 /*
- * We don't strip/append partitions on FreeBSD.
- */
-
-/*
  * Note: The caller must free the returned string.
  */
 char *
@@ -43,6 +39,7 @@ zfs_strip_partition(char *dev)
 {
 	unsigned int disk, slice;
 	char *partless;
+	char whole_disk[MAXPATHLEN];
 
 	partless = strdup(dev);
 
@@ -52,6 +49,16 @@ zfs_strip_partition(char *dev)
 		r = strrchr(partless, 's');
 		if (r != NULL)
 			*r = 0;
+	} else if ((sscanf(partless, "%[^:]:%u", whole_disk, &slice)) == 2) {
+		char *r;
+		r = strrchr(partless, ':');
+		if (r != NULL) {
+			if (strchr(partless, '@')) { // by-path
+				if (slice == 1)
+					r[1] = '0';
+			} else // by-serial
+				*r = 0;
+		}
 	}
 
 	return (partless);
@@ -61,23 +68,29 @@ int
 zfs_append_partition(char *path, size_t max_len)
 {
 	int len = strlen(path);
+	char dpath[max_len];
+	if (strncmp(path, "/var/", 5) == 0) {
+		(void) strlcpy(dpath, "/private", max_len);
+		(void) strlcat(dpath, path, max_len);
+	} else
+		strlcpy(dpath, path, max_len);
 
-	if (strncmp(path, "/private/var/run/disk/by-id", 27) == 0) {
+
+	if (strncmp(dpath, "/private/var/run/disk/by-id", 27) == 0) {
 		return (len);
-	} else if (strncmp(path, "/private/var/run/disk/by-path", 29) == 0) {
+	} else if (strncmp(dpath, "/private/var/run/disk/by-path", 29) == 0) {
 		if (path[len - 1] == '0' &&
 		    path[len - 2] == ':')
 			path[len - 1] = '1';
-		else
-			return (-1); /* should have ended with ":0" */
 
-	} else if (strncmp(path, "/private/var/run/disk/by-serial", 31) == 0) {
+	} else if (strncmp(dpath, "/private/var/run/disk/by-serial", 31) == 0) {
 		if (len + 2 >= max_len)
 			return (-1);
 
-		(void) strcat(path, ":1");
-		len += 2;
-
+		if (strchr(path, ':') == NULL) {
+			(void) strcat(path, ":1");
+			len += 2;
+		}
 	} else {
 
 		if (len + 2 >= max_len)
