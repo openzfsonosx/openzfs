@@ -4058,6 +4058,7 @@ zfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 				} // Correct size
 				zrele(xzp);
 			} // lookup
+			kmem_free(cn.cn_nameptr, cn.cn_namelen);
 		} // finderinfo
 
 
