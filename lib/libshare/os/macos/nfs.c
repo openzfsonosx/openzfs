@@ -362,8 +362,10 @@ nfs_is_shared(sa_share_impl_t impl_share)
 
 	for (;;) {
 		s = fgets(line, sizeof (line), fp);
-		if (s == NULL)
+		if (s == NULL) {
+			fclose(fp);
 			return (B_FALSE);
+		}
 		/* Skip empty lines and comments. */
 		if (line[0] == '\n' || line[0] == '#')
 			continue;

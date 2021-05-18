@@ -46,6 +46,8 @@
 #define	DIFF(xx) ((mrefp->xx != NULL) && \
 		(mgetp->xx == NULL || strcmp(mrefp->xx, mgetp->xx) != 0))
 
+static libzfs_handle_t *static_zfs = NULL;
+
 static struct statfs *gsfs = NULL;
 static int allfs = 0;
 /*
@@ -346,18 +348,14 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 	// fstypename, as libzfs_mnttab_find() checks for it.
 	int is_actually_zfs = 0;
 
-	// This is rather unattractive, is there a better way.
-	libzfs_handle_t *g_zfs = NULL;
-	if (g_zfs == NULL)
-		g_zfs = libzfs_init();
-
 	if (expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname)))
 		is_actually_zfs = 1;
 	// check if it is a valid dataset (fastpast, first char isn't '/'
 	// in case mimic is enabled
 	else if (sfs->f_mntfromname[0] != '/' &&
-	    g_zfs != NULL &&
-	    zfs_dataset_exists(g_zfs, sfs->f_mntfromname, ZFS_TYPE_DATASET))
+	    static_zfs != NULL &&
+	    zfs_dataset_exists(static_zfs, sfs->f_mntfromname,
+	    ZFS_TYPE_DATASET))
 		is_actually_zfs = 1;
 
 	if (is_actually_zfs)
@@ -416,6 +414,9 @@ getmntany(FILE *fd __unused, struct mnttab *mgetp, struct mnttab *mrefp)
 	if (error != 0)
 		return (error);
 
+	if (static_zfs == NULL)
+		static_zfs = libzfs_init();
+
 	for (i = 0; i < allfs; i++) {
 		statfs2mnttab(&gsfs[i], mgetp);
 		if (mrefp->mnt_special != NULL && mgetp->mnt_special != NULL &&
@@ -430,7 +431,13 @@ getmntany(FILE *fd __unused, struct mnttab *mgetp, struct mnttab *mrefp)
 		    strcmp(mrefp->mnt_fstype, mgetp->mnt_fstype) != 0) {
 			continue;
 		}
+		if (static_zfs != NULL)
+			libzfs_fini(static_zfs);
 		return (0);
+	}
+	if (static_zfs != NULL) {
+		libzfs_fini(static_zfs);
+		static_zfs = NULL;
 	}
 	return (-1);
 }
@@ -440,6 +447,9 @@ getmntent(FILE *fp, struct mnttab *mp)
 {
 	static int index = -1;
 	int error = 0;
+
+	if (static_zfs == NULL)
+		static_zfs = libzfs_init();
 
 	if (index < 0) {
 		error = statfs_init();
@@ -454,6 +464,10 @@ getmntent(FILE *fp, struct mnttab *mp)
 	// start from the beginning, and return EOF.
 	if (index >= allfs) {
 		index = -1;
+		if (static_zfs != NULL) {
+			libzfs_fini(static_zfs);
+			static_zfs = NULL;
+		}
 		return (-1);
 	}
 
@@ -482,6 +496,16 @@ getextmntent(const char *path, struct extmnttab *entry, struct stat64 *statbuf)
 		    strerror(errno));
 		return (-1);
 	}
+
+	if (static_zfs == NULL)
+		static_zfs = libzfs_init();
+
 	statfs2mnttab(&sfs, (struct mnttab *)entry);
+
+	if (static_zfs != NULL) {
+		libzfs_fini(static_zfs);
+		static_zfs = NULL;
+	}
+
 	return (0);
 }
