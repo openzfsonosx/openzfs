@@ -47,4 +47,33 @@ fdatasync(int fd)
 #define	_SC_PHYS_PAGES 200
 #endif
 
+static inline int
+pipe2(int fildes[2], int flags)
+{
+	int rv;
+	int old;
+
+	if ((rv = pipe(fildes)) != 0)
+		return (rv);
+
+	if (flags & O_NONBLOCK) {
+		old = fcntl(fildes[0], F_GETFL);
+		if (old >= 0)
+			fcntl(fildes[0], F_SETFL, old | O_NONBLOCK);
+		old = fcntl(fildes[1], F_GETFL);
+		if (old >= 0)
+			fcntl(fildes[1], F_SETFL, old | O_NONBLOCK);
+	}
+	if (flags & O_CLOEXEC) {
+		old = fcntl(fildes[0], F_GETFD);
+		if (old >= 0)
+			fcntl(fildes[0], F_SETFD, old | FD_CLOEXEC);
+		old = fcntl(fildes[1], F_GETFD);
+		if (old >= 0)
+			fcntl(fildes[1], F_SETFD, old | FD_CLOEXEC);
+	}
+	return (0);
+}
+
+
 #endif

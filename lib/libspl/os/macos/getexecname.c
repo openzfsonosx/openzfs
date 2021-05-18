@@ -25,7 +25,7 @@
 #include <stdlib.h>
 
 const char *
-getexecname(void)
+getexecname_impl(char *execname)
 {
 	return (getprogname());
 }
