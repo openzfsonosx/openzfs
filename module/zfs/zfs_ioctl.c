@@ -7429,7 +7429,7 @@ zfsdev_get_state(minor_t minor, enum zfsdev_state_type which)
  * Find a free minor number.  The zfsdev_state_list is expected to
  * be short since it is only a list of currently open file handles.
  */
-static minor_t
+minor_t
 zfsdev_minor_alloc(void)
 {
 	static minor_t last_minor = 0;
