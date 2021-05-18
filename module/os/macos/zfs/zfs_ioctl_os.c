@@ -85,87 +85,12 @@ zfs_vfs_rele(zfsvfs_t *zfsvfs)
 
 static uint_t zfsdev_private_tsd;
 
-static int
-zfsdev_state_init(dev_t dev)
-{
-	zfsdev_state_t *zs, *zsprev = NULL;
-	minor_t minor;
-	boolean_t newzs = B_FALSE;
-
-	ASSERT(MUTEX_HELD(&zfsdev_state_lock));
-
-	minor = minor(dev);
-	if (minor == 0)
-		return (SET_ERROR(ENXIO));
-
-	for (zs = zfsdev_state_list; zs != NULL; zs = zs->zs_next) {
-		if (zs->zs_minor == -1)
-			break;
-		zsprev = zs;
-	}
-
-	if (!zs) {
-		zs = kmem_zalloc(sizeof (zfsdev_state_t), KM_SLEEP);
-		newzs = B_TRUE;
-	}
-
-	/* Store this dev_t in tsd, so zfs_get_private() can retrieve it */
-	tsd_set(zfsdev_private_tsd, (void *)(uintptr_t)dev);
-
-	zfs_onexit_init((zfs_onexit_t **)&zs->zs_onexit);
-	zfs_zevent_init((zfs_zevent_t **)&zs->zs_zevent);
-
-	/*
-	 * In order to provide for lock-free concurrent read access
-	 * to the minor list in zfsdev_get_state_impl(), new entries
-	 * must be completely written before linking them into the
-	 * list whereas existing entries are already linked; the last
-	 * operation must be updating zs_minor (from -1 to the new
-	 * value).
-	 */
-	if (newzs) {
-		zs->zs_minor = minor;
-		zsprev->zs_next = zs;
-	} else {
-		zs->zs_minor = minor;
-	}
-
-	return (0);
-}
-
 dev_t
 zfsdev_get_dev(void)
 {
 	return ((dev_t)tsd_get(zfsdev_private_tsd));
 }
 
-static int
-zfsdev_state_destroy(dev_t dev)
-{
-	zfsdev_state_t *zs;
-
-	ASSERT(MUTEX_HELD(&zfsdev_state_lock));
-
-	tsd_set(zfsdev_private_tsd, NULL);
-
-	zs = zfsdev_get_state(minor(dev), ZST_ALL);
-
-	if (!zs) {
-		printf("%s: no cleanup for minor x%x\n", __func__,
-		    minor(dev));
-		return (0);
-	}
-
-	ASSERT(zs != NULL);
-	if (zs->zs_minor != -1) {
-		zs->zs_minor = -1;
-		zfs_onexit_destroy(zs->zs_onexit);
-		zfs_zevent_destroy(zs->zs_zevent);
-		zs->zs_onexit = NULL;
-		zs->zs_zevent = NULL;
-	}
-	return (0);
-}
 
 static int
 zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
@@ -177,7 +102,7 @@ zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 		mutex_exit(&zfsdev_state_lock);
 		return (0);
 	}
-	error = zfsdev_state_init(dev);
+	error = zfsdev_state_init((void *)dev);
 	mutex_exit(&zfsdev_state_lock);
 
 	return (-error);
@@ -186,13 +111,11 @@ zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 static int
 zfsdev_release(dev_t dev, int flags, int devtype, struct proc *p)
 {
-	int error;
-
 	mutex_enter(&zfsdev_state_lock);
-	error = zfsdev_state_destroy(dev);
+	zfsdev_state_destroy((void *)dev);
 	mutex_exit(&zfsdev_state_lock);
 
-	return (-error);
+	return (0);
 }
 
 /* !static : so we can dtrace */
