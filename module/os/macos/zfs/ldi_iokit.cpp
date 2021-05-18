@@ -1262,7 +1262,10 @@ buf_sync_strategy_iokit(ldi_buf_t *lbp, ldi_iokit_buf_t *iobp,
 	UInt64 actualByteCount = 0;
 	IOReturn result;
 
+#if !defined(MAC_OS_X_VERSION_10_9) || \
+  (MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_9)
 	iobp->ioattr.priority = 0;
+#endif
 	iobp->ioattr.options = 0;
 
 	/* Read or write */
@@ -1339,6 +1342,8 @@ buf_strategy_iokit(ldi_buf_t *lbp, struct ldi_handle *lhp)
 	bzero(&iobp->ioattr, sizeof (IOStorageAttributes));
 #endif
 
+#if !defined(MAC_OS_X_VERSION_10_9) || \
+  (MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_9)
 	/* Priority of I/O */
 	if (lbp->b_flags & B_THROTTLED_IO) {
 		lbp->b_flags &= ~B_THROTTLED_IO;
@@ -1350,6 +1355,7 @@ buf_strategy_iokit(ldi_buf_t *lbp, struct ldi_handle *lhp)
 		iobp->ioattr.priority = kIOStoragePriorityDefault - 1;
 	else
 		iobp->ioattr.priority = kIOStoragePriorityDefault;
+#endif
 
 	/* Allocate a memory descriptor pointing to the data address */
 	iobp->iomem = IOMemoryDescriptor::withAddress(
