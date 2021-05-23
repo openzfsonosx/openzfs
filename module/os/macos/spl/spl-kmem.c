@@ -4539,17 +4539,27 @@ spl_free_thread()
 			spl_free_manual_pressure += PAGE_SIZE *
 			    spl_vm_pages_wanted;
 		} else if (spl_vm_pages_wanted > 0) {
-			/* kVMPressureNormal but pages wanted */
+			/*
+			 * kVMPressureNormal but pages wanted : react more
+			 * strongly if there was some transient pressure that
+			 * was weakly absorbed by the virtual memory system
+			 */
 			/* XXX : additional hysteresis maintained below */
-			new_spl_free -= PAGE_SIZE * spl_vm_pages_wanted;
+			int64_t m = 2LL;
+			if (spl_vm_pages_wanted * 8 >
+			    spl_vm_pages_reclaimed)
+				m = 8LL;
+
+			new_spl_free -= m *
+			    PAGE_SIZE * spl_vm_pages_wanted;
 		} else {
 			/*
 			 * No pressure. Xnu has freed up some memory
 			 * which we can use.
 			 */
-			if (spl_vm_pages_reclaimed)
-				new_spl_free += PAGE_SIZE *
-				    spl_vm_pages_reclaimed;
+			if (spl_vm_pages_reclaimed > 0)
+				new_spl_free += (PAGE_SIZE *
+				    spl_vm_pages_reclaimed) >> 1LL;
 			else {
 				/* grow a little every pressure-free pass */
 				new_spl_free += 1024LL*1024LL;
@@ -4826,6 +4836,17 @@ spl_free_thread()
 		if (new_spl_free < 0LL) {
 			spl_stats.spl_spl_free_negative_count.value.ui64++;
 			spl_free_is_negative = true;
+		}
+
+		/*
+		 * leave a little headroom if we have hit our
+		 * allocation maximum
+		 */
+		const int64_t spamaxblksz = 16LL * 1024LL;
+		if ((4LL * spamaxblksz) >
+		    (total_memory - segkmem_total_mem_allocated)) {
+			if (new_spl_free > 2LL * spamaxblksz)
+				new_spl_free = 2LL * spamaxblksz;
 		}
 
 		// NOW set spl_free from calculated new_spl_free
@@ -5315,7 +5336,7 @@ spl_kmem_thread_init(void)
 	    NULL);
 
 	kmem_taskq = taskq_create("kmem_taskq", 1, minclsyspri,
-	    300, INT_MAX, TASKQ_PREPOPULATE);
+	    600, INT_MAX, TASKQ_PREPOPULATE);
 
 	spl_free_thread_exit = FALSE;
 	(void) cv_init(&spl_free_thread_cv, NULL, CV_DEFAULT, NULL);
