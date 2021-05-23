@@ -177,6 +177,14 @@ struct user64_ext_access_t {
 #define	APFSIOC_SET_NEAR_LOW_DISK _IOW('J', 17, u_int32_t)
 #define	APFSIOC_GET_NEAR_LOW_DISK _IOR('J', 18, u_int32_t)
 
+#ifndef FSIOC_FIOSEEKHOLE
+#define	FSIOC_FIOSEEKHOLE _IOWR('A', 16, off_t)
+#define	FSCTL_FIOSEEKHOLE IOCBASECMD(FSIOC_FIOSEEKHOLE)
+#endif
+#ifndef FSIOC_FIOSEEKDATA
+#define	FSIOC_FIOSEEKDATA _IOWR('A', 17, off_t)
+#define	FSCTL_FIOSEEKDATA IOCBASECMD(FSIOC_FIOSEEKDATA)
+#endif
 
 // END of definitions
 

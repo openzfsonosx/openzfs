@@ -596,6 +596,37 @@ zfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 			/* Required by Spotlight search */
 			break;
 
+#ifdef FSIOC_FIOSEEKHOLE
+		case FSIOC_FIOSEEKHOLE:
+		case FSCTL_FIOSEEKHOLE:
+		{
+			loff_t off;
+			off = *(loff_t *)ap->a_data;
+			/* offset parameter is in/out */
+			error = zfs_holey(zp, SEEK_HOLE, &off);
+			if (error)
+				break;
+			*(loff_t *)ap->a_data = off;
+			break;
+		}
+#endif
+
+#ifdef FSIOC_FIOSEEKDATA
+		case FSIOC_FIOSEEKDATA:
+		case FSCTL_FIOSEEKDATA:
+		{
+			loff_t off;
+			off = *(loff_t *)ap->a_data;
+			/* offset parameter is in/out */
+			error = zfs_holey(zp, SEEK_DATA, &off);
+			if (error)
+				break;
+			*(loff_t *)ap->a_data = off;
+			break;
+		}
+#endif
+
+
 		/* ioctl required to simulate HFS mimic behavior */
 		case 0x80005802:
 			dprintf("%s 0x80005802 unknown\n", __func__);
