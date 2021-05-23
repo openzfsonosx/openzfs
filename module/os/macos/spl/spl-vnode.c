@@ -199,7 +199,15 @@ getf(int fd)
 	/* Also grab vnode, so we can fish out the minor, for onexit */
 	if (!file_vnode_withvid(fd, &vp, &vid)) {
 		sfp->f_vnode = vp;
-		if (vnode_vtype(vp) != VDIR) {
+
+		if (vnode_getwithref(vp) != 0) {
+			file_drop(fd);
+			return (NULL);
+		}
+
+		enum vtype type;
+		type = vnode_vtype(vp);
+		if (type == VCHR || type == VBLK) {
 			sfp->f_file = minor(vnode_specrdev(vp));
 		}
 		file_drop(fd);
@@ -241,6 +249,9 @@ releasef(int fd)
 	mutex_exit(&spl_getf_lock);
 	if (!fp)
 		return; // Not found
+
+	if (fp->f_vnode != NULL)
+		vnode_put(fp->f_vnode);
 
 	/* Remove node from the list */
 	mutex_enter(&spl_getf_lock);
