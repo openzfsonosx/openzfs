@@ -422,7 +422,7 @@ spl_cache_purgevfs_impl(struct vnode *vp, void *arg)
 void
 spl_cache_purgevfs(mount_t mp)
 {
-	(void) vnode_iterate(mp, 0, spl_cache_purgevfs_impl, NULL);
+	(void) vnode_iterate(mp, VNODE_RELOAD, spl_cache_purgevfs_impl, NULL);
 }
 
 /* Gross hacks - find solutions */
