@@ -282,11 +282,11 @@ org_openzfsonosx_zfs_zvol::stop(IOService *provider)
 
 	super::stop(provider);
 
-	system_taskq_fini();
-
 	zfs_vfsops_fini();
 
 	zfs_kmod_fini();
+
+	system_taskq_fini();
 
 	ldi_fini();
 
