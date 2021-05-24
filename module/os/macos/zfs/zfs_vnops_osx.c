@@ -171,9 +171,6 @@ static boolean_t	zfs_findernotify_thread_exit;
 static int
 zfs_findernotify_callback(mount_t mp, __unused void *arg)
 {
-	/* Do some quick checks to see if it is ZFS */
-	struct vfsstatfs *vsf = vfs_statfs(mp);
-
 	vfs_context_t kernelctx = spl_vfs_context_kernel();
 	struct vnode *rootvp, *vp;
 	znode_t *zp = NULL;
