@@ -186,14 +186,6 @@ struct user64_ext_access_t {
 #define	FSCTL_FIOSEEKDATA IOCBASECMD(FSIOC_FIOSEEKDATA)
 #endif
 
-#ifndef SEEK_HOLE
-#define	SEEK_HOLE 3
-#endif
-
-#ifndef SEEK_DATA
-#define	SEEK_DATA 4
-#endif
-
 // END of definitions
 
 #endif
