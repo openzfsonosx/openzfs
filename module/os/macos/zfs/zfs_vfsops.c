@@ -2398,7 +2398,6 @@ out:
 		*vpp = NULL;
 	}
 
-	dprintf("vget return %d\n", err);
 	return (err);
 }
 
@@ -2453,8 +2452,6 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp,
 			for (zp = list_head(&zfsvfs->z_all_znodes); zp;
 			    zp = list_next(&zfsvfs->z_all_znodes, zp)) {
 				if (zp->z_id == ino)
-					break;
-				if (zp->z_id == ZFSCTL_INO_SHARES - ino)
 					break;
 			}
 			mutex_exit(&zfsvfs->z_znodes_lock);

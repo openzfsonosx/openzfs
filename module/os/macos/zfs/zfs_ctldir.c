@@ -201,15 +201,16 @@ zfsctl_vnode_alloc(zfsvfs_t *zfsvfs, uint64_t id,
 
 	strlcpy(zp->z_name_cache, name, sizeof (zp->z_name_cache));
 
-	dprintf("%s zp %p with vp %p zfsvfs %p vfs %p\n", __func__,
-	    zp, vp, zfsvfs, zfsvfs->z_vfs);
-
 	bzero(&vfsp, sizeof (vfsp));
 	vfsp.vnfs_str = "zfs";
 	vfsp.vnfs_mp = zfsvfs->z_vfs;
 	vfsp.vnfs_vtype = IFTOVT((mode_t)zp->z_mode);
 	vfsp.vnfs_fsnode = zp;
 	vfsp.vnfs_flags = VNFS_ADDFSREF;
+
+	dprintf("%s zp %p with vp %p zfsvfs %p vfs %p: vtype %u: '%s'\n",
+	    __func__,
+	    zp, vp, zfsvfs, zfsvfs->z_vfs, vfsp.vnfs_vtype, name);
 
 	/* Tag root directory */
 	if (id == zfsvfs->z_root)
@@ -259,7 +260,7 @@ zfsctl_vnode_lookup(zfsvfs_t *zfsvfs, uint64_t id,
 	struct vnode *ip = NULL;
 	int error = 0;
 
-	dprintf("%s: looking for id %u name '%s'\n", __func__,
+	dprintf("%s: looking for id %llu name '%s'\n", __func__,
 	    id, name);
 
 	while (ip == NULL) {
@@ -358,6 +359,7 @@ zfs_root_dotdot(struct vnode *vp)
 	if (rootzp != NULL)
 		retvp = ZTOV(rootzp);
 
+	dprintf("%s: for id %llu -> vp %p\n", __func__, zp->z_id, retvp);
 	return (retvp);
 }
 
@@ -799,8 +801,6 @@ zfsctl_vnop_getattr(struct vnop_getattr_args *ap)
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	timestruc_t	now;
 
-	dprintf("%s: active x%llx\n", __func__, vap->va_active);
-
 	ZFS_ENTER(zfsvfs);
 
 	gethrestime(&now);
@@ -920,8 +920,6 @@ zfsctl_vnop_getattr(struct vnop_getattr_args *ap)
 
 	ZFS_EXIT(zfsvfs);
 
-	dprintf("%s: returned x%llx missed: x%llx\n", __func__,
-		vap->va_supported, vap->va_active &= ~vap->va_supported);
 	return (0);
 }
 
@@ -1076,7 +1074,7 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 
 				/* Now we wait hoping zed comes back to us */
 				ret = cv_timedwait(&zcm->zcm_cv, &zcm->zcm_lock,
-				    ddi_get_lbolt() + (hz * 3));
+				    ddi_get_lbolt() + SEC_TO_TICK(6));
 
 				dprintf("%s: finished waiting %d\n",
 				    __func__, ret);
