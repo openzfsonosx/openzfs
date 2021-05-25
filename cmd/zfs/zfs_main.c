@@ -1437,6 +1437,9 @@ destroy_callback(zfs_handle_t *zhp, void *data)
 	if (zfs_get_type(zhp) == ZFS_TYPE_SNAPSHOT) {
 		cb->cb_snap_count++;
 		fnvlist_add_boolean(cb->cb_batchedsnaps, name);
+#ifdef __APPLE__
+		zfs_snapshot_unmount(zhp, cb->cb_force ? MS_FORCE : 0);
+#endif
 		if (cb->cb_snap_count % 10 == 0 && cb->cb_defer_destroy)
 			error = destroy_batched(cb);
 	} else {
