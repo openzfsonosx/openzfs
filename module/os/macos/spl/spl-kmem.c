@@ -3900,10 +3900,18 @@ kmem_cache_destroy(kmem_cache_t *cp)
 	 * reclaim, and move routines that induce a kernel text fault if
 	 * invoked.
 	 */
+#if defined(__aarch64__)
+	/* Setting landmines causes Break 0xC470: Ptrauth failure */
+	cp->cache_constructor = (int (*)(void *, void *, int))NULL;
+	cp->cache_destructor = (void (*)(void *, void *))NULL;
+	cp->cache_reclaim = (void (*)(void *))NULL;
+	cp->cache_move = (kmem_cbrc_t (*)(void *, void *, size_t, void *))NULL;
+#else
 	cp->cache_constructor = (int (*)(void *, void *, int))1;
 	cp->cache_destructor = (void (*)(void *, void *))2;
 	cp->cache_reclaim = (void (*)(void *))3;
 	cp->cache_move = (kmem_cbrc_t (*)(void *, void *, size_t, void *))4;
+#endif
 	mutex_exit(&cp->cache_lock);
 
 	kstat_delete(cp->cache_kstat);
