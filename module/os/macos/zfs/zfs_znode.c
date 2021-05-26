@@ -1992,6 +1992,7 @@ zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)
 	rootzp->z_unlinked = 0;
 	rootzp->z_atime_dirty = 0;
 	rootzp->z_is_sa = USE_SA(version, os);
+	rootzp->z_projid = ZFS_DEFAULT_PROJID;
 
 	rootzp->z_vnode = NULL;
 #ifndef __APPLE__
