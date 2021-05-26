@@ -261,9 +261,9 @@ function do_prune
 
     # Using relative paths here for safety
     rm -rf \
-"./${prefix}/share/zfs/runfiles" \
-"./${prefix}/share/zfs/test-runner" \
-"./${prefix}/share/zfs/zfs-tests" \
+"./${prefix}/share/zfs-macos/runfiles" \
+"./${prefix}/share/zfs-macos/test-runner" \
+"./${prefix}/share/zfs-macos/zfs-tests" \
 "./${prefix}/src"
 
     popd || fail "failed to popd"
