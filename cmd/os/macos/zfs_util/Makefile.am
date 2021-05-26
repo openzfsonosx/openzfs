@@ -43,6 +43,8 @@ zfs.fs$(EXEEXT): zfs.fs/Contents/$(PKGINFO) zfs.fs/Contents/$(INFO_PLIST) zfs.fs
 	cp -f $(INFO_PLIST) zfs.fs/Contents/
 	cp -f zfs_util zfs.fs/Contents/Resources/
 	cp -f English.lproj/$(INFOPLIST_STRINGS) zfs.fs/Contents/Resources/English.lproj/
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(ZFS_META_VERSION)" zfs.fs/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(ZFS_META_VERSION)" zfs.fs/Contents/Info.plist
 	plutil -convert binary1 zfs.fs/Contents/Resources/English.lproj/InfoPlist.strings
 
 install-exec-local:: zfs.fs
