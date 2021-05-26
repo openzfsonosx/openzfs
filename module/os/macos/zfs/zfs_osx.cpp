@@ -65,7 +65,7 @@ extern SInt32 zfs_active_fs_count;
 #define	ZFS_DEBUG_STR	""
 #endif
 
-static char spl_gitrev[64] = ZFS_META_GITREV;
+static char spl_gitrev[64] = ZFS_META_VERSION "-" ZFS_META_RELEASE;
 
 SYSCTL_DECL(_zfs);
 SYSCTL_NODE(, OID_AUTO, zfs, CTLFLAG_RD, 0, "");
