@@ -64,6 +64,9 @@ objset=$(zdb -d $TESTPOOL1/ | sed -ne 's/.*ID \([0-9]*\).*/\1/p')
 object=$(ls -i /$TESTPOOL1/file | awk '{print $1}')
 
 # inject event to cause error during resilver
+# Avoid signed-bit wrap around problems in ksh's builtin printf
+PRINTF=$(whence -p printf)
+alias printf=${PRINTF:-printf}
 log_must zinject -b `printf "%x:%x:0:3fff" $objset $object` $TESTPOOL1
 
 # clear events and start resilver

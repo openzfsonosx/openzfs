@@ -2767,7 +2767,7 @@ function add_user_macos #<group_name> <user_name> <basedir>
 	log_must dseditgroup -o edit -t user -a $user $group
 
 	# Create the home directory
-	log_must createhomedir -l -u $user 2>&1 | grep -v "shell-init"
+	log_must createhomedir -c -u $user
 
 	return 0
 }
