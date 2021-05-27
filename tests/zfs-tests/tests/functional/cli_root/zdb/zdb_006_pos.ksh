@@ -15,7 +15,7 @@
 # Copyright (c) 2018 by Nutanix. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # Description:

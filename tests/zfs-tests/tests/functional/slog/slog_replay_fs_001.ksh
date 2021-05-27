@@ -69,6 +69,15 @@ log_must zpool create $TESTPOOL $VDEV log mirror $LDEV
 log_must zfs set compression=on $TESTPOOL
 log_must zfs create $TESTPOOL/$TESTFS
 
+#if is_macos; then
+#	log_must rm -rfv "$MNTPOINT/.{,_.}{fseventsd,Spotlight-V*}"
+#	log_must mkdir -pv "$MNTPOINT/.fseventsd"
+#	log_must touch "$MNTPOINT/.fseventsd/no_log" "$MNTPOINT/.metadata_never_index"
+#	log_must mdutil -i off "$MNTPOINT"
+#	log_must mdutil -X "$MNTPOINT"
+#fi
+#disable_spotlight $TESTPOOL/$TESTFS
+
 #
 # This dd command works around an issue where ZIL records aren't created
 # after freezing the pool unless a ZIL header already exists. Create a file

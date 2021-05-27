@@ -21,7 +21,7 @@
 # CDDL HEADER END
 #
 
-# sudo zpool export -a; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
+sudo zpool export -a; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
 
 BASE_DIR=$(dirname "$0")
 SCRIPT_COMMON=common.sh
@@ -326,6 +326,7 @@ constrain_path() {
 	elif [ "$UNAME" = "FreeBSD" ] ; then
 		ln -fs /usr/local/bin/ksh93 "$STF_PATH/ksh"
 	elif [ "$UNAME" = "Darwin" ] ; then
+		ln -fs /usr/local/bin/mountp "$STF_PATH/mountp"
 		ln -fs /sbin/fsck_hfs "$STF_PATH/fsck"
 		# ln -fs /sbin/mount_hfs "$STF_PATH/mount"
 		# Homebrew "coreutils" provides timeout, truncate, gdd, gcp, and realpath, sha256sum

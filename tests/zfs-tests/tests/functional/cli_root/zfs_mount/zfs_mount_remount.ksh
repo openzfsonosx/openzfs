@@ -88,6 +88,8 @@ function checkmount # dataset option
 
 	if is_freebsd; then
 		options=$(mount -p | awk -v ds="$dataset" '$1 == ds { print $4 }')
+	elif is_macos; then
+		options=$(mountp | awk -v ds="$dataset" '$1 == ds { print $4 }')
 	else
 		options=$(awk -v ds="$dataset" '$1 == ds { print $4 }' /proc/mounts)
 	fi

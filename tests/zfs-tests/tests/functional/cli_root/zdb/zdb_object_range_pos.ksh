@@ -15,7 +15,7 @@
 #
 # Copyright (c) 2020 Lawrence Livermore National Security, LLC.
 
-. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # Description:

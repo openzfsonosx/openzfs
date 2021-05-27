@@ -221,6 +221,7 @@ function is_data_valid
 	log_must zpool scrub -w $pool
 
 	record_data $pool $PST_RECORD_FILE
+log_must diff $PRE_RECORD_FILE $PST_RECORD_FILE
 	if ! diff $PRE_RECORD_FILE $PST_RECORD_FILE > /dev/null 2>&1; then
 		log_must cat $PRE_RECORD_FILE
 		log_must cat $PST_RECORD_FILE

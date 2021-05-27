@@ -17,3 +17,6 @@ dist_pkgdata_SCRIPTS = \
 	zdb_objset_id.ksh \
 	zdb_recover.ksh \
 	zdb_recover_2.ksh
+
+dist_pkgdata_DATA = \
+	zdb.kshlib

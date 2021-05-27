@@ -15,8 +15,7 @@
 # Copyright (c) 2017 by Delphix. All rights reserved.
 # Copyright (c) 2020 by Lawrence Livermore National Security LLC.
 
-. $STF_SUITE/include/libtest.shlib
-
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # DESCRIPTION:

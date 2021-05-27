@@ -15,7 +15,7 @@
 # Copyright (c) 2015 by Delphix. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # Description:
