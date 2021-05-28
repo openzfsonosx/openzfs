@@ -91,6 +91,16 @@ zfsdev_get_dev(void)
 	return ((dev_t)tsd_get(zfsdev_private_tsd));
 }
 
+/* Not sure what these are supposed to be - upstream assumes they can be set */
+void
+zfsdev_private_set_state(void *priv, zfsdev_state_t *zs)
+{
+}
+
+zfsdev_state_t *
+zfsdev_private_get_state(void *priv)
+{
+}
 
 static int
 zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)

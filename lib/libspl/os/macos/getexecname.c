@@ -23,9 +23,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "../../libspl_impl.h"
 
-const char *
+__attribute__((visibility("hidden"))) ssize_t
 getexecname_impl(char *execname)
 {
-	return (getprogname());
+	strlcpy(execname, getprogname(), PATH_MAX);
+	return (strlen(execname));
 }

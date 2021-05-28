@@ -482,8 +482,7 @@ vdev_disk_ioctl_free(zio_t *zio)
 }
 
 static const zio_vsd_ops_t vdev_disk_vsd_ops = {
-	vdev_disk_ioctl_free,
-	zio_vsd_default_cksum_report
+	.vsd_free = vdev_disk_ioctl_free,
 };
 
 static void
