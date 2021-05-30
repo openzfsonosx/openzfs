@@ -80,10 +80,10 @@ typedef void (*thread_func_t)(void *);
 #define	thread_create_named(name, A, B, C, D, E, F, G, H)	\
     spl_thread_create_named(name, A, B, C, D, E, G, __FILE__, __LINE__, H)
 
-extern kthread_t *spl_thread_create_named(char *name,
+extern kthread_t *spl_thread_create_named(const char *name,
     caddr_t stk, size_t stksize,
     void (*proc)(void *), void *arg, size_t len, /* proc_t *pp, */ int state,
-    char *, int, pri_t pri);
+    const char *, int, pri_t pri);
 
 #else
 
@@ -91,7 +91,7 @@ extern kthread_t *spl_thread_create_named(char *name,
     spl_thread_create_named(__FILE__, A, B, C, D, E, G, H)
 #define	thread_create_named(name, A, B, C, D, E, F, G, H)	\
     spl_thread_create_named(name, A, B, C, D, E, G, H)
-extern kthread_t *spl_thread_create_named(char *name,
+extern kthread_t *spl_thread_create_named(const char *name,
     caddr_t stk, size_t stksize,
     void (*proc)(void *), void *arg, size_t len, /* proc_t *pp, */ int state,
     pri_t pri);
@@ -103,21 +103,21 @@ extern void spl_thread_exit(void);
 
 extern kthread_t *spl_current_thread(void);
 
-extern void set_thread_importance_named(thread_t, pri_t, char *);
+extern void set_thread_importance_named(thread_t, pri_t, const char *);
 extern void set_thread_importance(thread_t, pri_t);
 
 extern void set_thread_throughput_named(thread_t,
-    thread_throughput_qos_t, char *);
+    thread_throughput_qos_t, const char *);
 extern void set_thread_throughput(thread_t,
     thread_throughput_qos_t);
 
 extern void set_thread_latency_named(thread_t,
-    thread_latency_qos_t, char *);
+    thread_latency_qos_t, const char *);
 extern void set_thread_latency(thread_t,
     thread_latency_qos_t);
 
 extern void set_thread_timeshare_named(thread_t,
-    char *);
+    const char *);
 extern void set_thread_timeshare(thread_t);
 
 extern void spl_throttle_set_thread_io_policy(int);

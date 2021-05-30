@@ -49,7 +49,7 @@ extern "C" {
 static inline int
 highbit64(unsigned long long i)
 {
-	register int h = 1;
+	int h = 1;
 	if (i == 0)
 		return (0);
 	if (i & 0xffffffff00000000ull) {
@@ -76,7 +76,7 @@ highbit64(unsigned long long i)
 static inline int
 highbit(unsigned long long i)
 {
-	register int h = 1;
+	int h = 1;
 	if (i == 0)
 		return (0);
 	if (i & 0xffffffff00000000ull) {
@@ -108,7 +108,7 @@ highbit(unsigned long long i)
 static inline int
 lowbit(unsigned long long i)
 {
-	register int h = 1;
+	int h = 1;
 
 	if (i == 0)
 		return (0);

@@ -41,7 +41,7 @@ uint64_t zfs_threads = 0;
 
 kthread_t *
 spl_thread_create_named(
-    char *name,
+    const char *name,
     caddr_t stk,
     size_t stksize,
     void (*proc)(void *),
@@ -49,7 +49,7 @@ spl_thread_create_named(
     size_t len,
     int state,
 #ifdef SPL_DEBUG_THREAD
-    char *filename,
+    const char *filename,
     int line,
 #endif
     pri_t pri)
@@ -152,7 +152,7 @@ spl_throttle_set_thread_io_policy(int priority)
  */
 
 void
-set_thread_importance_named(thread_t thread, pri_t pri, char *name)
+set_thread_importance_named(thread_t thread, pri_t pri, const char *name)
 {
 	thread_precedence_policy_data_t policy = { 0 };
 
@@ -193,7 +193,7 @@ set_thread_importance(thread_t thread, pri_t pri)
 
 void
 set_thread_throughput_named(thread_t thread,
-    thread_throughput_qos_t throughput, char *name)
+    thread_throughput_qos_t throughput, const char *name)
 {
 	/*
 	 * TIERs: 0 is USER_INTERACTIVE, 1 is USER_INITIATED, 1 is LEGACY,
@@ -228,7 +228,7 @@ set_thread_throughput(thread_t thread,
 
 void
 set_thread_latency_named(thread_t thread,
-    thread_latency_qos_t latency, char *name)
+    thread_latency_qos_t latency, const char *name)
 {
 	/*
 	 * TIERs: 0 is USER_INTERACTIVE, 1 is USER_INITIATED, 1 is LEGACY,
@@ -271,7 +271,7 @@ set_thread_latency(thread_t thread,
  */
 
 void
-set_thread_timeshare_named(thread_t thread, char *name)
+set_thread_timeshare_named(thread_t thread, const char *name)
 {
 	thread_extended_policy_data_t policy = { .timeshare = TRUE };
 	kern_return_t kret = thread_policy_set(thread,

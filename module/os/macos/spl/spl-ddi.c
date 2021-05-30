@@ -369,9 +369,9 @@ ddi_remove_minor_node(dev_info_t *dip, char *name)
 
 int
 strspn(const char *string,
-    register char *charset)
+    char *charset)
 {
-	register const char *p, *q;
+	const char *p, *q;
 
 	for (q = string; *q != '\0'; ++q) {
 		for (p = charset; *p != '\0' && *p != *q; ++p)

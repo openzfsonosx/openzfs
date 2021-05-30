@@ -53,13 +53,13 @@ protected:
 	bool setPoolName(const char *name);
 
 	virtual bool handleOpen(IOService *client,
-	    IOOptionBits options, void *arg);
-	virtual bool handleIsOpen(const IOService *client) const;
+	    IOOptionBits options, void *arg) override;
+	virtual bool handleIsOpen(const IOService *client) const override;
 	virtual void handleClose(IOService *client,
-	    IOOptionBits options);
+	    IOOptionBits options) override;
 
 	virtual bool init(OSDictionary *properties, spa_t *spa);
-	virtual void free();
+	virtual void free() override;
 
 #if 0
 	/* IOBlockStorageDevice */
@@ -85,10 +85,10 @@ protected:
 public:
 	virtual void read(IOService *client, UInt64 byteStart,
 	    IOMemoryDescriptor *buffer, IOStorageAttributes *attr,
-	    IOStorageCompletion *completion);
+	    IOStorageCompletion *completion) override;
 	virtual void write(IOService *client, UInt64 byteStart,
 	    IOMemoryDescriptor *buffer, IOStorageAttributes *attr,
-	    IOStorageCompletion *completion);
+	    IOStorageCompletion *completion) override;
 #endif
 public:
 	static ZFSPool * withProviderAndPool(IOService *, spa_t *);

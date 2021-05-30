@@ -55,10 +55,10 @@ class ZFSDatasetScheme : public IOPartitionScheme
 	OSDeclareDefaultStructors(ZFSDatasetScheme);
 public:
 
-	virtual void free(void);
-	virtual bool init(OSDictionary *properties);
-	virtual bool start(IOService *provider);
-	virtual IOService *probe(IOService *provider, SInt32 *score);
+	virtual void free(void) override;
+	virtual bool init(OSDictionary *properties) override;
+	virtual bool start(IOService *provider) override;
+	virtual IOService *probe(IOService *provider, SInt32 *score) override;
 
 	bool addDataset(const char *osname);
 	bool removeDataset(const char *osname, bool force);
@@ -68,22 +68,22 @@ public:
 	    UInt64		byteStart,
 	    IOMemoryDescriptor	*buffer,
 	    IOStorageAttributes	*attributes,
-	    IOStorageCompletion	*completion);
+	    IOStorageCompletion	*completion) override;
 
 	virtual void write(IOService *client,
 	    UInt64		byteStart,
 	    IOMemoryDescriptor	*buffer,
 	    IOStorageAttributes	*attributes,
-	    IOStorageCompletion	*completion);
+	    IOStorageCompletion	*completion) override;
 
 #if defined(MAC_OS_X_VERSION_10_11) && \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	virtual IOReturn synchronize(IOService *client,
 	    UInt64			byteStart,
 	    UInt64			byteCount,
-	    IOStorageSynchronizeOptions	options = 0);
+	    IOStorageSynchronizeOptions	options = 0) override;
 #else
-	virtual IOReturn synchronizeCache(IOService *client);
+	virtual IOReturn synchronizeCache(IOService *client) override;
 #endif
 
 	virtual IOReturn unmap(IOService *client,
@@ -91,25 +91,25 @@ public:
 	    UInt32			extentsCount,
 #if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
-	    IOStorageUnmapOptions	options = 0);
+	    IOStorageUnmapOptions	options = 0) override;
 #else
-	    UInt32	options = 0);
+	    UInt32	options = 0) override;
 #endif
 
-	virtual bool lockPhysicalExtents(IOService *client);
+	virtual bool lockPhysicalExtents(IOService *client) override;
 
 	virtual IOStorage *copyPhysicalExtent(IOService *client,
 	    UInt64 *    byteStart,
-	    UInt64 *    byteCount);
+	    UInt64 *    byteCount) override;
 
-	virtual void unlockPhysicalExtents(IOService *client);
+	virtual void unlockPhysicalExtents(IOService *client) override;
 
 #if defined(MAC_OS_X_VERSION_10_10) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10)
 	virtual IOReturn setPriority(IOService *client,
 	    IOStorageExtent	*extents,
 	    UInt32		extentsCount,
-	    IOStoragePriority	priority);
+	    IOStoragePriority	priority) override;
 #endif
 
 protected:
