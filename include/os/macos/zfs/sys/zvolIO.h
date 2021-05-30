@@ -56,18 +56,18 @@ class org_openzfsonosx_zfs_zvol : public IOService
 private:
 
 public:
-	virtual bool init(OSDictionary* dictionary = NULL);
-	virtual void free(void);
-	virtual IOService* probe(IOService* provider, SInt32* score);
-	virtual bool start(IOService* provider);
-	virtual void stop(IOService* provider);
+	virtual bool init(OSDictionary* dictionary = NULL) override;
+	virtual void free(void) override;
+	virtual IOService* probe(IOService* provider, SInt32* score) override;
+	virtual bool start(IOService* provider) override;
+	virtual void stop(IOService* provider) override;
 
 	virtual bool handleOpen(IOService *client,
-	    IOOptionBits options, void *arg);
-	virtual bool handleIsOpen(const IOService *client) const;
+	    IOOptionBits options, void *arg) override;
+	virtual bool handleIsOpen(const IOService *client) const override;
 	virtual void handleClose(IOService *client,
-	    IOOptionBits options);
-	virtual bool isOpen(const IOService *forClient = 0) const;
+	    IOOptionBits options) override;
+	virtual bool isOpen(const IOService *forClient = 0) const override;
 
 private:
 	OSSet *_openClients;
@@ -87,47 +87,47 @@ public:
 	virtual bool init(zvol_state_t *c_zv,
 	    OSDictionary* properties = 0);
 
-	virtual bool attach(IOService* provider);
-	virtual void detach(IOService* provider);
-	virtual IOReturn doEjectMedia(void);
-	virtual IOReturn doFormatMedia(UInt64 byteCapacity);
+	virtual bool attach(IOService* provider) override;
+	virtual void detach(IOService* provider) override;
+	virtual IOReturn doEjectMedia(void) override;
+	virtual IOReturn doFormatMedia(UInt64 byteCapacity) override;
 	virtual UInt32 doGetFormatCapacities(UInt64 * capacities,
-	    UInt32 capacitiesMaxCount) const;
+	    UInt32 capacitiesMaxCount) const override;
 
-	virtual IOReturn doLockUnlockMedia(bool doLock);
-	virtual IOReturn doSynchronizeCache(void);
-	virtual char *getVendorString(void);
-	virtual char *getProductString(void);
-	virtual char *getRevisionString(void);
-	virtual char *getAdditionalDeviceInfoString(void);
-	virtual IOReturn reportBlockSize(UInt64 *blockSize);
-	virtual IOReturn reportEjectability(bool *isEjectable);
-	virtual IOReturn reportLockability(bool *isLockable);
-	virtual IOReturn reportMaxValidBlock(UInt64 *maxBlock);
+	virtual IOReturn doLockUnlockMedia(bool doLock) override;
+	virtual IOReturn doSynchronizeCache(void) override;
+	virtual char *getVendorString(void) override;
+	virtual char *getProductString(void) override;
+	virtual char *getRevisionString(void) override;
+	virtual char *getAdditionalDeviceInfoString(void) override;
+	virtual IOReturn reportBlockSize(UInt64 *blockSize) override;
+	virtual IOReturn reportEjectability(bool *isEjectable) override;
+	virtual IOReturn reportLockability(bool *isLockable) override;
+	virtual IOReturn reportMaxValidBlock(UInt64 *maxBlock) override;
 	virtual IOReturn reportMediaState(bool *mediaPresent,
-	    bool *changedState);
+	    bool *changedState) override;
 
 	virtual IOReturn reportPollRequirements(bool *pollRequired,
-	    bool *pollIsExpensive);
+	    bool *pollIsExpensive) override;
 
-	virtual IOReturn reportRemovability(bool *isRemovable);
-	virtual IOReturn reportWriteProtection(bool *isWriteProtected);
-	virtual IOReturn getWriteCacheState(bool *enabled);
-	virtual IOReturn setWriteCacheState(bool enabled);
+	virtual IOReturn reportRemovability(bool *isRemovable) override;
+	virtual IOReturn reportWriteProtection(bool *isWriteProtected) override;
+	virtual IOReturn getWriteCacheState(bool *enabled) override;
+	virtual IOReturn setWriteCacheState(bool enabled) override;
 	virtual IOReturn doAsyncReadWrite(IOMemoryDescriptor *buffer,
 	    UInt64 block, UInt64 nblks,
 	    IOStorageAttributes *attributes,
-	    IOStorageCompletion *completion);
+	    IOStorageCompletion *completion) override;
 
-	virtual IOReturn doDiscard(UInt64 block, UInt64 nblks);
+	virtual IOReturn doDiscard(UInt64 block, UInt64 nblks) override;
 	virtual IOReturn doUnmap(IOBlockStorageDeviceExtent *extents,
-	    UInt32 extentsCount, UInt32 options);
+	    UInt32 extentsCount, UInt32 options) override;
 
 	virtual bool handleOpen(IOService *client,
-	    IOOptionBits options, void *access);
+	    IOOptionBits options, void *access) override;
 
 	virtual void handleClose(IOService *client,
-	    IOOptionBits options);
+	    IOOptionBits options) override;
 
 	virtual int getBSDName(void);
 	virtual int renameDevice(void);

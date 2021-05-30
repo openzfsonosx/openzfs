@@ -74,8 +74,8 @@ public:
 	    IOMediaAttributeMask attributes,
 	    bool isWhole, bool isWritable,
 	    const char *contentHint = 0,
-	    OSDictionary *properties = 0);
-	virtual void free();
+	    OSDictionary *properties = 0) override;
+	virtual void free() override;
 
 	static ZFSDataset * withDatasetNameAndSize(const char *name,
 	    uint64_t size);
@@ -83,54 +83,54 @@ public:
 	virtual void read(IOService *client,
 	    UInt64 byteStart, IOMemoryDescriptor *buffer,
 	    IOStorageAttributes *attributes,
-	    IOStorageCompletion *completion);
+	    IOStorageCompletion *completion) override;
 	virtual void write(IOService *client,
 	    UInt64 byteStart, IOMemoryDescriptor *buffer,
 	    IOStorageAttributes *attributes,
-	    IOStorageCompletion *completion);
+	    IOStorageCompletion *completion) override;
 
 #if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
 	virtual IOReturn synchronize(IOService *client,
 	    UInt64 byteStart, UInt64 byteCount,
-	    IOStorageSynchronizeOptions options = 0);
+	    IOStorageSynchronizeOptions options = 0) override;
 #else
-	virtual IOReturn synchronizeCache(IOService *client);
+	virtual IOReturn synchronizeCache(IOService *client) override;
 #endif
 
 	virtual IOReturn unmap(IOService *client,
 	    IOStorageExtent *extents, UInt32 extentsCount,
 #if defined(MAC_OS_X_VERSION_10_11) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_11)
-	    IOStorageUnmapOptions	options = 0);
+	    IOStorageUnmapOptions	options = 0) override;
 #else
 	    UInt32	options = 0);
 #endif
 
-	virtual bool lockPhysicalExtents(IOService *client);
+	virtual bool lockPhysicalExtents(IOService *client) override;
 	virtual IOStorage *copyPhysicalExtent(IOService *client,
-	    UInt64 *byteStart, UInt64 *byteCount);
-	virtual void unlockPhysicalExtents(IOService *client);
+	    UInt64 *byteStart, UInt64 *byteCount) override;
+	virtual void unlockPhysicalExtents(IOService *client) override;
 
 #if defined(MAC_OS_X_VERSION_10_10) &&        \
 	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10)
 	virtual IOReturn setPriority(IOService *client,
 	    IOStorageExtent *extents, UInt32 extentsCount,
-	    IOStoragePriority priority);
+	    IOStoragePriority priority) override;
 #endif
 
-	virtual UInt64 getPreferredBlockSize() const;
-	virtual UInt64 getSize() const;
-	virtual UInt64 getBase() const;
+	virtual UInt64 getPreferredBlockSize() const override;
+	virtual UInt64 getSize() const override;
+	virtual UInt64 getBase() const override;
 
-	virtual bool isEjectable() const;
-	virtual bool isFormatted() const;
-	virtual bool isWhole() const;
-	virtual bool isWritable() const;
+	virtual bool isEjectable() const override;
+	virtual bool isFormatted() const override;
+	virtual bool isWhole() const override;
+	virtual bool isWritable() const override;
 
-	virtual const char *getContent() const;
-	virtual const char *getContentHint() const;
-	virtual IOMediaAttributeMask getAttributes() const;
+	virtual const char *getContent() const override;
+	virtual const char *getContentHint() const override;
+	virtual IOMediaAttributeMask getAttributes() const override;
 
 protected:
 private:

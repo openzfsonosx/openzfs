@@ -125,7 +125,7 @@ void spl_mutex_init(kmutex_t *mp, char *name, kmutex_type_t type, void *ibc);
 
 #ifdef SPL_DEBUG_MUTEX
 #define	mutex_enter(X) spl_mutex_enter((X), __FILE__, __LINE__)
-void spl_mutex_enter(kmutex_t *mp, char *file, int line);
+void spl_mutex_enter(kmutex_t *mp, const char *file, int line);
 #else
 #define	mutex_enter spl_mutex_enter
 void spl_mutex_enter(kmutex_t *mp);

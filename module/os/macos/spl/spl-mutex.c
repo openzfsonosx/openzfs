@@ -322,7 +322,7 @@ spl_mutex_destroy(kmutex_t *mp)
 
 #ifdef SPL_DEBUG_MUTEX
 void
-spl_mutex_enter(kmutex_t *mp, char *file, int line)
+spl_mutex_enter(kmutex_t *mp, const char *file, int line)
 #else
 void
 spl_mutex_enter(kmutex_t *mp)

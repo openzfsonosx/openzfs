@@ -32,32 +32,32 @@ class ZFSDatasetProxy : public IOBlockStorageDevice
 	OSDeclareDefaultStructors(ZFSDatasetProxy);
 public:
 
-	virtual void free(void);
-	virtual bool init(OSDictionary *properties);
-	virtual bool start(IOService *provider);
+	virtual void free(void) override;
+	virtual bool init(OSDictionary *properties) override;
+	virtual bool start(IOService *provider) override;
 
 	/* IOBlockStorageDevice */
-	virtual IOReturn doSynchronizeCache(void);
+	virtual IOReturn doSynchronizeCache(void) override;
 	virtual IOReturn doAsyncReadWrite(IOMemoryDescriptor *,
 	    UInt64, UInt64, IOStorageAttributes *,
-	    IOStorageCompletion *);
+	    IOStorageCompletion *) override;
 	virtual UInt32 doGetFormatCapacities(UInt64 *,
-	    UInt32) const;
-	virtual IOReturn doFormatMedia(UInt64 byteCapacity);
-	virtual IOReturn doEjectMedia();
-	virtual char *getVendorString();
-	virtual char *getProductString();
-	virtual char *getRevisionString();
-	virtual char *getAdditionalDeviceInfoString();
-	virtual IOReturn reportWriteProtection(bool *);
-	virtual IOReturn reportRemovability(bool *);
-	virtual IOReturn reportMediaState(bool *, bool *);
-	virtual IOReturn reportBlockSize(UInt64 *);
-	virtual IOReturn reportEjectability(bool *);
-	virtual IOReturn reportMaxValidBlock(UInt64 *);
+	    UInt32) const override;
+	virtual IOReturn doFormatMedia(UInt64 byteCapacity) override;
+	virtual IOReturn doEjectMedia() override;
+	virtual char *getVendorString() override;
+	virtual char *getProductString() override;
+	virtual char *getRevisionString() override;
+	virtual char *getAdditionalDeviceInfoString() override;
+	virtual IOReturn reportWriteProtection(bool *) override;
+	virtual IOReturn reportRemovability(bool *) override;
+	virtual IOReturn reportMediaState(bool *, bool *) override;
+	virtual IOReturn reportBlockSize(UInt64 *) override;
+	virtual IOReturn reportEjectability(bool *) override;
+	virtual IOReturn reportMaxValidBlock(UInt64 *) override;
 
-	virtual IOReturn setWriteCacheState(bool enabled);
-	virtual IOReturn getWriteCacheState(bool *enabled);
+	virtual IOReturn setWriteCacheState(bool enabled) override;
+	virtual IOReturn getWriteCacheState(bool *enabled) override;
 #if 0
 	virtual void read(IOService *client, UInt64 byteStart,
 	    IOMemoryDescriptor *buffer, IOStorageAttributes *attr,
