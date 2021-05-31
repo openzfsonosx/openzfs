@@ -49,12 +49,16 @@ TESTFILE='testfile'
 FS=$TESTPOOL/$TESTFS
 
 mntpnt=$(get_prop mountpoint $FS)
+
+#if is_macos; then
+#	rm $mntpnt/.VolumeIcon.icns
+#fi
+
 log_must mkfile 20M $mntpnt/$TESTFILE
 log_must zfs snapshot $FS@snap20M
 log_must rm $mntpnt/$TESTFILE
 
-log_must sync
-
+log_must zpool sync $TESTPOOL
 log_must zfs set refquota=10M $FS
 log_mustnot zfs rollback $FS@snap20M
 
