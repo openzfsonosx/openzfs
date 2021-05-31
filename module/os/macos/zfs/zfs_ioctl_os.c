@@ -91,15 +91,22 @@ zfsdev_get_dev(void)
 	return ((dev_t)tsd_get(zfsdev_private_tsd));
 }
 
-/* Not sure what these are supposed to be - upstream assumes they can be set */
+/* We can't set ->private method, so this function does nothing */
 void
 zfsdev_private_set_state(void *priv, zfsdev_state_t *zs)
 {
 }
 
+/* Loop all zs looking for matching dev_t */
 zfsdev_state_t *
 zfsdev_private_get_state(void *priv)
 {
+	dev_t dev = (dev_t)priv;
+	zfsdev_state_t *zs;
+	mutex_enter(&zfsdev_state_lock);
+	zs = zfsdev_get_state(minor(dev), ZST_ALL);
+	mutex_exit(&zfsdev_state_lock);
+	return (zs);
 }
 
 static int
@@ -108,11 +115,7 @@ zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 	int error;
 
 	mutex_enter(&zfsdev_state_lock);
-	if (zfsdev_get_state(minor(dev), ZST_ALL)) {
-		mutex_exit(&zfsdev_state_lock);
-		return (0);
-	}
-	error = zfsdev_state_init((void *)dev);
+	error = zfsdev_state_init((void *)(uintptr_t)dev);
 	mutex_exit(&zfsdev_state_lock);
 
 	return (-error);
@@ -121,9 +124,11 @@ zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 static int
 zfsdev_release(dev_t dev, int flags, int devtype, struct proc *p)
 {
-	mutex_enter(&zfsdev_state_lock);
-	zfsdev_state_destroy((void *)dev);
-	mutex_exit(&zfsdev_state_lock);
+	/* zfsdev_state_destroy() doesn't check for NULL, so pre-lookup here */
+	void *priv = (void *)(uintptr_t)dev;
+	zfsdev_state_t *zs = zfsdev_private_get_state(priv);
+	if (zs != NULL)
+		zfsdev_state_destroy(priv);
 
 	return (0);
 }
@@ -240,9 +245,7 @@ static int
 zfs_ioc_osx_proxy_remove(const char *unused, nvlist_t *innvl,
     nvlist_t *outnvl)
 {
-	int error;
 	char *osname = NULL;
-	char value[MAXPATHLEN * 2];
 
 	if (nvlist_lookup_string(innvl,
 	    ZPOOL_CONFIG_POOL_NAME, &osname) != 0)
