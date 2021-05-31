@@ -95,6 +95,9 @@ zfsdev_get_dev(void)
 void
 zfsdev_private_set_state(void *priv, zfsdev_state_t *zs)
 {
+	zfsdev_state_t **actual_zs = (zfsdev_state_t **)priv;
+	if (actual_zs != NULL)
+		*actual_zs = zs;
 }
 
 /* Loop all zs looking for matching dev_t */
@@ -104,7 +107,7 @@ zfsdev_private_get_state(void *priv)
 	dev_t dev = (dev_t)priv;
 	zfsdev_state_t *zs;
 	mutex_enter(&zfsdev_state_lock);
-	zs = zfsdev_get_state(minor(dev), ZST_ALL);
+	zs = zfsdev_get_state(dev, ZST_ALL);
 	mutex_exit(&zfsdev_state_lock);
 	return (zs);
 }
@@ -113,23 +116,42 @@ static int
 zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 {
 	int error;
+	zfsdev_state_t *actual_zs = NULL;
 
 	mutex_enter(&zfsdev_state_lock);
-	error = zfsdev_state_init((void *)(uintptr_t)dev);
-	mutex_exit(&zfsdev_state_lock);
 
-	return (-error);
+	/*
+	 * Check if the minor already exists, something that zfsdev_state_init()
+	 * does internally, but it doesn't know of the minor we are to use.
+	 * This should never happen, so use ASSERT()
+	 */
+	ASSERT3P(zfsdev_get_state(minor(dev), ZST_ALL), ==, NULL);
+
+	error = zfsdev_state_init((void *)&actual_zs);
+	/*
+	 * We are given the minor to use, so we set it here. We can't use
+	 * zfsdev_private_set_state() as it is called before zfsdev_state_init()
+	 * sets the minor. Also, since zfsdev_state_init() doesn't return zs
+	 * nor the minor they pick, we ab/use "priv" to return it to us.
+	 * Maybe we should change zfsdev_state_init() instead of this dance,
+	 * either to take 'minor' to use, or, to return zs.
+	 */
+	if (error == 0 && actual_zs != NULL)
+		actual_zs->zs_minor = minor(dev);
+	mutex_exit(&zfsdev_state_lock);
+	return (error);
 }
 
 static int
 zfsdev_release(dev_t dev, int flags, int devtype, struct proc *p)
 {
 	/* zfsdev_state_destroy() doesn't check for NULL, so pre-lookup here */
-	void *priv = (void *)(uintptr_t)dev;
+	void *priv;
+
+	priv = (void *)(uintptr_t)minor(dev);
 	zfsdev_state_t *zs = zfsdev_private_get_state(priv);
 	if (zs != NULL)
 		zfsdev_state_destroy(priv);
-
 	return (0);
 }
 
