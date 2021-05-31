@@ -5260,6 +5260,7 @@ static const zfs_ioc_key_t zfs_keys_recv_new[] = {
 	{"cleanup_fd",		DATA_TYPE_INT32,	ZK_OPTIONAL},
 	{"action_handle",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 	{"hidden_args",		DATA_TYPE_NVLIST,	ZK_OPTIONAL},
+	{"input_fd_offset",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 };
 
 static int
@@ -6494,8 +6495,8 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 #ifdef __APPLE__
 	off = zfs_file_off(fp);
 	if (off > 0)
-		nvlist_lookup_uint64(outnvl,
-		    "output_fd_offset", (uint64_t *)&off);
+		nvlist_add_uint64(outnvl,
+		    "output_fd_offset", (uint64_t)off);
 #endif
 	zfs_file_put(fd);
 	return (error);
