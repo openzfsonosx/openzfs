@@ -47,6 +47,8 @@ dd if=/dev/urandom of=$TESTDIR/file bs=1024k count=$MEGS conv=notrunc \
 zfs snapshot $origin@a || log_fail "zfs snap failed"
 log_must zfs clone $origin@a $origin/clone
 
+disable_spotlight $origin/clone
+
 if is_linux; then
 	o_atime=$(stat -c %X $TESTDIR/clone/file)
 	o_ctime=$(stat -c %Z $TESTDIR/clone/file)
