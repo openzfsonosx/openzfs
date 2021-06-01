@@ -240,6 +240,7 @@ osx_kstat_t osx_kstat = {
 	{"vdev_file_physical_ashift",			KSTAT_DATA_UINT64  },
 	{"zvol_volmode",			KSTAT_DATA_UINT64  },
 	{"zfs_zevent_retain_max",			KSTAT_DATA_UINT64  },
+	{"zfs_disable_spotlight",			KSTAT_DATA_UINT64  },
 
 };
 
@@ -577,6 +578,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    ks->vdev_file_physical_ashift.value.ui64;
 		zvol_volmode = ks->zvol_volmode.value.ui64;
 		zfs_zevent_retain_max = ks->zfs_zevent_retain_max.value.ui64;
+		zfs_disable_spotlight = ks->zfs_disable_spotlight.value.ui64;
 
 	} else {
 
@@ -865,6 +867,7 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		    vdev_file_physical_ashift;
 		ks->zvol_volmode.value.ui64 = zvol_volmode;
 		ks->zfs_zevent_retain_max.value.ui64 = zfs_zevent_retain_max;
+		ks->zfs_disable_spotlight.value.ui64 = zfs_disable_spotlight;
 
 	}
 

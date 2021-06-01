@@ -207,6 +207,7 @@ typedef struct osx_kstat {
 	kstat_named_t vdev_file_physical_ashift;
 	kstat_named_t zvol_volmode;
 	kstat_named_t zfs_zevent_retain_max;
+	kstat_named_t zfs_disable_spotlight;
 } osx_kstat_t;
 
 extern unsigned int zfs_vnop_ignore_negatives;
@@ -375,6 +376,7 @@ extern int zfs_txg_history;
 extern unsigned long vdev_file_physical_ashift;
 extern unsigned int zvol_volmode;
 extern unsigned int zfs_zevent_retain_max;
+extern unsigned int zfs_disable_spotlight;
 
 int kstat_osx_init(void);
 void kstat_osx_fini(void);
