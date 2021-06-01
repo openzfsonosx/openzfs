@@ -492,29 +492,38 @@ pipe_io_relay(void *arg)
 }
 
 /*
+ * Problem 1: No pipe IO from kernel.
+ *
  * XNU only lets us do IO on vnodes, not pipes, so create a Unix
  * Domain socket, open it to get a vnode for the kernel, and spawn
  * thread to relay IO. As used by sendrecv, we are given a FD it wants
  * to send to the kernel, and we'll replace it with the pipe FD instead.
  * If pipe/fork already exists, use same descriptors. (multiple send/recv)
  *
- * In addition to this, upstream will do their "zfs send" by having the kernel
- * look in fd->f_offset for the userland file-position, then update it
- * again after IO completes, so userland is kept in-sync.
+ * Problem 2: Kernel can not lookup "fd->f_offset".
  *
- * In XNU, we have no access to "f_offset". For "zfs send", it is possible
- * to change the "fd" to have O_APPEND, then have kernel use IO_APPEND
- * when writing to it. Once back in userland, any write()s will SEEK_END
- * due to O_APPEND. This was tested, but it feels "questionable" to
- * add O_APPEND to a file descriptor opened by the shell (zfs send > file).
- * Even though this would work for "zfs send", we also need "zfs recv" to
- * work.
+ * Which means that when userland writes to the file, then passes the
+ * fd to kernel, the kernel has no way to know at what offset to write.
+ * We could fake it with O_APPEND, but since we already have logic to
+ * wrapfd for a pipe helper child, let's keep using it. (the use of pipe
+ * removes the need of offsets, as they are essentially O_APPEND in nature)
  *
- * So now when zfs adds the "fd" to either "zc", or the "innvl", to pass it
- * to the kernel via ioctl() - annoyingly we still have OLD and NEW ioctl
- * for send and recv - we will also pass the file offset, either in
- * zc.zoneid (not used in XNU) or innvl "input_fd_offset".
- * Since the kernel might do writes, we need to SEEK_END once we return.
+ * We have tried sending offset to, and from, kernel - and this does work
+ * but it litters the upstream source files a fair bit. Especially since both
+ * recv and send have recv_new and send_new variants. As well as, kernel
+ * side sources needed to retrieve the offset, and return it, to userland.
+ * This code still exists should we need it back.
+ *
+ * We have also tested setting O_APPEND on S_ISREG(fd), then have
+ * the kernel handle O_APPEND by always writing to the end. This has much
+ * fewer changes to upstream sources. However, the "fd" in this case is
+ * opened by the shell (ie, "> output") - and it feels.. I don't know...
+ * "rude" to change the "fd" behind its back.
+ *
+ * So, currently we also wrap S_ISREG(fd), that way the IO is serialised
+ * (due to the pipe) and needs no extra #ifdefs beyond the already required
+ * by wrapfd.
+ *
  */
 void
 libzfs_macos_wrapfd(int *srcfd, boolean_t send)
@@ -534,9 +543,6 @@ libzfs_macos_wrapfd(int *srcfd, boolean_t send)
 	error = fstat(*srcfd, &sb);
 
 	if (error != 0)
-		return;
-
-	if (!S_ISFIFO(sb.st_mode))
 		return;
 
 	if (pipe_relay_pid != 0) {
