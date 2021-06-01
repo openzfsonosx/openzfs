@@ -4809,15 +4809,13 @@ static boolean_t zfs_ioc_recv_inject_err;
 /*
  * nvlist 'errors' is always allocated. It will contain descriptions of
  * encountered errors, if any. It's the callers responsibility to free.
- * Platform note: "fd_offset" mostly only used by macOS to pass along the
- * "fd" file pointer offset between kernel and userland.
  */
 static int
 zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
     nvlist_t *localprops, nvlist_t *hidden_args, boolean_t force,
     boolean_t resumable, int input_fd,
     dmu_replay_record_t *begin_record, uint64_t *read_bytes,
-    uint64_t *errflags, nvlist_t **errors, uint64_t *fd_offset)
+    uint64_t *errflags, nvlist_t **errors)
 {
 	dmu_recv_cookie_t drc;
 	int error = 0;
@@ -4831,6 +4829,10 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 	boolean_t tofs_was_redacted;
 	zfs_file_t *input_fp;
 
+#ifdef __APPLE__
+	off_t fd_offset = *errflags;
+#endif
+
 	*read_bytes = 0;
 	*errflags = 0;
 	*errors = fnvlist_alloc();
@@ -4840,8 +4842,8 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 		return (error);
 
 #ifdef __APPLE__
-	if (fd_offset != NULL && *fd_offset > 0)
-		zfs_file_seek(input_fp, (loff_t *)fd_offset, SEEK_SET);
+	if (fd_offset > 0)
+		zfs_file_seek(input_fp, &fd_offset, SEEK_SET);
 #endif
 
 	noff = off = zfs_file_off(input_fp);
@@ -5122,12 +5124,6 @@ zfs_ioc_recv_impl(char *tofs, char *tosnap, char *origin, nvlist_t *recvprops,
 		nvlist_free(inheritprops);
 	}
 out:
-
-#ifdef __APPLE__
-	if (fd_offset != NULL)
-		*fd_offset = zfs_file_off(input_fp);
-#endif
-
 	zfs_file_put(input_fd);
 	nvlist_free(origrecvd);
 	nvlist_free(origprops);
@@ -5166,11 +5162,6 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 	char *tosnap;
 	char tofs[ZFS_MAX_DATASET_NAME_LEN];
 	int error = 0;
-	uint64_t fd_offset = 0;
-
-#ifdef __APPLE__
-	fd_offset = zc->zc_fd_offset;
-#endif
 
 	if (dataset_namecheck(zc->zc_value, NULL, NULL) != 0 ||
 	    strchr(zc->zc_value, '@') == NULL ||
@@ -5200,7 +5191,7 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 
 	error = zfs_ioc_recv_impl(tofs, tosnap, origin, recvdprops, localprops,
 	    NULL, zc->zc_guid, B_FALSE, zc->zc_cookie, &begin_record,
-	    &zc->zc_cookie, &zc->zc_obj, &errors, &fd_offset);
+	    &zc->zc_cookie, &zc->zc_obj, &errors);
 	nvlist_free(recvdprops);
 	nvlist_free(localprops);
 
@@ -5217,10 +5208,6 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 		 */
 		error = SET_ERROR(EINVAL);
 	}
-
-#ifdef __APPLE__
-	zc->zc_fd_offset = fd_offset;
-#endif
 
 	nvlist_free(errors);
 
@@ -5282,7 +5269,6 @@ zfs_ioc_recv_new(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 	uint64_t errflags = 0;
 	int input_fd = -1;
 	int error;
-	uint64_t fd_offset = 0;
 
 	snapname = fnvlist_lookup_string(innvl, "snapname");
 
@@ -5323,20 +5309,16 @@ zfs_ioc_recv_new(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 		return (error);
 
 #ifdef __APPLE__
-	nvlist_lookup_uint64(innvl, "input_fd_offset", &fd_offset);
+	nvlist_lookup_uint64(innvl, "input_fd_offset", &errflags);
 #endif
 
 	error = zfs_ioc_recv_impl(tofs, tosnap, origin, recvprops, localprops,
 	    hidden_args, force, resumable, input_fd, begin_record,
-	    &read_bytes, &errflags, &errors, &fd_offset);
+	    &read_bytes, &errflags, &errors);
 
 	fnvlist_add_uint64(outnvl, "read_bytes", read_bytes);
 	fnvlist_add_uint64(outnvl, "error_flags", errflags);
 	fnvlist_add_nvlist(outnvl, "errors", errors);
-
-#ifdef __APPLE__
-	fnvlist_add_uint64(outnvl, "output_fd_offset", fd_offset);
-#endif
 
 	nvlist_free(errors);
 	nvlist_free(recvprops);
@@ -5479,10 +5461,6 @@ zfs_ioc_send(zfs_cmd_t *zc)
 
 		if ((error = zfs_file_get(zc->zc_cookie, &fp)))
 			return (error);
-#ifdef __APPLE__
-		if (zc->zc_fd_offset > 0)
-			zfs_file_seek(fp, &zc->zc_fd_offset, SEEK_SET);
-#endif
 
 		off = zfs_file_off(fp);
 		out.dso_outfunc = dump_bytes;
@@ -5492,10 +5470,6 @@ zfs_ioc_send(zfs_cmd_t *zc)
 		    zc->zc_fromobj, embedok, large_block_ok, compressok,
 		    rawok, savedok, zc->zc_cookie, &off, &out);
 
-#ifdef __APPLE__
-		if (zc->zc_fd_offset > 0)
-			zc->zc_fd_offset = zfs_file_off(fp);
-#endif
 		zfs_file_put(zc->zc_cookie);
 	}
 	return (error);
@@ -6476,12 +6450,6 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	if ((error = zfs_file_get(fd, &fp)))
 		return (error);
 
-#ifdef __APPLE__
-	nvlist_lookup_uint64(innvl, "input_fd_offset", (uint64_t *)&off);
-	if (off > 0)
-		zfs_file_seek(fp, (loff_t *)&off, SEEK_SET);
-#endif
-
 	off = zfs_file_off(fp);
 
 	dmu_send_outparams_t out = {0};
@@ -6492,12 +6460,6 @@ zfs_ioc_send_new(const char *snapname, nvlist_t *innvl, nvlist_t *outnvl)
 	    compressok, rawok, savedok, resumeobj, resumeoff,
 	    redactbook, fd, &off, &out);
 
-#ifdef __APPLE__
-	off = zfs_file_off(fp);
-	if (off > 0)
-		nvlist_add_uint64(outnvl,
-		    "output_fd_offset", (uint64_t)off);
-#endif
 	zfs_file_put(fd);
 	return (error);
 }

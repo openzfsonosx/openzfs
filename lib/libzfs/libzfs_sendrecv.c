@@ -802,12 +802,6 @@ dump_ioctl(zfs_handle_t *zhp, const char *fromsnap, uint64_t fromsnap_obj,
 	zc.zc_fromobj = fromsnap_obj;
 	zc.zc_flags = flags;
 
-#ifdef __APPLE__
-	off_t offset = lseek(outfd, 0, SEEK_CUR);
-	if (offset > 0)
-		zc.zc_fd_offset = offset;
-#endif
-
 	thisdbg = fnvlist_alloc();
 	if (fromsnap && fromsnap[0] != '\0') {
 		fnvlist_add_string(thisdbg, "fromsnap", fromsnap);
@@ -862,12 +856,6 @@ dump_ioctl(zfs_handle_t *zhp, const char *fromsnap, uint64_t fromsnap_obj,
 			return (zfs_standard_error(hdl, errno, errbuf));
 		}
 	}
-
-#ifdef __APPLE__
-	/* Sync userland offset to kernel's writes */
-	if (zc.zc_fd_offset > 0)
-		lseek(outfd, zc.zc_fd_offset, SEEK_SET);
-#endif
 
 	if (debugnv)
 		fnvlist_add_nvlist(debugnv, zhp->zfs_name, thisdbg);

@@ -662,17 +662,11 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
     enum lzc_send_flags flags, uint64_t resumeobj, uint64_t resumeoff,
     const char *redactbook)
 {
-	nvlist_t *args, *result;
+	nvlist_t *args;
 	int err;
 
 	args = fnvlist_alloc();
 	fnvlist_add_int32(args, "fd", fd);
-#ifdef __APPLE__
-	off_t fd_offset = lseek(fd, 0, SEEK_CUR);
-	if (fd_offset > 0)
-		fnvlist_add_uint64(args, "input_fd_offset",
-		    fd_offset);
-#endif
 	if (from != NULL)
 		fnvlist_add_string(args, "fromsnap", from);
 	if (flags & LZC_SEND_FLAG_LARGE_BLOCK)
@@ -692,16 +686,8 @@ lzc_send_resume_redacted(const char *snapname, const char *from, int fd,
 	if (redactbook != NULL)
 		fnvlist_add_string(args, "redactbook", redactbook);
 
-	err = lzc_ioctl(ZFS_IOC_SEND_NEW, snapname, args, &result);
+	err = lzc_ioctl(ZFS_IOC_SEND_NEW, snapname, args, NULL);
 	nvlist_free(args);
-
-#ifdef __APPLE__
-	if (nvlist_lookup_uint64(result, "output_fd_offset",
-	    (uint64_t *)&fd_offset) == 0)
-		lseek(fd, fd_offset, SEEK_SET);
-#endif
-
-	nvlist_free(result);
 	return (err);
 }
 
@@ -748,29 +734,14 @@ lzc_send_space_resume_redacted(const char *snapname, const char *from,
 	}
 	if (redactbook != NULL)
 		fnvlist_add_string(args, "redactbook", redactbook);
-	if (fd != -1) {
+	if (fd != -1)
 		fnvlist_add_int32(args, "fd", fd);
-#ifdef __APPLE__
-		off_t fd_offset = lseek(fd, 0, SEEK_CUR);
-		if (fd_offset > 0)
-			fnvlist_add_uint64(args, "input_fd_offset",
-			    fd_offset);
-#endif
-	}
 
 	err = lzc_ioctl(ZFS_IOC_SEND_SPACE, snapname, args, &result);
 	nvlist_free(args);
 	if (err == 0)
 		*spacep = fnvlist_lookup_uint64(result, "space");
 	nvlist_free(result);
-#ifdef __APPLE__
-	if (fd != -1) {
-		off_t fd_offset;
-		if (nvlist_lookup_uint64(result, "output_fd_offset",
-		    (uint64_t *)&fd_offset) == 0)
-			lseek(fd, fd_offset, SEEK_SET);
-	}
-#endif
 	return (err);
 }
 
@@ -892,10 +863,13 @@ recv_impl(const char *snapname, nvlist_t *recvdprops, nvlist_t *localprops,
 		fnvlist_add_int32(innvl, "input_fd", input_fd);
 
 #ifdef __APPLE__
-		off_t fd_offset = lseek(input_fd, 0, SEEK_CUR);
-		if (fd_offset > 0)
-			fnvlist_add_uint64(innvl, "input_fd_offset",
-			    fd_offset);
+		{
+			off_t offset;
+			offset = lseek(input_fd, 0, SEEK_CUR);
+			if (offset > 0)
+				fnvlist_add_uint64(innvl, "input_fd_offset",
+				    offset);
+		}
 #endif
 
 		if (force)
@@ -920,12 +894,6 @@ recv_impl(const char *snapname, nvlist_t *recvdprops, nvlist_t *localprops,
 			if (error == 0)
 				*errors = fnvlist_dup(nvl);
 		}
-
-#ifdef __APPLE__
-		if (nvlist_lookup_uint64(outnvl, "output_fd_offset",
-		    (uint64_t *)&fd_offset) == 0)
-			lseek(input_fd, fd_offset, SEEK_SET);
-#endif
 
 		fnvlist_free(innvl);
 		fnvlist_free(outnvl);
@@ -963,16 +931,19 @@ recv_impl(const char *snapname, nvlist_t *recvdprops, nvlist_t *localprops,
 		zc.zc_action_handle = 0;
 
 #ifdef __APPLE__
-		off_t fd_offset = lseek(input_fd, 0, SEEK_CUR);
-		if (fd_offset > 0)
-			zc.zc_fd_offset = fd_offset;
+		/* Alas we have no way to lookup the "offset" in kernel */
+		{
+			off_t offset;
+			offset = lseek(input_fd, 0, SEEK_CUR);
+			if (offset > 0)
+				zc.zc_obj = offset;
+		}
 #endif
 
 		zc.zc_nvlist_dst_size = 128 * 1024;
 		zc.zc_nvlist_dst = (uint64_t)(uintptr_t)
 		    malloc(zc.zc_nvlist_dst_size);
 		error = zfs_ioctl_fd(g_fd, ZFS_IOC_RECV, &zc);
-
 		if (error != 0) {
 			error = errno;
 		} else {
@@ -986,12 +957,6 @@ recv_impl(const char *snapname, nvlist_t *recvdprops, nvlist_t *localprops,
 				VERIFY0(nvlist_unpack(
 				    (void *)(uintptr_t)zc.zc_nvlist_dst,
 				    zc.zc_nvlist_dst_size, errors, KM_SLEEP));
-
-#ifdef __APPLE__
-			fd_offset = zc.zc_fd_offset;
-			if (fd_offset > 0)
-				lseek(input_fd, fd_offset, SEEK_SET);
-#endif
 		}
 
 		if (packed != NULL)
