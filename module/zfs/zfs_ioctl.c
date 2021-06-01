@@ -5238,7 +5238,6 @@ static const zfs_ioc_key_t zfs_keys_recv_new[] = {
 	{"cleanup_fd",		DATA_TYPE_INT32,	ZK_OPTIONAL},
 	{"action_handle",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 	{"hidden_args",		DATA_TYPE_NVLIST,	ZK_OPTIONAL},
-	{"input_fd_offset",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 };
 
 static int
@@ -6398,7 +6397,6 @@ static const zfs_ioc_key_t zfs_keys_send_new[] = {
 	{"resume_object",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 	{"resume_offset",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 	{"redactbook",		DATA_TYPE_STRING,	ZK_OPTIONAL},
-	{"input_fd_offset",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 };
 
 /* ARGSUSED */
@@ -6497,7 +6495,6 @@ static const zfs_ioc_key_t zfs_keys_send_space[] = {
 	{"resume_object",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 	{"resume_offset",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 	{"bytes",		DATA_TYPE_UINT64,	ZK_OPTIONAL},
-	{"input_fd_offset",	DATA_TYPE_UINT64,	ZK_OPTIONAL},
 };
 
 static int
