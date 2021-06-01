@@ -23,9 +23,6 @@ nodist_kernel_HEADERS = zfs.release zfs_config.h module/$(LINUX_SYMBOLS)
 endif
 endif
 
-# Why is this required?
-DIST_SUBDIRS=module/os/macos
-
 AUTOMAKE_OPTIONS = foreign
 EXTRA_DIST  = autogen.sh copy-builtin
 EXTRA_DIST += config/config.awk config/rpm.am config/deb.am config/tgz.am

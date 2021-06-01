@@ -1,9 +1,10 @@
+if BUILD_MACOS
 
 INFO_PLIST = Info.plist
 PLIST_STRING = InfoPlist.strings
 
-ZFS_META_VERSION = @ZFS_META_VERSION@
-ZFS_DEBUG_STR = @ZFS_DEBUG_STR@
+# ZFS_META_VERSION = @ZFS_META_VERSION@
+# ZFS_DEBUG_STR = @ZFS_DEBUG_STR@
 
 zfs_CPPFLAGS = \
 	-Wall \
@@ -53,7 +54,7 @@ zfs_LDADD = \
 zfs_LIBS =
 
 # If we don't set this to nothing, it adds "-lz -liconv"
-LIBS =
+# LIBS =
 
 bin_PROGRAMS = zfs.kext
 noinst_PROGRAMS = zfs
@@ -362,3 +363,5 @@ uninstall-am:
 clean:
 	rm -rf zfs.kext/
 	rm -f *.o *.lo zfs $(zfs_OBJECTS)
+
+endif
