@@ -92,6 +92,9 @@ zfs_mount_seticon(const char *mountpoint)
 	unsigned char buf[1024];
 	unsigned int red;
 
+	if (getenv("__ZFS_DISABLE_VOLUME_ICON") != NULL)
+		return;
+
 	if (asprintf(&path, "%s/%s", mountpoint, MOUNT_POINT_CUSTOM_ICON) == -1)
 		return;
 
