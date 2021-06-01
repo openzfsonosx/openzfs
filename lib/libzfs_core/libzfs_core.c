@@ -862,21 +862,12 @@ recv_impl(const char *snapname, nvlist_t *recvdprops, nvlist_t *localprops,
 
 		fnvlist_add_int32(innvl, "input_fd", input_fd);
 
-#ifdef __APPLE__
-		{
-			off_t offset;
-			offset = lseek(input_fd, 0, SEEK_CUR);
-			if (offset > 0)
-				fnvlist_add_uint64(innvl, "input_fd_offset",
-				    offset);
-		}
-#endif
-
 		if (force)
 			fnvlist_add_boolean(innvl, "force");
 
 		if (resumable)
 			fnvlist_add_boolean(innvl, "resumable");
+
 
 		error = lzc_ioctl(ZFS_IOC_RECV_NEW, fsname, innvl, &outnvl);
 
@@ -930,19 +921,10 @@ recv_impl(const char *snapname, nvlist_t *recvdprops, nvlist_t *localprops,
 		zc.zc_cleanup_fd = -1;
 		zc.zc_action_handle = 0;
 
-#ifdef __APPLE__
-		/* Alas we have no way to lookup the "offset" in kernel */
-		{
-			off_t offset;
-			offset = lseek(input_fd, 0, SEEK_CUR);
-			if (offset > 0)
-				zc.zc_obj = offset;
-		}
-#endif
-
 		zc.zc_nvlist_dst_size = 128 * 1024;
 		zc.zc_nvlist_dst = (uint64_t)(uintptr_t)
 		    malloc(zc.zc_nvlist_dst_size);
+
 		error = zfs_ioctl_fd(g_fd, ZFS_IOC_RECV, &zc);
 		if (error != 0) {
 			error = errno;
