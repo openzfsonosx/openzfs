@@ -877,6 +877,12 @@ error:
 	return (NULL);
 }
 
+#ifdef __APPLE__
+
+/* We have our own zpool_read_label() / label_offset() */
+
+#else
+
 /*
  * Return the offset of the given label.
  */
@@ -888,9 +894,6 @@ label_offset(uint64_t size, int l)
 	    0 : size - VDEV_LABELS * sizeof (vdev_label_t)));
 }
 
-#ifdef __APPLE__
-/* We have our own */
-#else
 /*
  * Given a file descriptor, read the label information and return an nvlist
  * describing the configuration, if there is one.  The number of valid
