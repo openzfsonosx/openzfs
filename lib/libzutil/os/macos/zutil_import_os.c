@@ -126,8 +126,8 @@ label_offset(uint64_t size, int l)
  * 100 times before labels are read. Until this problem can be
  * understood better, we use the old serial style here.
  */
-static int
-zpool_read_label_os(int fd, nvlist_t **config, int *num_labels)
+int
+zpool_read_label(int fd, nvlist_t **config, int *num_labels)
 {
 	struct stat64 statbuf;
 	int l, count = 0;
@@ -272,7 +272,7 @@ zpool_open_func(void *arg)
 		return;
 	}
 
-	error = zpool_read_label_os(fd, &config, &num_labels);
+	error = zpool_read_label(fd, &config, &num_labels);
 
 	if (error != 0) {
 		(void) close(fd);
