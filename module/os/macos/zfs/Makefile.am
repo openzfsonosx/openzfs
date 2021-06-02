@@ -58,7 +58,7 @@ LIBS =
 bin_PROGRAMS = zfs.kext
 noinst_PROGRAMS = zfs
 
-zfs_kext_SOURCE =
+zfs_kext_SOURCES =
 
 if TARGET_CPU_X86_64
 zfs_ASM_SOURCES_C = \

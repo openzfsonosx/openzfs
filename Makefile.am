@@ -12,7 +12,7 @@ SUBDIRS += udev
 endif
 endif
 if CONFIG_KERNEL
-SUBDIRS += module
+SUBDIRS += module module/os/macos
 
 extradir = $(prefix)/src/zfs-$(VERSION)
 extra_HEADERS = zfs.release.in zfs_config.h.in
@@ -22,9 +22,6 @@ kerneldir = $(prefix)/src/zfs-$(VERSION)/$(LINUX_VERSION)
 nodist_kernel_HEADERS = zfs.release zfs_config.h module/$(LINUX_SYMBOLS)
 endif
 endif
-
-# Why is this required?
-DIST_SUBDIRS=module/os/macos
 
 AUTOMAKE_OPTIONS = foreign
 EXTRA_DIST  = autogen.sh copy-builtin
