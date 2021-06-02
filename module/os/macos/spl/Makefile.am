@@ -2,6 +2,8 @@
 # Anyone remember why we made this a library?
 libspl_la_CPPFLAGS= \
 	-Wall \
+	-Wno-sign-conversion \
+	-Wno-shorten-64-to-32 \
 	-nostdinc \
 	-mkernel \
 	-fno-builtin-printf \
@@ -17,6 +19,7 @@ libspl_la_CPPFLAGS= \
 	-I$(top_srcdir)/include \
 	-I@KERNEL_HEADERS@/Headers \
 	-I@KERNEL_HEADERS@/PrivateHeaders
+
 
 libspl_la_CPPFLAGS += @KERNEL_DEBUG_CPPFLAGS@
 
