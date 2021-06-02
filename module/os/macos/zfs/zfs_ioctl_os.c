@@ -343,12 +343,12 @@ static struct cdevsw zfs_cdevsw = {
 static minor_t
 zfsdev_minor_alloc_os(void)
 {
-	static minor_t last_minor = 0;
+	static minor_t last_minor = 1;
 	minor_t m;
 
 	ASSERT(MUTEX_HELD(&zfsdev_state_lock));
 
-	for (m = last_minor; m != last_minor; m++) {
+	for (m = last_minor; m != last_minor - 1; m++) {
 		if (m > ZFSDEV_MAX_MINOR)
 			m = 1;
 		if (zfsdev_get_state(m, ZST_ALL) == NULL) {
