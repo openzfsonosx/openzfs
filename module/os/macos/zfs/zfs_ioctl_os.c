@@ -139,6 +139,10 @@ zfsdev_open(dev_t dev, int flags, int devtype, struct proc *p)
 	if (error == 0 && actual_zs != NULL)
 		actual_zs->zs_minor = minor(dev);
 	mutex_exit(&zfsdev_state_lock);
+
+	/* Store this dev_t in tsd, so zfs_get_private() can retrieve it */
+	tsd_set(zfsdev_private_tsd, (void *)(uintptr_t)dev);
+
 	return (error);
 }
 
