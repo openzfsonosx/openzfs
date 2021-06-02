@@ -35,6 +35,8 @@
 #include <sys/condvar.h>
 #include <kern/sched_prim.h>
 #include <mach/thread_policy.h>
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -96,6 +98,29 @@ extern kthread_t *spl_thread_create_named(const char *name,
     void (*proc)(void *), void *arg, size_t len, /* proc_t *pp, */ int state,
     pri_t pri);
 
+#endif
+
+#if defined(MAC_OS_X_VERSION_10_9) && \
+	(MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_9)
+/* Missing in 10.9 - none of this will be run, but handles us compile */
+#define	THREAD_LATENCY_QOS_POLICY 7
+#define	THREAD_LATENCY_QOS_POLICY_COUNT ((mach_msg_type_number_t) \
+	(sizeof (thread_latency_qos_policy_data_t) / sizeof (integer_t)))
+#define	THREAD_THROUGHPUT_QOS_POLICY 8
+#define	THREAD_THROUGHPUT_QOS_POLICY_COUNT ((mach_msg_type_number_t) \
+	(sizeof (thread_throughput_qos_policy_data_t) / sizeof (integer_t)))
+typedef integer_t thread_latency_qos_t;
+typedef integer_t thread_throughput_qos_t;
+struct thread_throughput_qos_policy {
+	thread_throughput_qos_t thread_throughput_qos_tier;
+};
+struct thread_latency_qos_policy {
+	thread_latency_qos_t thread_latency_qos_tier;
+};
+typedef struct thread_throughput_qos_policy
+thread_throughput_qos_policy_data_t;
+typedef struct thread_latency_qos_policy
+thread_latency_qos_policy_data_t;
 #endif
 
 #define	thread_exit spl_thread_exit

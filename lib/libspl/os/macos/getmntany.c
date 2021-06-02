@@ -62,23 +62,6 @@ struct attrBufS {
 	vol_capabilities_set_t caps;
 } __attribute__((aligned(4), packed));
 
-
-DIR *
-fdopendir(int fd)
-{
-	char fullpath[MAXPATHLEN];
-
-	if (fcntl(fd, F_GETPATH, fullpath) < 0) {
-		perror("fcntl");
-		return (NULL);
-	}
-	if (close(fd) < 0) {
-		return (NULL);
-	}
-
-	return (opendir(fullpath));
-}
-
 static int
 chdir_block_begin(int newroot_fd)
 {
