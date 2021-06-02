@@ -888,6 +888,9 @@ label_offset(uint64_t size, int l)
 	    0 : size - VDEV_LABELS * sizeof (vdev_label_t)));
 }
 
+#ifdef __APPLE__
+/* We have our own */
+#else
 /*
  * Given a file descriptor, read the label information and return an nvlist
  * describing the configuration, if there is one.  The number of valid
@@ -996,6 +999,7 @@ zpool_read_label(int fd, nvlist_t **config, int *num_labels)
 
 	return (0);
 }
+#endif /* APPLE */
 
 /*
  * Sorted by full path and then vdev guid to allow for multiple entries with
