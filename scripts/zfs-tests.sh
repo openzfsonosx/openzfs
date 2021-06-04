@@ -335,7 +335,8 @@ constrain_path() {
 		# Homebrew "gnu-sed" provides gsed
 		[ -f "/usr/local/bin/gawk" ] && ln -fs /usr/local/bin/gawk "$STF_PATH/nawk"
 		[ -f "/usr/local/bin/gdd" ] && ln -fs /usr/local/bin/gdd "$STF_PATH/dd"
-		[ -f "/usr/local/bin/gcp" ] && ln -fs /usr/local/bin/gcp "$STF_PATH/cp"
+		# can't use gcp because it doesn't support xattr on macOS
+		# [ -f "/usr/local/bin/gcp" ] && ln -fs /usr/local/bin/gcp "$STF_PATH/cp"
 		[ -f "/usr/local/bin/gsed" ] && ln -fs /usr/local/bin/gsed "$STF_PATH/sed"
                 # These are provided by Homebrew but are already covered by
                 # SYSTEM_FILES_COMMON or SYSTEM_FILES_MACOS since the basenames
@@ -346,6 +347,7 @@ constrain_path() {
 		# [ -f "/usr/local/bin/gtruncate" ] && ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
 		# [ -f "/usr/local/bin/realpath" ] && ln -fs /usr/local/bin/grealpath "$STF_PATH/realpath"
                 # [ -f "/usr/local/bin/sha256sum" ] && ln -fs /usr/local/bin/sha256sum "$STF_PATH/sha256sum"
+		ln -fs zstream "$STF_PATH/zstreamdump"
 	fi
 }
 
@@ -750,6 +752,8 @@ elif [ "$UNAME" = "Darwin" ] ; then
 	# Tell ZFS to not to use /Volumes
 	__ZFS_MAIN_MOUNTPOINT_DIR=/
 	export __ZFS_MAIN_MOUNTPOINT_DIR
+	__ZFS_DISABLE_VOLUME_ICON=1
+	export __ZFS_DISABLE_VOLUME_ICON
 	# Use /dev even with non-debug build and avoid InvariantDisks
 	ZPOOL_IMPORT_PATH=/dev
 	export ZPOOL_IMPORT_PATH

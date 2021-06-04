@@ -2787,7 +2787,7 @@ function add_group_macos #<group_name>
 {
 	typeset group=$1
 
-	/usr/sbin/dseditgroup -o create $group
+	/usr/sbin/dseditgroup -q -o create $group
 	return 0
 }
 
