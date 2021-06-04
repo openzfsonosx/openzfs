@@ -27,6 +27,8 @@
 
 #define	FILE_FD_NOTUSED -1
 
+extern void IOSleep(unsigned milliseconds);
+
 /*
  * Open file
  *
@@ -93,6 +95,7 @@ zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
 	ssize_t local_resid = count;
 
 	/* If we came with a 'fd' use it, as it can handle pipes. */
+again:
 	if (fp->f_fd == FILE_FD_NOTUSED)
 		error = zfs_vn_rdwr(UIO_WRITE, fp->f_vnode, (caddr_t)buf, count,
 		    *off, UIO_SYSSPACE, fp->f_ioflags, RLIM64_INFINITY,
@@ -101,6 +104,26 @@ zfs_file_write_impl(zfs_file_t *fp, const void *buf, size_t count,
 		error = spl_vn_rdwr(UIO_WRITE, fp, (caddr_t)buf, count,
 		    *off, UIO_SYSSPACE, fp->f_ioflags, RLIM64_INFINITY,
 		    kcred, &local_resid);
+
+	/*
+	 * We need to handle partial writes and restarts. The test
+	 * zfs_send/zfs_send_sparse is really good at triggering this.
+	 */
+	if (error == EAGAIN) {
+		/*
+		 * No progress at all, sleep a bit so we don't busycpu
+		 * Unfortunately, pipe_select() and fo_select(), are static,
+		 * and VNOP_SELECT is not exported. So we have no choice
+		 * but to static sleep until APPLE exports something for us
+		 */
+		if (local_resid == count)
+			IOSleep(1);
+
+		buf += count - local_resid;
+		*off += count - local_resid;
+		count -= count - local_resid;
+		goto again;
+	}
 
 	if (error != 0)
 		return (SET_ERROR(error));
@@ -167,6 +190,7 @@ zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off,
 	ssize_t local_resid = count;
 
 	/* If we have realvp, it's faster to call its spl_vn_rdwr */
+again:
 	if (fp->f_fd == FILE_FD_NOTUSED)
 		error = zfs_vn_rdwr(UIO_READ, fp->f_vnode, buf, count,
 		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
@@ -175,6 +199,19 @@ zfs_file_read_impl(zfs_file_t *fp, void *buf, size_t count, loff_t *off,
 		error = spl_vn_rdwr(UIO_READ, fp, buf, count,
 		    *off, UIO_SYSSPACE, 0, RLIM64_INFINITY,
 		    kcred, &local_resid);
+
+	/*
+	 * We need to handle partial reads and restarts.
+	 */
+	if (error == EAGAIN) {
+		/* No progress at all, sleep a bit so we don't busycpu */
+		if (local_resid == count)
+			IOSleep(1);
+		buf += count - local_resid;
+		*off += count - local_resid;
+		count -= count - local_resid;
+		goto again;
+	}
 
 	if (error)
 		return (SET_ERROR(error));
