@@ -67,6 +67,12 @@ log_must touch $TESTDIR/myfile2.$$
 # snapshot the filesystem
 log_must zfs snapshot $TESTPOOL/$TESTFS@snap
 
+if is_macos; then
+        log_must zfs mount $TESTPOOL/$TESTFS@snap
+        log_must zfs unmount -f $TESTPOOL/$TESTFS@snap
+        log_must zfs mount $TESTPOOL/$TESTFS@snap
+fi
+
 # we shouldn't be able to alter the first file's xattr
 if is_illumos; then
 	log_mustnot eval " runat $TESTDIR/.zfs/snapshot/snap/myfile.$$ \
@@ -85,5 +91,9 @@ else
 fi
 
 log_must diff $TEST_BASE_DIR/output.$$ $TEST_BASE_DIR/expected_output.$$
+
+if is_macos; then
+        log_must zfs unmount $TESTPOOL/$TESTFS@snap
+fi
 
 log_pass "create/write xattr on a snapshot fails"

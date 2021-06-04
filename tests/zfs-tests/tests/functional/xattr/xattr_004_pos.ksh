@@ -85,8 +85,10 @@ if is_illumos; then
 else
 	if is_linux; then
 		options="-o user_xattr"
+	elif is_macos; then
+		options="-t $NEWFS_DEFAULT_FS"
 	fi
-	log_must mount ${options:+""} \
+	log_must mount ${options:-""} \
 	    $ZVOL_DEVDIR/$TESTPOOL/$TESTFS/zvol /tmp/$NEWFS_DEFAULT_FS.$$
 
 	# Create files in ext, and set some xattrs on them.

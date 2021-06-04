@@ -58,7 +58,8 @@ test_pool ()
 	log_must zfs create -o recordsize=512 $POOL/fs
 	mntpnt=$(get_prop mountpoint "$POOL/fs")
 	log_must dd if=/dev/urandom of=${mntpnt}/file bs=512 count=1 2>/dev/null
-	object=$(ls -i $mntpnt | awk '{print $1}')
+	object=$(ls -i ${mntpnt}/file | awk '{print $1}')
+log_must printf "object is %s\n" "$object"
 	log_must zfs snapshot $POOL/fs@a
 	while true; do
 		log_must find $mntpnt/ -type f -delete

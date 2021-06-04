@@ -106,6 +106,31 @@ elif is_linux; then
 	log_must cp $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$
 	log_mustnot get_xattr passwd $TESTDIR/myfile2.$$
 	log_must rm $TESTDIR/myfile2.$$
+elif is_macos; then
+	# with no flags, the xattr should be preserved
+	log_note "Checking cp"
+	log_must cp $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$
+
+	compare_xattrs $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$ passwd
+	log_must rm $TESTDIR/myfile2.$$
+
+	log_note "checking cp -a"
+	log_must cp -a $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$
+
+	compare_xattrs $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$ passwd
+	log_must rm $TESTDIR/myfile2.$$
+
+	log_note "checking cp -p"
+	log_must cp -a $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$
+
+	compare_xattrs $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$ passwd
+	log_must rm $TESTDIR/myfile2.$$
+
+	# with -X there should be no xattr
+	log_note "checking cp -X"
+	log_must cp -X $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$
+	log_mustnot get_xattr passwd $TESTDIR/myfile2.$$
+	log_must rm $TESTDIR/myfile2.$$
 else
 	log_note "Checking cp"
 	log_must cp -@ $TESTDIR/myfile.$$ $TESTDIR/myfile2.$$

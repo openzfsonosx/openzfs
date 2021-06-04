@@ -57,7 +57,15 @@ create_xattr $TESTDIR/myfile.$$ passwd /etc/passwd
 # snapshot the filesystem
 log_must zfs snapshot $TESTPOOL/$TESTFS@snap
 
+if is_macos; then
+	log_must zfs mount $TESTPOOL/$TESTFS@snap
+fi
+
 # check for the xattr on the snapshot
 verify_xattr $TESTDIR/.zfs/snapshot/snap/myfile.$$ passwd /etc/passwd
+
+if is_macos; then
+	log_must zfs unmount $TESTPOOL/$TESTFS@snap
+fi
 
 log_pass "read xattr on a snapshot"
