@@ -445,37 +445,45 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 		 * snapshot. if so, we must make sure it is unmounted,
 		 * or it will fail before calling us (EBUSY).
 		 */
-		if (*vpp != NULL) {
-			if (realpnp != NULL && realpnp->cn_nameiop == DELETE) {
-				if (vnode_mountedhere(*vpp) != NULL) {
-					char snapname[ZFS_MAX_DATASET_NAME_LEN];
-					error =
-					    zfsctl_snapshot_unmount_name(zfsvfs,
-					    name, snapname);
-					if (error != 0)
-						goto out;
-					if (zfsctl_snapshot_unmount_node(dvp,
-					    snapname, MNT_FORCE) == ERESTART) {
-						/* Empty, send ERESTART up? */
-					}
-				}
+		if (*vpp == NULL)
+			goto fail;
 
-			} else {
-
-				/* Not DELETE - Check if we need to mount it */
-				/* If !mounted, check if we can try to mount */
-				if (vnode_mountedhere(*vpp) == NULL &&
-				    zfsctl_snapshot_mount(*vpp, 0) ==
-				    ERESTART) {
-					/* Empty, send ERESTART up? */
-				}
+		if (realpnp != NULL && realpnp->cn_nameiop == DELETE) {
+			if (vnode_mountedhere(*vpp) != NULL) {
+				char snapname[ZFS_MAX_DATASET_NAME_LEN];
+				error = zfsctl_snapshot_unmount_name(zfsvfs,
+				    name, snapname);
+				if (error != 0)
+					goto out;
+				zfsctl_snapshot_unmount_node(dvp, snapname,
+				    MNT_FORCE);
 			}
-		} /* vpp */
+
+		} else {
+
+			/*
+			 * Not DELETE - Check if we need to mount it.
+			 * we want to distinguish between ".zfs/snapshot/send"
+			 * and ".zfs/snapshot/send/ *" - ie, the node itself and
+			 * a lookup below. Only for the latter do we issue a
+			 * mount. If userland issues "ls" on "send", we handle
+			 * mounting it inside zfsctl_vnop_open().
+			 * Also check it isn't mountedhere already.
+			 */
+			if (realpnp != NULL &&
+			    realpnp->cn_nameptr[realpnp->cn_namelen] == '/' &&
+			    vnode_mountedhere(*vpp) == NULL) {
+
+				zfsctl_snapshot_mount(*vpp, 0);
+
+			}
+		}
 	}
 
-	if (*vpp == NULL) {
+fail:
+	if (*vpp == NULL)
 		error = SET_ERROR(ENOENT);
-	}
+
 
 out:
 	ZFS_EXIT(zfsvfs);
