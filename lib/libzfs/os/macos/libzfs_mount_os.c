@@ -620,7 +620,7 @@ do_unmount_volume(const char *mntpt, int flags)
 	return (rc ? EINVAL : 0);
 }
 
-static void
+void
 zpool_disable_volume(const char *name)
 {
 	CFMutableDictionaryRef matching = 0;
