@@ -347,7 +347,7 @@ constrain_path() {
 		# [ -f "/usr/local/bin/gtruncate" ] && ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
 		# [ -f "/usr/local/bin/realpath" ] && ln -fs /usr/local/bin/grealpath "$STF_PATH/realpath"
                 # [ -f "/usr/local/bin/sha256sum" ] && ln -fs /usr/local/bin/sha256sum "$STF_PATH/sha256sum"
-		ln -fs zstream "$STF_PATH/zstreamdump"
+		# ln -fs zstream "$STF_PATH/zstreamdump"
 	fi
 }
 
