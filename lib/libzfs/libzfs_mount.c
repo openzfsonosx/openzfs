@@ -674,6 +674,10 @@ zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)
 		}
 	}
 
+#ifdef __APPLE__
+	zpool_disable_volume(zhp->zfs_name);
+#endif
+
 	return (0);
 }
 

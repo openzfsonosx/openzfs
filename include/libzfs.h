@@ -915,6 +915,7 @@ int zfs_smb_acl_rename(libzfs_handle_t *, char *, char *, char *, char *);
  * Enable and disable datasets within a pool by mounting/unmounting and
  * sharing/unsharing them.
  */
+extern void zpool_disable_volume(const char *);
 extern int zpool_enable_datasets(zpool_handle_t *, const char *, int);
 extern int zpool_disable_datasets(zpool_handle_t *, boolean_t);
 extern void zpool_disable_datasets_os(zpool_handle_t *zhp, boolean_t force);
