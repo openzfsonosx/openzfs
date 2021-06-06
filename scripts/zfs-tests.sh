@@ -21,7 +21,7 @@
 # CDDL HEADER END
 #
 
-sudo zpool export -a; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
+sudo zpool export -fa; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
 
 BASE_DIR=$(dirname "$0")
 SCRIPT_COMMON=common.sh
