@@ -47,6 +47,7 @@ endif
 
 if BUILD_MACOS
 USER_C += \
+	os/macos/libzfs_dataset_os.c \
 	os/macos/libzfs_getmntany.c \
 	os/macos/libzfs_mount_os.c \
 	os/macos/libzfs_pool_os.c \
