@@ -427,7 +427,11 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 
 	ZFS_ENTER(zfsvfs);
 
-	if (strcmp(name, "..") == 0) {
+	if (strcmp(name, ".") == 0) {
+		error = VN_HOLD(dvp);
+		if (error == 0)
+			*vpp = dvp;
+	} else if (strcmp(name, "..") == 0) {
 		*vpp = zfs_root_dotdot(dvp);
 	} else if (strcmp(name, ZFS_SNAPDIR_NAME) == 0) {
 		*vpp = zfsctl_vnode_lookup(zfsvfs, ZFSCTL_INO_SNAPDIR,
