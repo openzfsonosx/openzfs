@@ -1132,7 +1132,7 @@ zvol_fini(void)
 void
 zvol_add_symlink(zvol_state_t *zv, const char *bsd_disk, const char *bsd_rdisk)
 {
-	zfs_ereport_zvol_post(FM_EREPORT_ZVOL_CREATE_SYMLINK,
+	zfs_ereport_zvol_post(FM_RESOURCE_ZVOL_CREATE_SYMLINK,
 	    zv->zv_name, bsd_disk, bsd_rdisk);
 }
 
@@ -1143,7 +1143,7 @@ zvol_remove_symlink(zvol_state_t *zv)
 	if (!zv || !zv->zv_name[0])
 		return;
 
-	zfs_ereport_zvol_post(FM_EREPORT_ZVOL_REMOVE_SYMLINK,
+	zfs_ereport_zvol_post(FM_RESOURCE_ZVOL_REMOVE_SYMLINK,
 	    zv->zv_name, &zv->zv_zso->zvo_bsdname[1],
 	    zv->zv_zso->zvo_bsdname);
 }

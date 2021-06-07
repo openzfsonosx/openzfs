@@ -1142,7 +1142,7 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 
 				mutex_enter(&zcm->zcm_lock);
 				zfs_ereport_snapshot_post(
-				    FM_EREPORT_ZFS_SNAPSHOT_MOUNT,
+				    FM_RESOURCE_ZFS_SNAPSHOT_MOUNT,
 				    dmu_objset_spa(zfsvfs->z_os), full_name);
 
 				/* Now we wait hoping zed comes back to us */
@@ -1307,7 +1307,7 @@ zfsctl_snapshot_unmount_node(struct vnode *vp, const char *full_name,
 
 				mutex_enter(&zcm->zcm_lock);
 				zfs_ereport_snapshot_post(
-				    FM_EREPORT_ZFS_SNAPSHOT_UNMOUNT,
+				    FM_RESOURCE_ZFS_SNAPSHOT_UNMOUNT,
 				    dmu_objset_spa(zfsvfs->z_os), full_name);
 
 				/* Now we wait hoping zed comes back to us */
@@ -1365,12 +1365,13 @@ zfsctl_snapshot_unmount(const char *snapname, int flags)
 	ASSERT(!dsl_pool_config_held(dmu_objset_pool(zfsvfs->z_os)));
 
 	err = zfs_zget(zfsvfs, zfsvfs->z_root, &rootzp);
+	vfs_unbusy(zfsvfs->z_vfs);
+
 	if (err == 0) {
 		zfsctl_snapshot_unmount_node(ZTOV(rootzp), snapname, flags);
 		VN_RELE(ZTOV(rootzp));
 	}
 
-	vfs_unbusy(zfsvfs->z_vfs);
 	return (0);
 }
 

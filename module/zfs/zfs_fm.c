@@ -1447,28 +1447,20 @@ zfs_ereport_fini(void)
 void
 zfs_ereport_snapshot_post(const char *subclass, spa_t *spa, const char *name)
 {
-	nvlist_t *ereport = NULL;
-	nvlist_t *detector = NULL;
+	nvlist_t *aux;
 
-	zfs_ereport_start(&ereport, &detector,
-	    subclass,
-	    spa, NULL, NULL, NULL, 0, 0);
+	aux = fm_nvlist_create(NULL);
+	nvlist_add_string(aux, "snapshot_name", name);
 
-	if (ereport == NULL)
-		return;
-
-	VERIFY0(nvlist_add_string(ereport, "snapshot_name", name));
-
-	/* Cleanup is handled by the callback function */
-	zfs_zevent_post(ereport, detector, zfs_zevent_post_cb);
+	zfs_post_common(spa, NULL, FM_RSRC_CLASS, subclass, aux);
+	fm_nvlist_destroy(aux, FM_NVA_FREE);
 }
 
 void
 zfs_ereport_zvol_post(const char *subclass, const char *name, const char *bsd,
     const char *rbsd)
 {
-	nvlist_t *ereport = NULL;
-	nvlist_t *detector = NULL;
+	nvlist_t *aux;
 	char *r;
 	spa_t *spa;
 	boolean_t has_lock = B_FALSE;
@@ -1480,22 +1472,15 @@ zfs_ereport_zvol_post(const char *subclass, const char *name, const char *bsd,
 	if (!spa)
 		return;
 
-	zfs_ereport_start(&ereport, &detector,
-	    subclass, spa, NULL, NULL, NULL, 0, 0);
-
-	if (ereport == NULL)
-		return;
-
-	VERIFY0(nvlist_add_string(ereport, "BSD_disk", bsd));
-	VERIFY0(nvlist_add_string(ereport, "BSD_rdisk", rbsd));
-
+	aux = fm_nvlist_create(NULL);
+	nvlist_add_string(aux, "BSD_disk", bsd);
+	nvlist_add_string(aux, "BSD_rdisk", rbsd);
 	r = strchr(name, '/');
-	if (r && r[1]) {
-		VERIFY0(nvlist_add_string(ereport, "DATASET", &r[1]));
-	}
+	if (r && r[1])
+		nvlist_add_string(aux, "DATASET", &r[1]);
 
-	/* Cleanup is handled by the callback function */
-	zfs_zevent_post(ereport, detector, zfs_zevent_post_cb);
+	zfs_post_common(spa, NULL, FM_RSRC_CLASS, subclass, aux);
+	fm_nvlist_destroy(aux, FM_NVA_FREE);
 }
 
 #endif
