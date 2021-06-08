@@ -15,7 +15,7 @@ ZVOL_ROOT="/var/run/zfs/zvol"
 mkdir -p "$(dirname "${ZVOL_ROOT}/{r,}dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}")"
 
 # Remove them if they already exist. (ln -f is not portable)
-rm -f "${ZVOL_ROOT}/"{r,}"dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}"
+rm -f "${ZVOL_ROOT}/rdsk/${ZEVENT_POOL}/${ZEVENT_DATASET}" "${ZVOL_ROOT}/dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}"
 
 ln -s "/dev/${ZEVENT_BSD_DISK}" "${ZVOL_ROOT}/dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}"
 ln -s "/dev/${ZEVENT_BSD_RDISK}" "${ZVOL_ROOT}/rdsk/${ZEVENT_POOL}/${ZEVENT_DATASET}"
