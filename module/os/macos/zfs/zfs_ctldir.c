@@ -459,7 +459,7 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 				    name, snapname);
 				if (error != 0)
 					goto out;
-				zfsctl_snapshot_unmount_node(dvp, snapname,
+				error = zfsctl_snapshot_unmount_node(dvp, snapname,
 				    MNT_FORCE);
 			}
 
@@ -478,7 +478,28 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 			    realpnp->cn_nameptr[realpnp->cn_namelen] == '/' &&
 			    vnode_mountedhere(*vpp) == NULL) {
 
-				zfsctl_snapshot_mount(*vpp, 0);
+/*
+ * Send ERESTART up: to avoid a deadlock since macOS 10.15.5 when
+ * APPLE added proc_dirs_lock_*(). We would end up with:
+ * Thread 1: the "stat" (or any command triggering a lookup())
+ *   lookup(): holds proc_dirs_lock_, calls us, we trigger a mount
+ *   which ends up signalling the mount blocker. We return to lookup()
+ *   which calls lookup_traverse_mountpoints() and tries to take vfs_busy().
+ *
+ * Thread 2: the "mount"
+ *   mount_common(): holds vfs_busy(), and has called zfs_vfs_mount()
+ *   and we signalled the waiter in here, then mount_common() calls
+ *   checkdirs(proc_iterate(checkdirs_callback( which wants proc_dirs_lock_
+ *
+ * So classic deadlock:
+ * #1 holds proc_lock, wants vfs_busy().
+ * #2 holds vfs_busy() and wants proc_lock.
+ * We get out of this by returning ERESTART to lookup() to tell it
+ * to release everything (including proc_dirs_lock, and mount can resume)
+ * and retry the lookup from the top.
+ *
+ */
+				error = zfsctl_snapshot_mount(*vpp, 0);
 
 			}
 		}
