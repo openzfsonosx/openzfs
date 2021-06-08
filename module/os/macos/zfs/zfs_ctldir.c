@@ -438,8 +438,32 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 		    name);
 	} else {
 		error = dmu_snapshot_lookup(zfsvfs->z_os, name, &id);
-		if (error != 0)
+		if (error != 0) {
+			/*
+			 * Special case, lookup in root of a snapshot.
+			 * This is the case where you run:
+			 * cd /Volume/DATASET/.zfs/snapshot/foo
+			 * which will not trigger a mount itself (or we'd
+			 * have bulk mounts all the time) then issue something
+			 * like "stat file". As it is from "." and has no
+			 * "fullpath", it does not trigger mount below
+			 */
+			znode_t *dzp = VTOZ(dvp);
+			if (((dzp->z_id >= zfsvfs->z_ctldir_startid) &&
+			    (dzp->z_id <= ZFSCTL_INO_SNAPDIRS))) {
+				if (realpnp != NULL &&
+				    realpnp->cn_nameiop != DELETE &&
+				    vnode_mountedhere(dvp) == NULL)
+					error = zfsctl_snapshot_mount(dvp, 0);
+				/*
+				 * If we mount, great, send back ERESTART,
+				 * otherwise, *vpp is NULL and error.
+				 */
+				if (error != ERESTART)
+					error = ENOENT;
+			}
 			goto out;
+		}
 
 		*vpp = zfsctl_vnode_lookup(zfsvfs, ZFSCTL_INO_SHARES - id,
 		    name);
@@ -459,8 +483,8 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 				    name, snapname);
 				if (error != 0)
 					goto out;
-				error = zfsctl_snapshot_unmount_node(dvp, snapname,
-				    MNT_FORCE);
+				error = zfsctl_snapshot_unmount_node(dvp,
+				    snapname, MNT_FORCE);
 			}
 
 		} else {
@@ -511,6 +535,11 @@ fail:
 
 
 out:
+	/* If we are to return ERESTART, but we took a hold, release it */
+	if ((error == ERESTART) &&
+	    (*vpp != NULL))
+		VN_RELE(*vpp);
+
 	ZFS_EXIT(zfsvfs);
 
 	return (error);
@@ -1124,7 +1153,7 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 		 * If z_snap_mount_time is set, check if it is old enough to
 		 * retry, if so, set z_snap_mount_time to zero.
 		 */
-		if (now - zp->z_snap_mount_time > SEC2NSEC(60))
+		if (now - zp->z_snap_mount_time > SEC2NSEC(10))
 			atomic_cas_64((uint64_t *)&zp->z_snap_mount_time,
 			    (uint64_t)zp->z_snap_mount_time,
 			    0ULL);
@@ -1290,7 +1319,7 @@ zfsctl_snapshot_unmount_node(struct vnode *vp, const char *full_name,
 		 * If z_snap_mount_time is set, check if it is old enough to
 		 * retry, if so, set z_snap_mount_time to zero.
 		 */
-		if (now - zp->z_snap_mount_time > SEC2NSEC(60))
+		if (now - zp->z_snap_mount_time > SEC2NSEC(10))
 			atomic_cas_64((uint64_t *)&zp->z_snap_mount_time,
 			    (uint64_t)zp->z_snap_mount_time,
 			    0ULL);
