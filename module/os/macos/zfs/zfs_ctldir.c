@@ -537,8 +537,11 @@ fail:
 out:
 	/* If we are to return ERESTART, but we took a hold, release it */
 	if ((error == ERESTART) &&
-	    (*vpp != NULL))
+	    (*vpp != NULL)) {
 		VN_RELE(*vpp);
+		/* Make "sure" mount thread goes first */
+		delay(hz >> 1);
+	}
 
 	ZFS_EXIT(zfsvfs);
 
