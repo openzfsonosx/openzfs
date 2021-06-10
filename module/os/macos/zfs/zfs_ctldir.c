@@ -113,6 +113,7 @@ struct zfsctl_mounts_waiting {
 	kmutex_t zcm_lock;
 	kcondvar_t zcm_cv;
 	list_node_t zcm_node;
+	struct vnode *zcm_vnode;
 	char zcm_name[ZFS_MAX_DATASET_NAME_LEN];
 };
 typedef struct zfsctl_mounts_waiting zfsctl_mounts_waiting_t;
@@ -410,6 +411,47 @@ zfs_root_dotdot(struct vnode *vp)
 	return (retvp);
 }
 
+static void
+zfsctl_delay_if_mounting(struct vnode *vp)
+{
+	zfsctl_mounts_waiting_t *zcm = NULL;
+
+	dprintf("%s: is_empty %d\n", __func__,
+	    list_is_empty(&zfsctl_mounts_list));
+
+	/* Quick check for NULL - probably OK outside mutex */
+	if (list_is_empty(&zfsctl_mounts_list))
+		return;
+
+	/*
+	 * Things to wait on ...
+	 * See if there is a mount happening for our "vp". If we find it
+	 * we also wait for signal.
+	 */
+again:
+	mutex_enter(&zfsctl_mounts_lock);
+	for (zcm = list_head(&zfsctl_mounts_list);
+	    zcm;
+	    zcm = list_next(&zfsctl_mounts_list, zcm)) {
+		if (zcm->zcm_vnode == vp)
+			break;
+	}
+	mutex_exit(&zfsctl_mounts_lock);
+
+	if (zcm != NULL) {
+		/*
+		 * It would be tempting to call cv_timedwait() here as well but
+		 * the mounter will mutex_destroy after releasing. As this is
+		 * an unusual situation we don't expect to happen very often,
+		 * we go with inelegant sleep
+		 */
+		dprintf("Delaying due to mount in progress: found '%s'\n",
+		    zcm->zcm_name);
+		delay(hz/4);
+		goto again;
+	}
+}
+
 /*
  * Special case the handling of "..".
  */
@@ -437,6 +479,7 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 		*vpp = zfsctl_vnode_lookup(zfsvfs, ZFSCTL_INO_SNAPDIR,
 		    name);
 	} else {
+
 		error = dmu_snapshot_lookup(zfsvfs->z_os, name, &id);
 		if (error != 0) {
 			/*
@@ -453,8 +496,13 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 			    (dzp->z_id <= ZFSCTL_INO_SNAPDIRS))) {
 				if (realpnp != NULL &&
 				    realpnp->cn_nameiop != DELETE &&
-				    vnode_mountedhere(dvp) == NULL)
+				    vnode_mountedhere(dvp) == NULL) {
 					error = zfsctl_snapshot_mount(dvp, 0);
+					/* If this didnt trigger mount, wait */
+					if (error != ERESTART)
+						zfsctl_delay_if_mounting(
+						    *vpp == NULL ? dvp : *vpp);
+				}
 				/*
 				 * If we mount, great, send back ERESTART,
 				 * otherwise, *vpp is NULL and error.
@@ -499,9 +547,7 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 			 * Also check it isn't mountedhere already.
 			 */
 			if (realpnp != NULL &&
-			    realpnp->cn_nameptr[realpnp->cn_namelen] == '/' &&
-			    vnode_mountedhere(*vpp) == NULL) {
-
+			    realpnp->cn_nameptr[realpnp->cn_namelen] == '/') {
 /*
  * Send ERESTART up: to avoid a deadlock since macOS 10.15.5 when
  * APPLE added proc_dirs_lock_*(). We would end up with:
@@ -523,8 +569,14 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
  * and retry the lookup from the top.
  *
  */
-				error = zfsctl_snapshot_mount(*vpp, 0);
+				if (vnode_mountedhere(*vpp) == NULL) {
+					error = zfsctl_snapshot_mount(*vpp, 0);
 
+					/* If this didnt trigger mount, wait */
+					if (error != ERESTART)
+						zfsctl_delay_if_mounting(
+						    *vpp == NULL ? dvp : *vpp);
+				}
 			}
 		}
 	}
@@ -532,7 +584,6 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 fail:
 	if (*vpp == NULL)
 		error = SET_ERROR(ENOENT);
-
 
 out:
 	/* If we are to return ERESTART, but we took a hold, release it */
@@ -544,7 +595,7 @@ out:
 	}
 
 	ZFS_EXIT(zfsvfs);
-
+	dprintf("lookup exit\n");
 	return (error);
 }
 
@@ -1185,6 +1236,8 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 				cv_init(&zcm->zcm_cv, NULL, CV_DEFAULT, NULL);
 				strlcpy(zcm->zcm_name, full_name,
 				    sizeof (zcm->zcm_name));
+				/* To match in lookup mount delay */
+				zcm->zcm_vnode = vp;
 
 				dprintf("%s: requesting mount for '%s'\n",
 				    __func__, full_name);
