@@ -19,14 +19,8 @@
  *
  * CDDL HEADER END
  */
-/*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
- * Copyright 2006 Ricardo Correia.  All rights reserved.
- * Use is subject to license terms.
- */
 
-/*	Copyright (c) 1988 AT&T	*/
-/*	  All Rights Reserved	*/
+/* Copyright (c) 2013, 2021 Jorgen Lundman <lundman@lundman.net> */
 
 #include <stdio.h>
 #include <string.h>
@@ -42,6 +36,13 @@
 #include <dirent.h>
 #include <sys/fcntl.h>
 #include <libzfs_impl.h>
+#include <dlfcn.h>
+
+/*
+ * Usually getmntany would live in libspl, further down the library
+ * dependency tree, but in the case of "mimick" of hfs/apfs, we need
+ * libzfs to test if the mount is *actually* ZFS pretending to be hfs.
+ */
 
 #define	DIFF(xx) ((mrefp->xx != NULL) && \
 		(mgetp->xx == NULL || strcmp(mrefp->xx, mgetp->xx) != 0))
@@ -330,17 +331,20 @@ statfs2mnttab(struct statfs *sfs, struct mnttab *mp)
 	int is_actually_zfs = 0;
 
 	// This is rather unattractive, is there a better way.
-	libzfs_handle_t *g_zfs = NULL;
-	if (g_zfs == NULL)
-		g_zfs = libzfs_init();
+	static libzfs_handle_t **internal_zfs = NULL;
+
+	/* If we are linked with zpool/zfs there is a g_zfs handle */
+	if (internal_zfs == NULL)
+		internal_zfs = dlsym(RTLD_DEFAULT, "g_zfs");
 
 	if (expand_disk_to_zfs(sfs->f_mntfromname, sizeof (sfs->f_mntfromname)))
 		is_actually_zfs = 1;
 	// check if it is a valid dataset (fastpast, first char isn't '/'
 	// in case mimic is enabled
 	else if (sfs->f_mntfromname[0] != '/' &&
-	    g_zfs != NULL &&
-	    zfs_dataset_exists(g_zfs, sfs->f_mntfromname, ZFS_TYPE_DATASET))
+	    internal_zfs != NULL &&
+	    zfs_dataset_exists(*internal_zfs, sfs->f_mntfromname,
+	    ZFS_TYPE_DATASET))
 		is_actually_zfs = 1;
 
 	if (is_actually_zfs)

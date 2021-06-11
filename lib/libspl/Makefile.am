@@ -41,7 +41,6 @@ if BUILD_MACOS
 USER_C += \
 	os/macos/getexecname.c \
 	os/macos/gethostid.c \
-	os/macos/getmntany.c \
 	os/macos/zone.c
 endif
 
