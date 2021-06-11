@@ -2701,7 +2701,7 @@ spa_do_crypt_objset_mac_abd(boolean_t generate, spa_t *spa, uint64_t dsobj,
 		return (0);
 	}
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(_KERNEL)
 	/*
 	 * Unfortunate errata case, see module/os/macos/zfs/zio_crypt.c
 	 * If portable is GOOD, but local_mac is BAD - recompute
