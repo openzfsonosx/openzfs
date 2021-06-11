@@ -19,18 +19,6 @@
  * CDDL HEADER END
  */
 /*
- *
- * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (C) 2011 Lawrence Livermore National Security, LLC.
- * Produced at Lawrence Livermore National Laboratory (cf, DISCLAIMER).
- * LLNL-CODE-403049.
- * Rewritten for Linux by:
- *   Rohan Puri <rohan.puri15@gmail.com>
- *   Brian Behlendorf <behlendorf1@llnl.gov>
- * Copyright (c) 2013 by Delphix. All rights reserved.
- * Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
- * Copyright (c) 2018 George Melikov. All Rights Reserved.
- * Copyright (c) 2019 Datto, Inc. All rights reserved.
  * Copyright (c) 2020 Jorgen Lundman. All rights reserved.
  */
 
@@ -118,7 +106,6 @@ struct zfsctl_mounts_waiting {
 };
 typedef struct zfsctl_mounts_waiting zfsctl_mounts_waiting_t;
 
-
 /*
  * Control Directory Tunables (.zfs)
  */
@@ -136,20 +123,24 @@ static list_t zfsctl_unmount_list;
 struct zfsctl_unmount_delay {
 	char		*se_name;	/* full snapshot name */
 	spa_t		*se_spa;	/* pool spa */
-	uint64_t	se_objsetid;	/* snapshot objset id */
+	struct vnode *se_vnode;
 	time_t		se_time;
 	list_node_t	se_nodelink;
 };
 typedef struct zfsctl_unmount_delay zfsctl_unmount_delay_t;
 
+// Just remembering one readdir-thread is probably not enough?
+static kthread_t *ignore_lookups_tid = NULL;
+static pid_t ignore_lookups_pid = 0;
+static clock_t ignore_lookups_time = 0;
 
 /*
  * Check if the given vnode is a part of the virtual .zfs directory.
  */
 boolean_t
-zfsctl_is_node(struct vnode *ip)
+zfsctl_is_node(struct vnode *vp)
 {
-	return (ITOZ(ip)->z_is_ctldir);
+	return (VTOZ(vp)->z_is_ctldir);
 }
 
 typedef int (**vnode_operations)(void *);
@@ -167,10 +158,9 @@ zfsctl_vnode_alloc(zfsvfs_t *zfsvfs, uint64_t id,
 	znode_t *zp = NULL;
 	struct vnode_fsparam vfsp;
 
-	dprintf("%s\n", __func__);
+	dprintf("%s id %llu name '%s'\n", __func__, id, name);
 
 	zp = kmem_cache_alloc(znode_cache, KM_SLEEP);
-
 	gethrestime(&now);
 	ASSERT3P(zp->z_dirlocks, ==, NULL);
 	ASSERT3P(zp->z_acl_cached, ==, NULL);
@@ -212,10 +202,6 @@ zfsctl_vnode_alloc(zfsvfs_t *zfsvfs, uint64_t id,
 	dprintf("%s zp %p with vp %p zfsvfs %p vfs %p: vtype %u: '%s'\n",
 	    __func__,
 	    zp, vp, zfsvfs, zfsvfs->z_vfs, vfsp.vnfs_vtype, name);
-
-	/* Tag root directory */
-	if (id == zfsvfs->z_root)
-		vfsp.vnfs_markroot = 1;
 
 	/*
 	 * This creates a vnode with VSYSTEM set, this is so that unmount's
@@ -274,6 +260,7 @@ zfsctl_vnode_lookup(zfsvfs_t *zfsvfs, uint64_t id,
 		ip = zfsctl_vnode_alloc(zfsvfs, id, name);
 	}
 
+	dprintf("%s: returning with %p\n", __func__, ip);
 	return (ip);
 }
 
@@ -297,6 +284,7 @@ zfsctl_create(zfsvfs_t *zfsvfs)
 	/* Create root node, tagged with VSYSTEM - see above */
 	zfsvfs->z_ctldir = zfsctl_vnode_alloc(zfsvfs, ZFSCTL_INO_ROOT,
 	    ZFS_CTLDIR_NAME);
+
 	if (zfsvfs->z_ctldir == NULL)
 		return (SET_ERROR(ENOENT));
 
@@ -457,7 +445,7 @@ again:
  */
 int
 zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
-    int flags, cred_t *cr, int *direntflags, struct componentname *realpnp)
+    int flags, int *direntflags, struct componentname *realpnp)
 {
 	znode_t *dzp = VTOZ(dvp);
 	zfsvfs_t *zfsvfs = ZTOZSB(dzp);
@@ -481,48 +469,20 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 	} else {
 
 		error = dmu_snapshot_lookup(zfsvfs->z_os, name, &id);
-		if (error != 0) {
-			/*
-			 * Special case, lookup in root of a snapshot.
-			 * This is the case where you run:
-			 * cd /Volume/DATASET/.zfs/snapshot/foo
-			 * which will not trigger a mount itself (or we'd
-			 * have bulk mounts all the time) then issue something
-			 * like "stat file". As it is from "." and has no
-			 * "fullpath", it does not trigger mount below
-			 */
-			znode_t *dzp = VTOZ(dvp);
-			if (((dzp->z_id >= zfsvfs->z_ctldir_startid) &&
-			    (dzp->z_id <= ZFSCTL_INO_SNAPDIRS))) {
-				if (realpnp != NULL &&
-				    realpnp->cn_nameiop != DELETE &&
-				    vnode_mountedhere(dvp) == NULL) {
-					error = zfsctl_snapshot_mount(dvp, 0);
-					/* If this didnt trigger mount, wait */
-					if (error != ERESTART)
-						zfsctl_delay_if_mounting(
-						    *vpp == NULL ? dvp : *vpp);
-				}
-				/*
-				 * If we mount, great, send back ERESTART,
-				 * otherwise, *vpp is NULL and error.
-				 */
-				if (error != ERESTART)
-					error = ENOENT;
-			}
-			goto out;
-		}
+		if (error != 0)
+			goto fail;
 
 		*vpp = zfsctl_vnode_lookup(zfsvfs, ZFSCTL_INO_SHARES - id,
 		    name);
+
+		if (*vpp == NULL)
+			goto fail;
 
 		/*
 		 * If the request is for DELETE, it may be from rmdir of
 		 * snapshot. if so, we must make sure it is unmounted,
 		 * or it will fail before calling us (EBUSY).
 		 */
-		if (*vpp == NULL)
-			goto fail;
 
 		if (realpnp != NULL && realpnp->cn_nameiop == DELETE) {
 			if (vnode_mountedhere(*vpp) != NULL) {
@@ -538,48 +498,19 @@ zfsctl_root_lookup(struct vnode *dvp, char *name, struct vnode **vpp,
 		} else {
 
 			/*
-			 * Not DELETE - Check if we need to mount it.
-			 * we want to distinguish between ".zfs/snapshot/send"
-			 * and ".zfs/snapshot/send/ *" - ie, the node itself and
-			 * a lookup below. Only for the latter do we issue a
-			 * mount. If userland issues "ls" on "send", we handle
-			 * mounting it inside zfsctl_vnop_open().
-			 * Also check it isn't mountedhere already.
+			 * Not DELETE - Check if we need to mount it
 			 */
-			if (realpnp != NULL &&
-			    realpnp->cn_nameptr[realpnp->cn_namelen] == '/') {
-/*
- * Send ERESTART up: to avoid a deadlock since macOS 10.15.5 when
- * APPLE added proc_dirs_lock_*(). We would end up with:
- * Thread 1: the "stat" (or any command triggering a lookup())
- *   lookup(): holds proc_dirs_lock_, calls us, we trigger a mount
- *   which ends up signalling the mount blocker. We return to lookup()
- *   which calls lookup_traverse_mountpoints() and tries to take vfs_busy().
- *
- * Thread 2: the "mount"
- *   mount_common(): holds vfs_busy(), and has called zfs_vfs_mount()
- *   and we signalled the waiter in here, then mount_common() calls
- *   checkdirs(proc_iterate(checkdirs_callback( which wants proc_dirs_lock_
- *
- * So classic deadlock:
- * #1 holds proc_lock, wants vfs_busy().
- * #2 holds vfs_busy() and wants proc_lock.
- * We get out of this by returning ERESTART to lookup() to tell it
- * to release everything (including proc_dirs_lock, and mount can resume)
- * and retry the lookup from the top.
- *
- */
-				if (vnode_mountedhere(*vpp) == NULL) {
-					error = zfsctl_snapshot_mount(*vpp, 0);
+			if (vnode_mountedhere(*vpp) == NULL) {
 
-					/* If this didnt trigger mount, wait */
-					if (error != ERESTART)
-						zfsctl_delay_if_mounting(
-						    *vpp == NULL ? dvp : *vpp);
-				}
+				/* If usecount here is > 1 we will hang */
+				if (vnode_isinuse(*vpp, 1))
+					goto out;
+
+				error = zfsctl_snapshot_mount(*vpp, 0);
+
 			}
-		}
-	}
+		} // Not DELETE
+	} // lookup snapdir
 
 fail:
 	if (*vpp == NULL)
@@ -587,15 +518,17 @@ fail:
 
 out:
 	/* If we are to return ERESTART, but we took a hold, release it */
-	if ((error == ERESTART) &&
-	    (*vpp != NULL)) {
-		VN_RELE(*vpp);
-		/* Make "sure" mount thread goes first */
-		delay(hz >> 1);
+	if (error == ERESTART) {
+		/* Dont return ERESTART, fopen doesn't like it */
+		error = 0;
+		if (*vpp != NULL) {
+			/* Make "sure" mount thread goes first */
+			delay(hz >> 1);
+		}
 	}
 
 	ZFS_EXIT(zfsvfs);
-	dprintf("lookup exit\n");
+	dprintf("lookup exit: %d with vpp %p\n", error, *vpp);
 	return (error);
 }
 
@@ -615,7 +548,6 @@ zfsctl_vnop_lookup(struct vnop_lookup_args *ap)
 	struct componentname *cnp = ap->a_cnp;
 	char *filename = NULL;
 	int filename_num_bytes = 0;
-	cred_t *cr = (cred_t *)vfs_context_ucred((ap)->a_context);
 
 	/*
 	 * Darwin uses namelen as an optimisation, for example it can be
@@ -630,8 +562,8 @@ zfsctl_vnop_lookup(struct vnop_lookup_args *ap)
 	}
 
 	error =  zfsctl_root_lookup(ap->a_dvp,
-		filename ? filename : cnp->cn_nameptr,
-		ap->a_vpp, /* flags */ 0, cr, &direntflags, cnp);
+	    filename ? filename : cnp->cn_nameptr,
+	    ap->a_vpp, /* flags */ 0, &direntflags, cnp);
 
 	/* If we are to create a directory, change error code for XNU */
 	if ((error == ENOENT) &&
@@ -687,7 +619,6 @@ static int zfsctl_dir_emit(const char *name, uint64_t id, enum vtype type,
 
 		eodp->d_ino = id;
 		eodp->d_type = type;
-
 		(void) bcopy(name, eodp->d_name, namelen + 1);
 		eodp->d_namlen = namelen;
 		eodp->d_reclen = reclen;
@@ -1071,15 +1002,15 @@ zfsctl_vnop_getattr(struct vnop_getattr_args *ap)
 		switch (zp->z_id) {
 			case ZFSCTL_INO_ROOT:
 				// ".zfs" parent is mount, 2 on osx
-				VATTR_RETURN(vap, va_linkid, 2);
+				VATTR_RETURN(vap, va_parentid, 2);
 				break;
 			case ZFSCTL_INO_SNAPDIR:
 				// ".zfs/snapshot" parent is ".zfs"
-				VATTR_RETURN(vap, va_linkid, ZFSCTL_INO_ROOT);
+				VATTR_RETURN(vap, va_parentid, ZFSCTL_INO_ROOT);
 				break;
 			default:
 				// ".zfs/snapshot/$name" parent ".zfs/snapshot"
-				VATTR_RETURN(vap, va_linkid,
+				VATTR_RETURN(vap, va_parentid,
 				    ZFSCTL_INO_SNAPDIR);
 				break;
 		}
@@ -1135,17 +1066,40 @@ int
 zfsctl_vnop_open(struct vnop_open_args *ap)
 {
 	int flags = ap->a_mode;
+	struct vnode *vp = ap->a_vp;
+	znode_t *zp = VTOZ(vp);
 
 	if (flags & FWRITE)
 		return (EACCES);
 
-	return (zfsctl_snapshot_mount(ap->a_vp, 0));
+	if (zp->z_id == ZFSCTL_INO_SNAPDIR) {
+		ignore_lookups_tid = curthread;
+		ignore_lookups_time = gethrtime();
+		ignore_lookups_pid = getpid();
+		dprintf("Setting to ignore thread %p for mounts\n",
+		    ignore_lookups_tid);
+		return (zfsctl_snapshot_mount(ap->a_vp, 0));
+	} else {
+		/* If we are to list anything but ".zfs" we should clear */
+		dprintf("Clearing ignore thread %p for mounts\n",
+		    ignore_lookups_tid);
+		ignore_lookups_tid = 0;
+		ignore_lookups_time = 0;
+		ignore_lookups_pid = 0;
+	}
+	return (0);
 }
 
 int
 zfsctl_vnop_close(struct vnop_close_args *ap)
 {
-	dprintf("%s\n", __func__);
+	struct vnode *vp = ap->a_vp;
+	znode_t *zp = VTOZ(vp);
+
+	if (zp->z_id == ZFSCTL_INO_SNAPDIR) {
+		dprintf("%s: refreshing tid time\n", __func__);
+		ignore_lookups_time = gethrtime();
+	}
 	return (0);
 }
 
@@ -1192,10 +1146,26 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 	 * Use a timeout in case zed is not running.
 	 */
 
-	dprintf("%s: entry\n", __func__);
+	dprintf("%s: entry: id %llu: pid %d tid %p: ignore pid %d tid %p\n",
+	    __func__, zp->z_id, getpid(), curthread,
+	    ignore_lookups_pid, ignore_lookups_tid);
 
-	if (zfs_auto_snapshot == 0)
+	if ((zfs_auto_snapshot == 0) || (zfs_auto_snapshot == getpid())) {
+		dprintf("%s: zfs_auto_snapshot disabled\n", __func__);
 		return (0);
+	}
+
+	if (ignore_lookups_tid == curthread ||
+	    ignore_lookups_pid == getpid()) {
+		dprintf("Ignore thread set for %p (us) or pid %d\n",
+		    ignore_lookups_tid, getpid());
+		if (gethrtime() - ignore_lookups_time < SEC2NSEC(1))
+			return (0);
+		dprintf("But expired, so ignoring the ignore\n");
+		/* expired? clear it. */
+		ignore_lookups_tid = 0;
+		ignore_lookups_time = 0;
+	}
 
 	ZFS_ENTER(zfsvfs);
 	if (((zp->z_id >= zfsvfs->z_ctldir_startid) &&
@@ -1285,6 +1255,11 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 
 	ZFS_EXIT(zfsvfs);
 
+	/* If this thread didn't mount, but a mount is in progress, wait */
+	if (ret != ERESTART) {
+		zfsctl_delay_if_mounting(vp);
+	}
+
 	return (ret);
 }
 
@@ -1293,8 +1268,10 @@ void
 zfsctl_mount_signal(char *osname, boolean_t mounting)
 {
 	zfsctl_mounts_waiting_t *zcm;
+	struct vnode *root_vnode = NULL;
 
-	dprintf("%s: looking for snapshot '%s'\n", __func__, osname);
+	dprintf("%s: %s looking for snapshot '%s'\n", __func__,
+	    mounting ? "mounting" : "unmounting", osname);
 
 	mutex_enter(&zfsctl_mounts_lock);
 	for (zcm = list_head(&zfsctl_mounts_list);
@@ -1308,6 +1285,7 @@ zfsctl_mount_signal(char *osname, boolean_t mounting)
 	/* Is there someone to wake up? */
 	if (zcm != NULL) {
 		mutex_enter(&zcm->zcm_lock);
+		root_vnode = zcm->zcm_vnode;
 		cv_signal(&zcm->zcm_cv);
 		mutex_exit(&zcm->zcm_lock);
 		dprintf("%s: mount waiter found and signalled\n", __func__);
@@ -1322,6 +1300,7 @@ zfsctl_mount_signal(char *osname, boolean_t mounting)
 		zcu = kmem_alloc(sizeof (zfsctl_unmount_delay_t), KM_SLEEP);
 		zcu->se_name = kmem_strdup(osname);
 		zcu->se_time = gethrestime_sec();
+		zcu->se_vnode = root_vnode;
 		list_link_init(&zcu->se_nodelink);
 
 		mutex_enter(&zfsctl_unmount_list_lock);
@@ -1335,6 +1314,13 @@ zfsctl_mount_signal(char *osname, boolean_t mounting)
 		    zcu != NULL;
 		    zcu = list_next(&zfsctl_unmount_list, zcu)) {
 			if (strcmp(osname, zcu->se_name) == 0) {
+
+				if (zcu->se_vnode != NULL) {
+					znode_t *zp = VTOZ(zcu->se_vnode);
+					dprintf("unmount: autounmount pause\n");
+					zp->z_snap_mount_time = gethrtime();
+				}
+
 				list_remove(&zfsctl_unmount_list, zcu);
 				kmem_strfree(zcu->se_name);
 				kmem_free(zcu, sizeof (zfsctl_unmount_delay_t));
@@ -1367,7 +1353,8 @@ zfsctl_snapshot_unmount_node(struct vnode *vp, const char *full_name,
 
 	ZFS_ENTER(zfsvfs);
 
-	if (zp->z_id == ZFSCTL_INO_SNAPDIR) {
+	if (zp->z_id == ZFSCTL_INO_SNAPDIR ||
+	    zfsvfs->z_root == zp->z_id) {
 		hrtime_t now;
 		now = gethrtime();
 
@@ -1527,7 +1514,7 @@ zfsctl_vnop_mkdir(struct vnop_mkdir_args *ap)
 			goto out;
 
 		error = zfsctl_root_lookup(ap->a_dvp, ap->a_cnp->cn_nameptr,
-		    ap->a_vpp, 0, cr, NULL, NULL);
+		    ap->a_vpp, 0, NULL, NULL);
 	}
 
 out:

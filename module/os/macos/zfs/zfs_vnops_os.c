@@ -1802,7 +1802,7 @@ zfs_getattr(vnode_t *vp, vattr_t *vap, int flags, cred_t *cr,
 	mutex_enter(&zp->z_lock);
 	vap->va_type = IFTOVT(zp->z_mode);
 	vap->va_mode = zp->z_mode & ~S_IFMT;
-	vap->va_nodeid = zp->z_id;
+	vap->va_nodeid = INO_ZFSTOXNU(zp->z_id, zfsvfs->z_root);
 	if (vnode_isvroot((vp)) && zfs_show_ctldir(zp))
 		links = zp->z_links + 1;
 	else

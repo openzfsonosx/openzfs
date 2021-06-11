@@ -526,7 +526,7 @@ zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
 	 * The automounting will kick in, and zed mounts it - so
 	 * we temporarily disable it
 	 */
-	uint64_t automount = 0;
+	uint64_t automount = getpid();
 	uint64_t saved_automount = 0;
 	size_t len = sizeof (automount);
 	size_t slen = sizeof (saved_automount);

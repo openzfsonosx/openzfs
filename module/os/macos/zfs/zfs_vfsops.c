@@ -2420,7 +2420,9 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp,
 	/* We also need to handle (.zfs) and (.zfs/snapshot). */
 	if ((ino == ZFSCTL_INO_ROOT) && (zfsvfs->z_ctldir != NULL)) {
 		if (VN_HOLD(zfsvfs->z_ctldir) == 0) {
+			znode_t *zp = VTOZ(zfsvfs->z_ctldir);
 			*vpp = zfsvfs->z_ctldir;
+			dprintf(".zfs returned: id %llu\n", zp->z_id);
 			error = 0;
 		} else {
 			error = ENOENT;
@@ -2456,6 +2458,8 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp,
 			}
 			mutex_exit(&zfsvfs->z_znodes_lock);
 
+			dprintf(".zfs/%llu returned\n", zp ? zp->z_id : 0);
+
 			error = ENOENT;
 			if (zp != NULL) {
 				if (VN_HOLD(ZTOV(zp)) == 0) {
@@ -2478,6 +2482,9 @@ zfs_vfs_vget(struct mount *mp, ino64_t ino, vnode_t **vpp,
 	ino = INO_XNUTOZFS(ino, zfsvfs->z_root);
 
 	error = zfs_vget_internal(zfsvfs, ino, vpp);
+
+	dprintf("%s: return %d: %llu\n", __func__,
+	    error, error == 0 ? VTOZ(*vpp)->z_id : 0);
 
 	ZFS_EXIT(zfsvfs);
 	return (error);

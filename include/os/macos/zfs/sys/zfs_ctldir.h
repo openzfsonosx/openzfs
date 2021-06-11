@@ -62,8 +62,8 @@ extern boolean_t zfsctl_is_snapdir(struct vnode *ip);
 extern int zfsctl_fid(struct vnode *ip, fid_t *fidp);
 
 /* zfsctl '.zfs' functions */
-extern int zfsctl_root_lookup(struct vnode *dip, char *name,
-    struct vnode **ipp, int flags, cred_t *cr, int *direntflags,
+extern int zfsctl_root_lookup(struct vnode *dvp, char *name,
+    struct vnode **vpp, int flags, int *direntflags,
     struct componentname *realpnp);
 
 /* zfsctl '.zfs/snapshot' functions */
@@ -118,7 +118,6 @@ extern void	zfsctl_mount_signal(char *, boolean_t);
 #define	ZFSCTL_INO_SHARES	0x0000FFFFFFFFFFFEULL
 #define	ZFSCTL_INO_SNAPDIR	0x0000FFFFFFFFFFFDULL
 #define	ZFSCTL_INO_SNAPDIRS	0x0000FFFFFFFFFFFCULL
-
 #define	ZFSCTL_EXPIRE_SNAPSHOT	300
 
 #endif	/* _ZFS_CTLDIR_H */
