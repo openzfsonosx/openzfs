@@ -329,12 +329,13 @@ constrain_path() {
 		ln -fs /usr/local/bin/mountp "$STF_PATH/mountp"
 		ln -fs /sbin/fsck_hfs "$STF_PATH/fsck"
 		# ln -fs /sbin/mount_hfs "$STF_PATH/mount"
-		# Homebrew "coreutils" provides timeout, truncate, gdd, gcp, and realpath, sha256sum
+		# Homebrew "coreutils" provides timeout, truncate, gdd, gcp, gsum, and realpath, sha256sum
 		# Homebrew "fio" provides fio
 		# Homebrew "gawk" provides gawk
 		# Homebrew "gnu-sed" provides gsed
 		[ -f "/usr/local/bin/gawk" ] && ln -fs /usr/local/bin/gawk "$STF_PATH/nawk"
 		[ -f "/usr/local/bin/gdd" ] && ln -fs /usr/local/bin/gdd "$STF_PATH/dd"
+		[ -f "/usr/local/bin/gsum" ] && ln -fs /usr/local/bin/gsum "$STF_PATH/sum"
 		# can't use gcp because it doesn't support xattr on macOS
 		# [ -f "/usr/local/bin/gcp" ] && ln -fs /usr/local/bin/gcp "$STF_PATH/cp"
 		[ -f "/usr/local/bin/gsed" ] && ln -fs /usr/local/bin/gsed "$STF_PATH/sed"
