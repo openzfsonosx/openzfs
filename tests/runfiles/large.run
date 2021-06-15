@@ -309,8 +309,9 @@ tags = ['functional', 'cli_root', 'zfs_unshare']
 tests = ['zfs_wait_deleteq']
 tags = ['functional', 'cli_root', 'zfs_wait']
 
+# tests = ['zpool_001_neg', 'zpool_002_pos', 'zpool_003_pos', 'zpool_colors']
 [tests/functional/cli_root/zpool]
-tests = ['zpool_001_neg', 'zpool_002_pos', 'zpool_003_pos', 'zpool_colors']
+tests = ['zpool_001_neg', 'zpool_002_pos', 'zpool_colors']
 tags = ['functional', 'cli_root', 'zpool']
 
 [tests/functional/cli_root/zpool_attach]
