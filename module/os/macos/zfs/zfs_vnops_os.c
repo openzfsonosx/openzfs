@@ -3121,23 +3121,6 @@ top:
 				    (flags & FIGNORECASE ? TX_CI : 0), sdzp,
 				    sdl->dl_name, tdzp, tdl->dl_name, szp);
 
-				/*
-				 * Update cached name - for vget, and access
-				 * without calling vnop_lookup first - it is
-				 * easier to clear it out and let getattr
-				 * look it up if needed.
-				 */
-				if (tzp) {
-					mutex_enter(&tzp->z_lock);
-					tzp->z_name_cache[0] = 0;
-					mutex_exit(&tzp->z_lock);
-				}
-				if (szp) {
-					mutex_enter(&szp->z_lock);
-					szp->z_name_cache[0] = 0;
-					mutex_exit(&szp->z_lock);
-				}
-
 			} else {
 				/*
 				 * At this point, we have successfully created
@@ -3161,6 +3144,25 @@ top:
 			 * but, the new dnode (szp) should not fail.
 			 */
 			ASSERT(tzp == NULL);
+		}
+	}
+
+	if (error == 0) {
+		/*
+		 * Update cached name - for vget, and access
+		 * without calling vnop_lookup first - it is
+		 * easier to clear it out and let getattr
+		 * look it up if needed.
+		 */
+		if (tzp) {
+			mutex_enter(&tzp->z_lock);
+			tzp->z_name_cache[0] = 0;
+			mutex_exit(&tzp->z_lock);
+		}
+		if (szp) {
+			mutex_enter(&szp->z_lock);
+			szp->z_name_cache[0] = 0;
+			mutex_exit(&szp->z_lock);
 		}
 	}
 

@@ -46,6 +46,8 @@
 
 extern int zfs_vnop_force_formd_normalized_output; /* disabled by default */
 
+static uint32_t zfs_hardlink_sequence = 1ULL<<31;
+
 /*
  * Unfortunately Apple defines "KAUTH_VNODE_ACCESS (1<<31)" which
  * generates: "warning: signed shift result (0x80000000) sets the
@@ -305,8 +307,8 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 
 	// Hardlinks: Return cached parentid, make it 2 if root.
 	if (ishardlink && zp->z_finder_parentid)
-		vap->va_parentid = (zp->z_finder_parentid == zfsvfs->z_root) ?
-		    2 : zp->z_finder_parentid;
+		vap->va_parentid =
+		    INO_ZFSTOXNU(zp->z_finder_parentid, zfsvfs->z_root);
 
 	vap->va_iosize = zp->z_blksz ? zp->z_blksz : zfsvfs->z_max_blksz;
 	// vap->va_iosize = 512;
@@ -430,7 +432,8 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 
 			// If we don't have a linkid, make one.
 			searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
-			searchnode->hl_parent = vap->va_parentid;
+			searchnode->hl_parent =
+			    INO_XNUTOZFS(vap->va_parentid, zfsvfs->z_root);
 			searchnode->hl_fileid = zp->z_id;
 			strlcpy(searchnode->hl_name, zp->z_name_cache,
 			    PATH_MAX);
@@ -442,14 +445,13 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 			kmem_free(searchnode, sizeof (hardlinks_t));
 
 			if (!findnode) {
-				static uint32_t zfs_hardlink_sequence =
-				    1ULL<<31;
 				uint32_t id;
 
 				id = atomic_inc_32_nv(&zfs_hardlink_sequence);
 
 				zfs_hardlink_addmap(zp, vap->va_parentid, id);
-				VATTR_RETURN(vap, va_linkid, id);
+				if (VATTR_IS_ACTIVE(vap, va_linkid))
+					VATTR_RETURN(vap, va_linkid, id);
 
 			} else {
 				VATTR_RETURN(vap, va_linkid,
@@ -584,7 +586,7 @@ zfs_access_native_mode(struct vnode *vp, int *mode, cred_t *cr,
 	int flag = 0; // FIXME
 
 	if (accmode != 0)
-		error = zfs_access(vp, accmode, flag, cr);
+		error = zfs_access(VTOZ(vp), accmode, flag, cr);
 
 	*mode &= ~(accmode);
 
@@ -1854,7 +1856,6 @@ void
 finderinfo_update(uint8_t *finderinfo, znode_t *zp)
 {
 	u_int8_t *finfo = NULL;
-	struct timespec va_crtime;
 
 	/* Advance finfo by 16 bytes to the 2nd half of the finderinfo */
 	finfo = (u_int8_t *)finderinfo + 16;
@@ -2111,6 +2112,20 @@ zfs_hardlink_addmap(znode_t *zp, uint64_t parentid, uint32_t linkid)
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
 	hardlinks_t *searchnode, *findnode;
 	avl_index_t loc;
+
+	if (zp->z_name_cache[0] == 0) {
+		dprintf("Addmap: skipping id %llu due to no name.\n",
+		    zp->z_id);
+		return (0);
+	}
+
+	dprintf("Addmap('%s' parentid %llu linkid %lu (ZFS parentid %llu)\n",
+	    zp->z_name_cache, parentid, linkid,
+	    INO_XNUTOZFS(parentid, zfsvfs->z_root));
+	parentid = INO_XNUTOZFS(parentid, zfsvfs->z_root);
+
+	if (linkid == 0)
+		linkid = atomic_inc_32_nv(&zfs_hardlink_sequence);
 
 	searchnode = kmem_alloc(sizeof (hardlinks_t), KM_SLEEP);
 	searchnode->hl_parent = parentid;

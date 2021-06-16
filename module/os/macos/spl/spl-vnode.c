@@ -118,7 +118,6 @@ VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
 
 		lookup_name = path;
 	}
-	printf("%s: lookup '%s'\n", __func__, lookup_name);
 	return (vnode_lookup(lookup_name, 0, vpp, ct));
 }
 

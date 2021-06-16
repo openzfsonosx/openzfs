@@ -97,6 +97,9 @@ unsigned int zfs_disable_spotlight = 0;
 /* Empty FinderInfo struct */
 static u_int32_t emptyfinfo[8] = {0};
 
+/* vnop_lookup needs path buffer each time */
+static kmem_cache_t *vnop_lookup_cache = NULL;
+
 /*
  * zfs vfs operations.
  */
@@ -1226,11 +1229,8 @@ zfs_vnop_access(struct vnop_access_args *ap)
 static void zfs_cache_name(struct vnode *vp, struct vnode *dvp, char *filename)
 {
 	znode_t *zp;
-	if (!vp ||
-	    !filename ||
-	    !filename[0] ||
-	    zfsctl_is_node(vp) ||
-	    !VTOZ(vp))
+
+	if (vp == NULL)
 		return;
 
 	// Only cache files, or we might end up caching "."
@@ -1239,16 +1239,24 @@ static void zfs_cache_name(struct vnode *vp, struct vnode *dvp, char *filename)
 
 	zp = VTOZ(vp);
 
+	// If hardlink, remember the parentid.
+	if (zp != NULL) {
+		if (((zp->z_links > 1) || (zp->z_finder_hardlink)) &&
+		    (IFTOVT((mode_t)zp->z_mode) == VREG) && dvp) {
+			zp->z_finder_parentid = VTOZ(dvp)->z_id;
+		}
+	}
+
+	if (!filename ||
+	    !filename[0] ||
+	    zfsctl_is_node(vp) ||
+	    !VTOZ(vp))
+		return;
+
 	mutex_enter(&zp->z_lock);
 
 	strlcpy(zp->z_name_cache, filename,
 	    MAXPATHLEN);
-
-	// If hardlink, remember the parentid.
-	if (((zp->z_links > 1) || (zp->z_finder_hardlink)) &&
-	    (IFTOVT((mode_t)zp->z_mode) == VREG) && dvp) {
-		zp->z_finder_parentid = VTOZ(dvp)->z_id;
-	}
 
 	mutex_exit(&zp->z_lock);
 }
@@ -1271,7 +1279,8 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	int negative_cache = 0;
 	znode_t *zp = NULL;
 	int direntflags = 0;
-	char filename[MAXNAMELEN];
+	char *filename = NULL;
+	int filename_num_bytes = 0;
 
 	*ap->a_vpp = NULL;	/* In case we return an error */
 
@@ -1279,7 +1288,13 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	 * Darwin uses namelen as an optimisation, for example it can be
 	 * set to 5 for the string "alpha/beta" to look up "alpha". In this
 	 * case we need to copy it out to null-terminate.
+	 * Since cn2 below needs it to be separate to given cnp, we always
+	 * allocate it.
 	 */
+	// filename_num_bytes = cnp->cn_namelen + 1;
+	// filename = (char *)kmem_alloc(filename_num_bytes, KM_SLEEP);
+	filename_num_bytes = MAXPATHLEN;
+	filename = kmem_cache_alloc(vnop_lookup_cache, KM_SLEEP);
 	bcopy(cnp->cn_nameptr, filename, cnp->cn_namelen);
 	filename[cnp->cn_namelen] = '\0';
 
@@ -1319,13 +1334,19 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	 */
 	struct componentname cn2;
 	cn2.cn_nameptr = filename;
-	cn2.cn_namelen = MAXNAMELEN;
+	cn2.cn_namelen = cnp->cn_namelen;
+	cn2.cn_pnlen = filename_num_bytes;
 	cn2.cn_nameiop = cnp->cn_nameiop;
 	cn2.cn_flags = cnp->cn_flags;
 
 	error = zfs_lookup(VTOZ(ap->a_dvp), filename, &zp, /* flags */ 0, cr,
 	    &direntflags, &cn2);
+
 	/* flags can be LOOKUP_XATTR | FIGNORECASE */
+	if (error == 0)
+		*ap->a_vpp = ZTOV(zp);
+	else if (error == ENOTSUP) // formD return for not enough space
+		error = ENAMETOOLONG;
 
 #if 1
 	/*
@@ -1351,17 +1372,18 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 
 exit:
 
-	if (error == 0 && (zp != NULL)) {
-		dprintf("back with zp %p: name '%s'\n", zp, filename);
+	// If cache_lookup() found it, set zp to it.
+	if (*ap->a_vpp != NULL && zp == NULL)
+		zp = VTOZ(*ap->a_vpp);
 
-		*ap->a_vpp = ZTOV(zp);
-
+	if (error == 0 && (zp != NULL))
 		zfs_cache_name(*ap->a_vpp, ap->a_dvp, filename);
-
-	}
 
 	dprintf("-vnop_lookup %d : dvp %llu '%s'\n", error,
 	    VTOZ(ap->a_dvp)->z_id, filename);
+
+	// kmem_free(filename, filename_num_bytes);
+	kmem_cache_free(vnop_lookup_cache, filename);
 
 	return (error);
 }
@@ -1440,7 +1462,7 @@ static int zfs_remove_hardlink(struct vnode *vp, struct vnode *dvp, char *name)
 
 	// Attempt to remove from hardlink avl, if its there
 	searchnode = kmem_zalloc(sizeof (hardlinks_t), KM_SLEEP);
-	searchnode->hl_parent = dzp->z_id == zfsvfs->z_root ? 2 : dzp->z_id;
+	searchnode->hl_parent = dzp->z_id;
 	searchnode->hl_fileid = zp->z_id;
 	strlcpy(searchnode->hl_name, name, PATH_MAX);
 
@@ -1498,13 +1520,11 @@ static int zfs_rename_hardlink(struct vnode *vp, struct vnode *tvp,
 	if (!fdvp || !VTOZ(fdvp))
 		return (0);
 	parent_fid = VTOZ(fdvp)->z_id;
-	parent_fid = parent_fid == zfsvfs->z_root ? 2 : parent_fid;
 
 	if (!tdvp || !VTOZ(tdvp)) {
 		parent_tid = parent_fid;
 	} else {
 		parent_tid = VTOZ(tdvp)->z_id;
-		parent_tid = parent_tid == zfsvfs->z_root ? 2 : parent_tid;
 	}
 
 	dprintf("ZFS: looking to rename hardlinks (%llu,%llu,%s)\n",
@@ -2204,7 +2224,6 @@ zfs_vnop_link(struct vnop_link_args *ap)
 	 * extern int zfs_link(struct vnode *tdvp, struct vnode *svp,
 	 *     char *name, cred_t *cr, caller_context_t *ct, int flags);
 	 */
-
 	error = zfs_link(VTOZ(ap->a_tdvp), VTOZ(ap->a_vp),
 		ap->a_cnp->cn_nameptr, cr, 0);
 	if (!error) {
@@ -5352,6 +5371,9 @@ zfs_vfsops_init(void)
 {
 	struct vfs_fsentry vfe;
 
+	vnop_lookup_cache = kmem_cache_create("zfs_vnop_lookup",
+	    MAXPATHLEN, 0, NULL, NULL, NULL, NULL, NULL, 0);
+
 	/* Start thread to notify Finder of changes */
 	zfs_start_notify_thread();
 
@@ -5391,6 +5413,10 @@ zfs_vfsops_fini(void)
 {
 
 	zfs_stop_notify_thread();
+
+	if (vnop_lookup_cache)
+		kmem_cache_destroy(vnop_lookup_cache);
+	vnop_lookup_cache = NULL;
 
 	return (vfs_fsremove(zfs_vfsconf));
 }
