@@ -278,12 +278,7 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 		dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
 #endif
 
-	if (vnode_isdir(vp)) {
-		vap->va_nlink = zp->z_size;
-	} else {
-		vap->va_nlink = zp->z_links;
-	}
-
+	vap->va_nlink = zp->z_links;
 
 	/*
 	 * Carbon compatibility, pretend to support this legacy attribute
