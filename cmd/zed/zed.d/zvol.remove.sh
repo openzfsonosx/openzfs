@@ -13,7 +13,7 @@
 ZVOL_ROOT="/var/run/zfs/zvol"
 
 rm -f "${ZVOL_ROOT}/rdsk/${ZEVENT_POOL}/${ZEVENT_DATASET}" "${ZVOL_ROOT}/dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}"
-rmdir -p "$(dirname "${ZVOL_ROOT}/{r,}dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}")"
+rmdir "$(dirname "${ZVOL_ROOT}/{r,}dsk/${ZEVENT_POOL}/${ZEVENT_DATASET}")"
 
 logger -t "${ZED_SYSLOG_TAG:=zed}" -p "${ZED_SYSLOG_PRIORITY:=daemon.notice}" \
 	eid="${ZEVENT_EID}" class="${ZEVENT_SUBCLASS}" \
