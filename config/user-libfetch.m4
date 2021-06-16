@@ -45,8 +45,14 @@ AC_DEFUN([ZFS_AC_CONFIG_USER_LIBFETCH], [
 			LIBFETCH_IS_LIBCURL=1
 			if test "$(curl-config --built-shared)" = "yes"; then
 				LIBFETCH_DYNAMIC=1
-				LIBFETCH_SONAME='"libcurl.so.4"'
-				LIBFETCH_LIBS="-ldl"
+				dnl # why are we hardcoding libnames?
+				if test BUILD_MACOS ; then
+					LIBFETCH_SONAME='"libcurl.4.dylib"'
+					LIBFETCH_LIBS=""
+				else
+					LIBFETCH_SONAME='"libcurl.so.4"'
+					LIBFETCH_LIBS="-ldl"
+				fi
 				AC_MSG_RESULT([libcurl])
 			else
 				LIBFETCH_LIBS="$(curl-config --libs)"
