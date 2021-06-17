@@ -754,6 +754,7 @@ zfsvfs_create(const char *osname, boolean_t readonly, zfsvfs_t **zfvp)
 	objset_t *os;
 	zfsvfs_t *zfsvfs;
 	int error;
+	boolean_t ro = (readonly || (strchr(osname, '@') != NULL));
 
 	zfsvfs = kmem_zalloc(sizeof (zfsvfs_t), KM_SLEEP);
 
@@ -761,7 +762,7 @@ zfsvfs_create(const char *osname, boolean_t readonly, zfsvfs_t **zfvp)
 	 * We claim to always be readonly so we can open snapshots;
 	 * other ZPL code will prevent us from writing to snapshots.
 	 */
-	error = dmu_objset_own(osname, DMU_OST_ZFS, B_TRUE, B_TRUE,
+	error = dmu_objset_own(osname, DMU_OST_ZFS, ro, B_TRUE,
 	    zfsvfs, &os);
 	if (error != 0) {
 		kmem_free(zfsvfs, sizeof (zfsvfs_t));
@@ -1007,15 +1008,19 @@ zfs_domount(struct mount *vfsp, dev_t mount_dev, char *osname,
 	zfsvfs_t *zfsvfs;
 	uint64_t mimic = 0;
 	struct timeval tv;
+	boolean_t readonly = B_FALSE;
 
 	ASSERT(vfsp);
 	ASSERT(osname);
 
-	error = zfsvfs_create(osname, B_FALSE, &zfsvfs);
+	if (vfs_flags(vfsp) & MNT_RDONLY)
+		readonly = B_TRUE;
+
+	error = zfsvfs_create(osname, readonly, &zfsvfs);
 	if (error)
 		return (error);
-	zfsvfs->z_vfs = vfsp;
 
+	zfsvfs->z_vfs = vfsp;
 	zfsvfs->z_rdev = mount_dev;
 
 	/* HFS sets this prior to mounting */
