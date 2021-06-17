@@ -664,14 +664,6 @@ zfsvfs_init(zfsvfs_t *zfsvfs, objset_t *os)
 			zfsvfs->z_xattr_sa = B_TRUE;
 	}
 
-	error = sa_setup(os, sa_obj, zfs_attr_table, ZPL_END,
-	    &zfsvfs->z_attr_table);
-	if (error != 0)
-		return (error);
-
-	if (zfsvfs->z_version >= ZPL_VERSION_SA)
-		sa_register_update_callback(os, zfs_sa_upgrade);
-
 	error = zap_lookup(os, MASTER_NODE_OBJ, ZFS_ROOT_OBJ, 8, 1,
 	    &zfsvfs->z_root);
 	if (error != 0)
@@ -744,6 +736,14 @@ zfsvfs_init(zfsvfs_t *zfsvfs, objset_t *os)
 		zfsvfs->z_shares_dir = 0;
 	else if (error != 0)
 		return (error);
+
+	error = sa_setup(os, sa_obj, zfs_attr_table, ZPL_END,
+	    &zfsvfs->z_attr_table);
+	if (error != 0)
+		return (error);
+
+	if (zfsvfs->z_version >= ZPL_VERSION_SA)
+		sa_register_update_callback(os, zfs_sa_upgrade);
 
 	return (0);
 }
