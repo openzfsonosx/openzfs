@@ -1,2 +1,2 @@
 
-SUBDIRS = InvariantDisks zconfigd zfs_util
+SUBDIRS = InvariantDisks zconfigd zfs_util zsysctl
