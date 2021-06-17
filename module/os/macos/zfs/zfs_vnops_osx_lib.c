@@ -298,7 +298,7 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 	else if (parent == zfsvfs->z_root)
 		vap->va_parentid = 2;
 	else
-		vap->va_parentid = parent;
+		vap->va_parentid = INO_ZFSTOXNU(parent, zfsvfs->z_root);
 
 	// Hardlinks: Return cached parentid, make it 2 if root.
 	if (ishardlink && zp->z_finder_parentid)
