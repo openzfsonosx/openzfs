@@ -123,8 +123,8 @@ extern "C" {
 #define	MNTOPT_NOGLOBAL	"noglobal"	/* Mount local to single node */
 #define	MNTOPT_DFRATIME	"dfratime"	/* Deferred access time updates */
 #define	MNTOPT_NODFRATIME "nodfratime"	/* No Deferred access time updates */
-#define	MNTOPT_NBMAND	"nbmand"	/* allow non-blocking mandatory locks */
-#define	MNTOPT_NONBMAND	"nonbmand"	/* deny non-blocking mandatory locks */
+#define	MNTOPT_NBMAND	"mand"		/* allow non-blocking mandatory locks */
+#define	MNTOPT_NONBMAND	"nomand"	/* deny non-blocking mandatory locks */
 #define	MNTOPT_XATTR	"xattr"		/* enable extended attributes */
 #define	MNTOPT_NOXATTR	"noxattr"	/* disable extended attributes */
 #define	MNTOPT_EXEC	"exec"		/* enable executables */

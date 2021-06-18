@@ -1387,6 +1387,70 @@ zfs_vfs_mount(struct mount *vfsp, vnode_t *mvp /* devvp */,
 		cmdflags |= MNT_UPDATE;
 	}
 
+	// MS_NODEV
+	if (mflag & MNT_NODEV) {
+		dprintf("%s: adding MNT_NODEV\n", __func__);
+		cmdflags |= MNT_NODEV;
+	}
+
+	// MS_NOSUID
+	if (mflag & MNT_NOSUID) {
+		dprintf("%s: adding MNT_NOSUID\n", __func__);
+		cmdflags |= MNT_NOSUID;
+	}
+
+	// MS_NOEXEC
+	if (mflag & MNT_NOEXEC) {
+		dprintf("%s: adding MNT_NOEXEC\n", __func__);
+		cmdflags |= MNT_NOEXEC;
+	}
+
+#if 0
+	// zfsvfs->z_xattr needs to be set instead of MNT_NOUSERXATTR
+	if (mflag & MNT_NOUSERXATTR) {
+		dprintf("%s: adding MNT_NOUSERXATTR\n", __func__);
+		cmdflags |= MNT_NOUSERXATTR;
+	}
+#endif
+
+	// MS_NOATIME
+	if (mflag & MNT_NOATIME) {
+		dprintf("%s: adding MNT_NOATIME\n", __func__);
+		cmdflags |= MNT_NOATIME;
+	}
+
+	// nobrowse
+	if (mflag & MNT_DONTBROWSE) {
+		dprintf("%s: adding MNT_DONTBROWSE\n", __func__);
+		cmdflags |= MNT_DONTBROWSE;
+	}
+
+	// noowners
+	if (mflag & MNT_IGNORE_OWNERSHIP) {
+		dprintf("%s: adding MNT_IGNORE_OWNERSHIP\n", __func__);
+		cmdflags |= MNT_IGNORE_OWNERSHIP;
+	}
+
+// These aren't handled by zfs_register_callbacks yet.
+#if 0
+	if (mflag & MNT_ASYNC) {
+		dprintf("%s: adding MNT_ASYNC\n", __func__);
+		cmdflags |= MNT_ASYNC;
+	}
+
+	// MS_SYNCHRONOUS
+	if (mflag & MNT_SYNCHRONOUS) {
+		dprintf("%s: adding MNT_SYNCHRONOUS\n", __func__);
+		cmdflags |= MNT_SYNCHRONOUS;
+	}
+
+	// MS_STRICTATIME
+	if (mflag & MNT_STRICTATIME) {
+		dprintf("%s: adding MNT_STRICTATIME\n", __func__);
+		cmdflags |= MNT_STRICTATIME;
+	}
+#endif
+
 	vfs_setflags(vfsp, (uint64_t)cmdflags);
 
 	/*
