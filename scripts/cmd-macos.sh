@@ -62,6 +62,12 @@ for c in zdb zfs zpool ztest; do
 	export PATH=${topdir}/cmd/${c}/.libs:$PATH
 done
 
+# Check if it is cmd/ or cmd/os/macos/
+realcmd="${topdir}/cmd/$cmd/.libs/$cmd"
+if [ -f "${topdir}/cmd/os/macos/$cmd/.libs/$cmd" ]; then
+    realcmd="${topdir}/cmd/os/macos/$cmd/.libs/$cmd"
+fi
+
 #echo PATH=$PATH
 #echo DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH
-exec "${topdir}/cmd/$cmd/.libs/$cmd" "$@"
+exec "${realcmd}" "$@"

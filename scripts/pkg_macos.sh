@@ -151,6 +151,8 @@ ${WORKDIR}/${bindir}/zfs_ids_to_path
 ${WORKDIR}/${bindir}/InvariantDisks
 ${WORKDIR}/${bindir}/zfs_util
 ${WORKDIR}/${bindir}/zconfigd
+${WORKDIR}/${bindir}/zsysctl
+${WORKDIR}/${bindir}/mount_zfs
 ${WORKDIR}/${prefix}/libexec/zfs/zpool_influxdb
 ${WORKDIR}/${prefix}/lib/libnvpair.a
 ${WORKDIR}/${prefix}/lib/libuutil.a
