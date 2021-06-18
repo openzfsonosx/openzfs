@@ -82,6 +82,7 @@ AC_CONFIG_FILES([
 	cmd/os/macos/Makefile
 	cmd/os/macos/InvariantDisks/Makefile
 	cmd/os/macos/InvariantDisks/InvariantDisks/Makefile
+	cmd/os/macos/mount_zfs/Makefile
 	cmd/os/macos/zconfigd/Makefile
 	cmd/os/macos/zfs_util/Makefile
 	cmd/os/macos/zsysctl/Makefile
