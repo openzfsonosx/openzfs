@@ -390,25 +390,10 @@ append_mntopt(const char *name, const char *val, char *mntopts,
 		strlcat(mtabopt, tmp, MNT_LINE_MAX);
 }
 
-static void
-zfs_selinux_setcontext(zfs_handle_t *zhp, zfs_prop_t zpt, const char *name,
-    char *mntopts, char *mtabopt)
-{
-	char context[ZFS_MAXPROPLEN];
-
-	if (zfs_prop_get(zhp, zpt, context, sizeof (context),
-	    NULL, NULL, 0, B_FALSE) == 0) {
-		if (strcmp(context, "none") != 0)
-			append_mntopt(name, context, mntopts, mtabopt, B_TRUE);
-	}
-}
-
 void
 zfs_adjust_mount_options(zfs_handle_t *zhp, const char *mntpoint,
     char *mntopts, char *mtabopt)
 {
-	char prop[ZFS_MAXPROPLEN];
-
 	/* A hint used to determine an auto-mounted snapshot mount point */
 	append_mntopt(MNTOPT_MNTPOINT, mntpoint, mntopts, NULL, B_FALSE);
 }
