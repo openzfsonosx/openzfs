@@ -21,11 +21,6 @@
 # CDDL HEADER END
 #
 
-sudo zpool export -fa; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
-sudo sysctl kstat.zfs.darwin.tunable.zfs_disable_spotlight=1
-sudo launchctl load -w /Library/LaunchDaemons/org.openzfsonosx.zed.plist 
-sudo rm -rf /Users/joe/Developer/openzfs/bin
-
 BASE_DIR=$(dirname "$0")
 SCRIPT_COMMON=common.sh
 if [ -f "${BASE_DIR}/${SCRIPT_COMMON}" ]; then
@@ -557,6 +552,11 @@ fi
 if [ "$(sudo whoami)" != "root" ]; then
 	fail "Passwordless sudo access required."
 fi
+
+sudo zpool export -fa; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
+sudo sysctl kstat.zfs.darwin.tunable.zfs_disable_spotlight=1
+sudo launchctl load -w /Library/LaunchDaemons/org.openzfsonosx.zed.plist
+sudo rm -rf /Users/joe/Developer/openzfs/bin
 
 #
 # Constrain the available binaries to a known set.
