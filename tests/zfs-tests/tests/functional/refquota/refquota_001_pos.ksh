@@ -64,7 +64,7 @@ log_must zfs set refquota=10M $fs
 mntpnt=$(get_prop mountpoint $fs)
 
 if is_macos; then
-	log_must rm $mntpnt/.VolumeIcon.icns
+	log_must rm -f $mntpnt/.VolumeIcon.icns
 fi
 
 log_mustnot mkfile 11M $mntpnt/file

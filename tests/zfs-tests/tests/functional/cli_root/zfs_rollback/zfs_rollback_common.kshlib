@@ -115,9 +115,7 @@ function setup_snap_env
 
 			if datasetnonexists $snap; then
 				log_must cp /etc/passwd $fname
-				if is_linux || is_freebsd; then
-					log_must sync
-				else
+				if is_illumos; then
 					#
 					# using 'lockfs -f' to flush the writes
 					# to disk before taking a snapshot.
@@ -125,6 +123,8 @@ function setup_snap_env
 					if [[ $dtst == $VOL ]]; then
 						log_must lockfs -f $TESTDIR1
 					fi
+				else
+					log_must sync
 				fi
 				if is_freebsd && [[ $dtst == $VOL ]]; then
 					# Though sync does start a fs sync on

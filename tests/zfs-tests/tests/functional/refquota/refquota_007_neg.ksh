@@ -51,7 +51,7 @@ FS=$TESTPOOL/$TESTFS
 mntpnt=$(get_prop mountpoint $FS)
 
 #if is_macos; then
-#	rm $mntpnt/.VolumeIcon.icns
+#	rm -f $mntpnt/.VolumeIcon.icns
 #fi
 
 log_must mkfile 20M $mntpnt/$TESTFILE

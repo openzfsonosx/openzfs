@@ -42,7 +42,7 @@ if is_macos; then
 	touch /$fs/.metadata_never_index
 	zfs unmount $fs
 	zfs mount $fs
-	rm /$fs/.VolumeIcon.icns
+	rm -f /$fs/.VolumeIcon.icns
 	create_snapshot $fs "spotlight"
 fi
 

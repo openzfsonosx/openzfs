@@ -61,7 +61,7 @@ log_must zfs create $fs/subfs
 
 if is_macos; then
 	mntpnt=$(get_prop mountpoint $fs)
-	log_must rm $mntpnt/{,subfs/}.VolumeIcon.icns
+	log_must rm -f $mntpnt/{,subfs/}.VolumeIcon.icns
 fi
 
 mntpnt=$(get_prop mountpoint $fs/subfs)

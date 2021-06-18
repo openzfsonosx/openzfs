@@ -61,6 +61,10 @@ new_fs ${DEV_DSKDIR}/$NONZFS_DISK
 (( $? != 0 )) &&
 	log_untested "Unable to setup a $NEWFS_DEFAULT_FS file system"
 
-log_must mount ${DEV_DSKDIR}/$NONZFS_DISK $NONZFS_TESTDIR
+if is_macos; then
+	log_must mount -t hfs ${DEV_DSKDIR}/$NONZFS_DISK $NONZFS_TESTDIR
+else
+	log_must mount ${DEV_DSKDIR}/$NONZFS_DISK $NONZFS_TESTDIR
+fi
 
 log_pass
