@@ -1,5 +1,8 @@
 include $(top_srcdir)/config/Rules.am
 
+FS_BUNDLEPREFIX = /Library/Filesystems
+FS_BUNDLEDIR = $(DESTDIR)$(FS_BUNDLEPREFIX)/zfs.fs
+
 sbin_PROGRAMS = mount_zfs
 
 mount_zfs_SOURCES = \
@@ -13,3 +16,6 @@ mount_zfs_LDADD = \
 mount_zfs_LDADD += $(LTLIBINTL)
 
 include $(top_srcdir)/config/CppCheck.am
+
+install-exec-hook:
+	cp -f $(DESTDIR)/$(sbindir)/mount_zfs $(FS_BUNDLEDIR)/Contents/Resources/mount_zfs
