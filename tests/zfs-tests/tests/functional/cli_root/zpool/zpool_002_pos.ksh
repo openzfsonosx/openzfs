@@ -94,7 +94,7 @@ elif is_freebsd; then
 	log_must sysctl kern.corefile=$corefile
 elif is_macos; then
 	ulimit -c unlimited
-	log_must sysctl kern.corefile=$corepath/core.zpool
+	log_must sysctl kern.corefile=$corepath/zpool.core
 	export ASAN_OPTIONS="abort_on_error=1:disable_coredump=0"
 	# cores are always >2g, so this test will not finish in time.
 	set -A cmds "create $pool mirror $vdev1 $vdev2" \

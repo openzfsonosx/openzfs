@@ -341,6 +341,7 @@ zfs_add_options(zfs_handle_t *zhp, char *options, int len)
 
 	error = zfs_add_option(zhp, options, len,
 	    ZFS_PROP_ATIME, MNTOPT_ATIME, MNTOPT_NOATIME);
+
 	/*
 	 * don't add relatime/strictatime when atime=off, otherwise strictatime
 	 * will force atime=on
