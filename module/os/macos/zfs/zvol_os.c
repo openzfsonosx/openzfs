@@ -100,24 +100,9 @@ zvol_os_spawn(void (*func)(void *), void *arg)
 static boolean_t
 zvol_os_is_zvol(const char *device)
 {
-#if 0
-	struct stat stbf;
-
-	// Stat device, get major/minor, match zv
-	if (stat(device, &stbf) == 0) {
-		if (S_ISBLK(stbf.st_mode) || S_ISCHR(stbf.st_mode)) {
-			dev_t dev = makedevice(stbf.st_major, stbf.st_minor);
-
-			zvol_state_t *zv;
-			zv = zvol_find_by_dev(dev);
-			if (zv != NULL) {
-				mutex_exit(&zv->zv_state_lock);
-				return (B_TRUE);
-			}
-		}
-	}
-#endif
-	return (B_FALSE);
+	if (device == NULL)
+		return (B_FALSE);
+	return (zvol_os_is_zvol_impl(device));
 }
 
 /*
@@ -516,7 +501,7 @@ zvol_os_clear_private(zvol_state_t *zv)
 	dprintf("%s\n", __func__);
 
 	/* We can do all removal work, except call terminate. */
-	term = zvolRemoveDevice(zv->zv_zso->zvo_iokitdev);
+	term = zvolRemoveDevice(zv);
 	if (term == NULL)
 		return;
 
@@ -964,7 +949,7 @@ zvol_os_ioctl(dev_t dev, unsigned long cmd, caddr_t data, int isblk,
 			break;
 
 		case DKIOCSETBLOCKSIZE:
-			dprintf("DKIOCSETBLOCKSIZE %lu\n", *f);
+			dprintf("DKIOCSETBLOCKSIZE %u\n", (uint32_t)*f);
 
 			if (!isblk) {
 				/* We can only do this for a block device */

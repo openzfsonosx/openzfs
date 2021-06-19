@@ -446,6 +446,7 @@ ZFSDataset::setDatasetName(const char *name)
 
 	/* Unlock IORegistryEntry and cleanup allocations */
 	unlockForArbitration();
+	OSSafeReleaseNULL(datasetString);
 	// kmem_free(newname, len);
 	// OSSafeReleaseNULL(nameString);
 	return (true);

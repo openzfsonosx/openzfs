@@ -1703,7 +1703,7 @@ zvol_rename_minors(spa_t *spa, const char *name1, const char *name2,
 boolean_t
 zvol_is_zvol(const char *name)
 {
-
+	printf("%s: '%s'\n", __func__, name);
 	return (ops->zv_is_zvol(name));
 }
 

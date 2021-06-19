@@ -635,7 +635,6 @@ media_matchdict_from_path(const char *path)
 	}
 	if (bsdName) {
 		ret = matchDict->setObject(kIOBSDNameKey, bsdName);
-		bsdName->release();
 
 		if (!ret) {
 			dprintf("%s couldn't setup bsd name matching"
@@ -648,7 +647,6 @@ media_matchdict_from_path(const char *path)
 		if (matchDict->setObject(kIOMediaUUIDKey, uuid) == false) {
 			dprintf("%s couldn't setup UUID matching"
 			    " dictionary\n", __func__);
-			uuid->release();
 			matchDict->release();
 			matchDict = 0;
 		}
@@ -657,6 +655,9 @@ media_matchdict_from_path(const char *path)
 		matchDict->release();
 		matchDict = 0;
 	}
+
+	if (bsdName) bsdName->release();
+	if (uuid) uuid->release();
 
 	/* Return NULL or valid OSDictionary with retain count */
 	return (matchDict);

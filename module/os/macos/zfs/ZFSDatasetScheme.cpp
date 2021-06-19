@@ -558,12 +558,14 @@ zfs_osx_proxy_remove(const char *osname)
 #endif
 	provider = OSDynamicCast(ZFSDatasetScheme,
 	    dataset->getProvider());
+
+	OSSafeReleaseNULL(dataset);
+
 	if (!provider) {
 		dprintf("invalid provider");
 		return;
 	}
 
-	OSSafeReleaseNULL(dataset);
 	dprintf("removing %s", osname);
 	provider->removeDataset(osname, /* force */ true);
 }
@@ -967,6 +969,7 @@ ZFSDatasetScheme::removeDataset(const char *osname, bool force)
 	iter = OSCollectionIterator::withCollection(_datasets);
 	if (!iter) {
 		dprintf("couldn't get dataset iterator");
+		if (locked) unlockForArbitration();
 		return (false);
 	}
 
@@ -990,6 +993,7 @@ ZFSDatasetScheme::removeDataset(const char *osname, bool force)
 	if (!dataset) {
 		dprintf("couldn't get dataset");
 		iter->release();
+		if (locked) unlockForArbitration();
 		return (false);
 	}
 

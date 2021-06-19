@@ -59,7 +59,7 @@ extern int zvol_os_get_volume_blocksize(dev_t dev);
 extern void zvol_os_lock_zv(zvol_state_t *zv);
 extern void zvol_os_unlock_zv(zvol_state_t *zv);
 
-extern void *zvolRemoveDevice(zvol_iokit_t *iokitdev);
+extern void *zvolRemoveDevice(zvol_state_t *);
 extern int zvolRemoveDeviceTerminate(void *iokitdev);
 extern int zvolCreateNewDevice(zvol_state_t *zv);
 extern int zvolRegisterDevice(zvol_state_t *zv);
@@ -75,6 +75,7 @@ extern void zvol_remove_symlink(zvol_state_t *zv);
 extern void zfs_ereport_zvol_post(const char *subclass, const char *name,
     const char *bsd, const char *rbsd);
 
+extern boolean_t zvol_os_is_zvol_impl(const char *path);
 
 #ifdef  __cplusplus
 }

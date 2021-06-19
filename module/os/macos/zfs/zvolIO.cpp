@@ -58,7 +58,8 @@ typedef struct zvol_iokit {
 	org_openzfsonosx_zfs_zvol_device *dev;
 } zvol_iokit_t;
 
-OSDefineMetaClassAndStructors(org_openzfsonosx_zfs_zvol_device, IOBlockStorageDevice)
+OSDefineMetaClassAndStructors(org_openzfsonosx_zfs_zvol_device,
+    IOBlockStorageDevice)
 
 bool
 org_openzfsonosx_zfs_zvol_device::init(zvol_state_t *c_zv,
@@ -768,6 +769,7 @@ org_openzfsonosx_zfs_zvol_device::doEjectMedia(void)
 	//	destroyBlockStorageDevice(zvol);
 	// }
 
+	return (kIOReturnError);
 	return (kIOReturnSuccess);
 }
 
@@ -969,6 +971,7 @@ zvolRegisterDevice(zvol_state_t *zv)
 	matching = IOService::serviceMatching("IOMedia");
 	if (!matching || !matching->setObject(gIONameMatchKey, nameStr)) {
 		dprintf("%s couldn't get matching dictionary\n", __func__);
+		nameStr->release();
 		return (ENOMEM);
 	}
 
@@ -983,6 +986,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 
 	if (!service) {
 		dprintf("%s couldn't get matching service\n", __func__);
+		nameStr->release();
+		matching->release();
 		return (false);
 	}
 
@@ -991,6 +996,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 
 	if (!media) {
 		dprintf("%s no IOMedia\n", __func__);
+		nameStr->release();
+		matching->release();
 		service->release();
 		return (false);
 	}
@@ -1017,6 +1024,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 	}
 
 	/* Release retain held by waitForMatchingService */
+	nameStr->release();
+	matching->release();
 	service->release();
 
 	dprintf("%s complete\n", __func__);
@@ -1025,8 +1034,9 @@ zvolRegisterDevice(zvol_state_t *zv)
 
 /* Struct passed in will be freed before returning */
 void *
-zvolRemoveDevice(zvol_iokit_t *iokitdev)
+zvolRemoveDevice(zvol_state_t *zv)
 {
+	zvol_iokit_t *iokitdev = zv->zv_zso->zvo_iokitdev;
 	org_openzfsonosx_zfs_zvol_device *zvol;
 	dprintf("%s\n", __func__);
 
@@ -1036,6 +1046,7 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 	}
 
 	zvol = iokitdev->dev;
+
 	/* Free the wrapper struct */
 	kmem_free(iokitdev, sizeof (zvol_iokit_t));
 
@@ -1058,7 +1069,8 @@ zvolRemoveDevice(zvol_iokit_t *iokitdev)
 int
 zvolRemoveDeviceTerminate(void *arg)
 {
-	org_openzfsonosx_zfs_zvol_device *zvol = (org_openzfsonosx_zfs_zvol_device *)arg;
+	org_openzfsonosx_zfs_zvol_device *zvol =
+	    (org_openzfsonosx_zfs_zvol_device *)arg;
 
 	IOLog("zvolRemoveDeviceTerminate\n");
 
@@ -1170,5 +1182,189 @@ zvolIO_kit_write(struct iomem *iomem, uint64_t offset,
 
 	return (done);
 }
+
+
+boolean_t
+zvol_os_is_zvol_impl(const char *path)
+{
+	OSDictionary *matchDict = 0;
+	OSString *bsdName = NULL;
+	OSString *uuid = NULL;
+	const char *substr = 0;
+	bool ret = B_FALSE;
+
+	dprintf("%s: processing '%s'\n", __func__, path);
+
+	/* Validate path */
+	if (path == 0 || strlen(path) <= 1) {
+		dprintf("%s no path provided\n", __func__);
+		return (ret);
+	}
+	/* Translate /dev/diskN and InvariantDisks paths */
+	if (strncmp(path, "/dev/", 5) != 0 &&
+	    strncmp(path, "/var/run/disk/by-id/", 20) != 0 &&
+	    strncmp(path, "/private/var/run/disk/by-id/", 28) != 0) {
+		dprintf("%s Unrecognized path %s\n", __func__, path);
+		return (ret);
+	}
+
+	/* Validate path and alloc bsdName */
+	if (strncmp(path, "/dev/", 5) == 0) {
+		char disk[MAXPATHLEN];
+
+	    /* substr starts after '/dev/' */
+		substr = path + 5;
+
+		strlcpy(disk, substr, MAXPATHLEN);
+
+		/* For zvol_is_zvol, we want root disk, not slice. */
+		if (tolower(disk[0]) == 'd' &&
+		    tolower(disk[1]) == 'i' &&
+		    tolower(disk[2]) == 's' &&
+		    tolower(disk[3]) == 'k') {
+		char *r = &disk[4];
+		while (isdigit(*r)) r++;
+		if (tolower(*r) == 's')
+			*r = 0;
+		}
+
+		/* Get diskN from /dev/diskN or /dev/rdiskN */
+		if (strncmp(disk, "disk", 4) == 0) {
+			bsdName = OSString::withCString(disk);
+		} else if (strncmp(disk, "rdisk", 5) == 0) {
+			bsdName = OSString::withCString(disk + 1);
+		}
+	} else if (strncmp(path, "/var/run/disk/by-id/", 20) == 0 ||
+	    strncmp(path, "/private/var/run/disk/by-id/", 28) == 0) {
+		/* InvariantDisks paths */
+
+		/* substr starts after '/by-id/' */
+		substr = path + 20;
+		if (strncmp(path, "/private", 8) == 0) substr += 8;
+
+		/* Handle media UUID, skip volume UUID or device GUID */
+		if (strncmp(substr, "media-", 6) == 0) {
+			/* Lookup IOMedia with UUID */
+			uuid = OSString::withCString(substr+strlen("media-"));
+		} else if (strncmp(substr, "volume-", 7) == 0) {
+			/*
+			 * volume-UUID is specified by DiskArbitration
+			 * when a Filesystem bundle is able to probe
+			 * the media and retrieve/generate a UUID for
+			 * it's contents.
+			 * So while we could use this and have zfs.util
+			 * probe for vdev GUID (and pool GUID) and
+			 * generate a UUID, we would need to do the same
+			 * here to find the disk, possibly probing
+			 * devices to get the vdev GUID in the process.
+			 */
+			dprintf("%s Unsupported volume-UUID path %s\n",
+			    __func__, path);
+		} else if (strncmp(substr, "device-", 7) == 0) {
+			/* Lookup IOMedia with device GUID */
+			/*
+			 * XXX Not sure when this is used, no devices
+			 * seem to be presented this way.
+			 */
+			dprintf("%s Unsupported device-GUID path %s\n",
+			    __func__, path);
+		} else {
+			printf("%s unrecognized path %s\n", __func__, path);
+		}
+		/* by-path and by-serial are handled separately */
+	}
+
+	if (!bsdName && !uuid) {
+		dprintf("%s Invalid path %s\n", __func__, path);
+		return (ret);
+	}
+
+	/* Match on IOMedia by BSD disk name */
+	matchDict = IOService::serviceMatching("IOMedia");
+	if (!matchDict) {
+		dprintf("%s couldn't get matching dictionary\n", __func__);
+		if (bsdName) bsdName->release();
+		if (uuid) uuid->release();
+		return (ret);
+	}
+	if (bsdName) {
+
+		matchDict->setObject(kIOBSDNameKey, bsdName);
+
+	} else if (uuid) {
+		if (matchDict->setObject(kIOMediaUUIDKey, uuid) == false) {
+			dprintf("%s couldn't setup UUID matching"
+			    " dictionary\n", __func__);
+			matchDict->release();
+			matchDict = 0;
+		}
+	} else {
+		dprintf("%s missing matching property\n", __func__);
+		matchDict->release();
+		matchDict = 0;
+	}
+
+	if (bsdName) bsdName->release();
+	if (uuid) uuid->release();
+
+	if (matchDict == 0)
+		return (ret);
+
+	OSIterator *iter = 0;
+	OSObject *obj = 0;
+	IOMedia *media = 0;
+
+	iter = IOService::getMatchingServices(matchDict);
+
+	matchDict->release();
+
+	if (!iter) {
+		dprintf("%s No iterator from getMatchingServices\n",
+		    __func__);
+		return (ret);
+	}
+
+	/* Get first object from iterator */
+	while ((obj = iter->getNextObject()) != NULL) {
+		if ((media = OSDynamicCast(IOMedia, obj)) == NULL) {
+			obj = 0;
+			continue;
+		}
+		if (media->isFormatted() == false) {
+			obj = 0;
+			media = 0;
+			continue;
+		}
+
+		media->retain();
+		break;
+	}
+
+	if (!media) {
+		printf("%s no match found\n", __func__);
+		iter->release();
+		return (ret);
+	}
+
+	iter->release();
+	iter = 0;
+
+	// IOMedia from here on out.
+
+	const char *name;
+
+	name = media->getName();
+
+	printf("The match we got is: %s\n", name);
+
+	if (strncmp(name, ZVOL_PRODUCT_NAME_PREFIX,
+	    strlen(ZVOL_PRODUCT_NAME_PREFIX)) == 0)
+		ret = B_TRUE;
+
+	media->release();
+
+	return (ret);
+}
+
 
 } /* extern "C" */
