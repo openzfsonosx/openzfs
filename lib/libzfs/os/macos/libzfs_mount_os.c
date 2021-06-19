@@ -645,22 +645,42 @@ void
 unmount_snapshots(zfs_handle_t *zhp, const char *mntpt, int flags)
 {
 	struct mnttab entry;
-	int len = strlen(mntpt);
+	int mntlen = strlen(mntpt);
 
 	if (zhp == NULL)
 		return;
+	/*
+	 * The automounting will kick in, and zed mounts it - so
+	 * we temporarily disable it
+	 */
+	uint64_t automount = getpid();
+	uint64_t saved_automount = 0;
+	size_t len = sizeof (automount);
+	size_t slen = sizeof (saved_automount);
+
+	/* Remember what the user has it set to */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    &saved_automount, &slen, NULL, 0);
+
+	/* Disable automounting */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    NULL, NULL, &automount, len);
 
 	while (getmntent(NULL, &entry) == 0) {
 		/* Starts with our mountpoint ? */
-		if (strncmp(mntpt, entry.mnt_mountp, len) == 0) {
+		if (strncmp(mntpt, entry.mnt_mountp, mntlen) == 0) {
 			/* The next part is "/.zfs/snapshot/" ? */
-			if (strncmp("/.zfs/snapshot/", &entry.mnt_mountp[len],
-			    15) == 0) {
+			if (strncmp("/.zfs/snapshot/",
+			    &entry.mnt_mountp[mntlen], 15) == 0) {
 				/* Unmount it */
 				do_unmount_impl(entry.mnt_mountp, MS_FORCE);
 			}
 		}
 	}
+
+	/* Restore automount setting */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    NULL, NULL, &saved_automount, len);
 }
 
 int
@@ -756,12 +776,15 @@ zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
 	    NULL, NULL, &automount, len);
 
 	if (zfs_is_mounted(zhp, NULL)) {
-		return (EBUSY);
+		ret = EBUSY;
+		goto out;
 	}
 
 	mountpoint = zfs_snapshot_mountpoint(zhp);
-	if (mountpoint == NULL)
-		return (EINVAL);
+	if (mountpoint == NULL) {
+		ret = EINVAL;
+		goto out;
+	}
 
 	ret = zfs_mount_at(zhp, options, MS_RDONLY | flags,
 	    mountpoint);
@@ -778,6 +801,7 @@ zfs_snapshot_mount(zfs_handle_t *zhp, const char *options,
 
 	free(mountpoint);
 
+out:
 	/* Restore automount setting */
 	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
 	    NULL, NULL, &saved_automount, len);
@@ -791,17 +815,41 @@ zfs_snapshot_unmount(zfs_handle_t *zhp, int flags)
 	int ret = 0;
 	char *mountpoint;
 
+	/*
+	 * The automounting will kick in, and zed mounts it - so
+	 * we temporarily disable it
+	 */
+	uint64_t automount = getpid();
+	uint64_t saved_automount = 0;
+	size_t len = sizeof (automount);
+	size_t slen = sizeof (saved_automount);
+
+	/* Remember what the user has it set to */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    &saved_automount, &slen, NULL, 0);
+
+	/* Disable automounting */
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    NULL, NULL, &automount, len);
+
 	if (!zfs_is_mounted(zhp, NULL)) {
-		return (ENOENT);
+		ret = ENOENT;
+		goto out;
 	}
 
 	mountpoint = zfs_snapshot_mountpoint(zhp);
-	if (mountpoint == NULL)
-		return (EINVAL);
+	if (mountpoint == NULL) {
+		ret = EINVAL;
+		goto out;
+	}
 
 	ret = zfs_unmount(zhp, mountpoint, flags);
 
 	free(mountpoint);
+
+out:
+	sysctlbyname("kstat.zfs.darwin.tunable.zfs_auto_snapshot",
+	    NULL, NULL, &saved_automount, len);
 
 	return (ret);
 }
@@ -849,8 +897,6 @@ zpool_disable_volume(const char *name)
 	CFStringRef bsdname;
 	CFStringRef bsdname2;
 	io_iterator_t iter;
-
-	printf("Exporting '%s'\n", name);
 
 	if (asprintf(&fullname, "ZVOL %s Media", name) < 0)
 		return;

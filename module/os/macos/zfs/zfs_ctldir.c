@@ -129,10 +129,46 @@ struct zfsctl_unmount_delay {
 };
 typedef struct zfsctl_unmount_delay zfsctl_unmount_delay_t;
 
-// Just remembering one readdir-thread is probably not enough?
-static kthread_t *ignore_lookups_tid = NULL;
-static pid_t ignore_lookups_pid = 0;
-static clock_t ignore_lookups_time = 0;
+/*
+ * We need to remember the pid,tid of processes involved with unmount
+ * so they do not trigger mount due to it. This feels a little hacky
+ * so there is reoom for improvement here.
+ */
+#define	IGNORE_MAX 5
+static uint32_t ignore_next = 0;
+static kthread_t *ignore_lookups_tid[IGNORE_MAX] = {NULL};
+static pid_t ignore_lookups_pid[IGNORE_MAX] = {0};
+static clock_t ignore_lookups_time[IGNORE_MAX] = {0};
+#define	IGNORE_NEXT do { \
+	if (atomic_inc_32_nv(&ignore_next) >= IGNORE_MAX) ignore_next = 0; \
+	} while (0)
+
+#define	IGNORE_ADD(pid, tid, time) do {			\
+	int i = ignore_next; \
+	ignore_lookups_pid[i] = (pid); \
+	ignore_lookups_tid[i] = (tid); \
+	ignore_lookups_time[i] = (time); \
+	IGNORE_NEXT; \
+	} while (0)
+
+#define	IGNORE_FIND_CLEAR(pid, tid, time) do {	\
+	for (int i = 0; i < IGNORE_MAX; i++) {  \
+		if (ignore_lookups_pid[i] == (pid) && \
+		    ignore_lookups_tid[i] == (tid)) { \
+			ignore_lookups_pid[i]  = 0; \
+			ignore_lookups_tid[i]  = 0; \
+			ignore_lookups_time[i] = 0; \
+		} \
+	} \
+	} while (0)
+
+#define	IGNORE_FIND_SETTIME(pid, tid, time) do {	\
+	for (int i = 0; i < IGNORE_MAX; i++) \
+		if (ignore_lookups_pid[i] == (pid) && \
+		    ignore_lookups_tid[i] == (tid)) { \
+			ignore_lookups_time[i] = (time);  \
+		} \
+	} while (0)
 
 /*
  * Check if the given vnode is a part of the virtual .zfs directory.
@@ -1073,9 +1109,7 @@ zfsctl_vnop_open(struct vnop_open_args *ap)
 		return (EACCES);
 
 	if (zp->z_id == ZFSCTL_INO_SNAPDIR) {
-		ignore_lookups_tid = curthread;
-		ignore_lookups_time = gethrtime();
-		ignore_lookups_pid = getpid();
+		IGNORE_ADD(getpid(), curthread, gethrtime());
 		dprintf("Setting to ignore thread %p for mounts\n",
 		    ignore_lookups_tid);
 		return (zfsctl_snapshot_mount(ap->a_vp, 0));
@@ -1083,9 +1117,7 @@ zfsctl_vnop_open(struct vnop_open_args *ap)
 		/* If we are to list anything but ".zfs" we should clear */
 		dprintf("Clearing ignore thread %p for mounts\n",
 		    ignore_lookups_tid);
-		ignore_lookups_tid = 0;
-		ignore_lookups_time = 0;
-		ignore_lookups_pid = 0;
+		IGNORE_FIND_CLEAR(getpid(), curthread, gethrtime());
 	}
 	return (0);
 }
@@ -1098,7 +1130,7 @@ zfsctl_vnop_close(struct vnop_close_args *ap)
 
 	if (zp->z_id == ZFSCTL_INO_SNAPDIR) {
 		dprintf("%s: refreshing tid time\n", __func__);
-		ignore_lookups_time = gethrtime();
+		IGNORE_FIND_SETTIME(getpid(), curthread, gethrtime());
 	}
 	return (0);
 }
@@ -1146,26 +1178,28 @@ zfsctl_snapshot_mount(struct vnode *vp, int flags)
 	 * Use a timeout in case zed is not running.
 	 */
 
-	dprintf("%s: entry: id %llu: pid %d tid %p: ignore pid %d tid %p\n",
-	    __func__, zp->z_id, getpid(), curthread,
-	    ignore_lookups_pid, ignore_lookups_tid);
+	dprintf("%s: entry: id %llu: pid %d tid %p: auto %u\n",
+	    __func__, zp->z_id, getpid(), curthread, zfs_auto_snapshot);
 
-	if ((zfs_auto_snapshot == 0) || (zfs_auto_snapshot == getpid())) {
+	if (zfs_auto_snapshot != 1) {
 		dprintf("%s: zfs_auto_snapshot disabled\n", __func__);
+		IGNORE_ADD(getpid(), curthread, gethrtime());
 		return (0);
 	}
 
-	if (ignore_lookups_tid == curthread ||
-	    ignore_lookups_pid == getpid()) {
-		dprintf("Ignore thread set for %p (us) or pid %d\n",
-		    ignore_lookups_tid, getpid());
-		if (gethrtime() - ignore_lookups_time < SEC2NSEC(1))
+	for (int i = 0; i < IGNORE_MAX; i++)
+		if (ignore_lookups_pid[i] == getpid() ||
+		    ignore_lookups_tid[i] == curthread) {
+			dprintf("Ignore thread set for %p (us) or pid %d\n",
+			    curthread, getpid());
+		if (gethrtime() - ignore_lookups_time[i] < SEC2NSEC(1))
 			return (0);
 		dprintf("But expired, so ignoring the ignore\n");
 		/* expired? clear it. */
-		ignore_lookups_tid = 0;
-		ignore_lookups_time = 0;
-	}
+		ignore_lookups_pid[i] = 0;
+		ignore_lookups_tid[i] = 0;
+		ignore_lookups_time[i] = 0;
+		}
 
 	ZFS_ENTER(zfsvfs);
 	if (((zp->z_id >= zfsvfs->z_ctldir_startid) &&
