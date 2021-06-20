@@ -74,7 +74,7 @@ zfs_match_find(zfsvfs_t *zfsvfs, znode_t *dzp, char *name, matchtype_t mt,
 
 		if (rpnp) {
 			buf = rpnp->cn_nameptr;
-			bufsz = rpnp->cn_namelen;
+			bufsz = rpnp->cn_pnlen;
 		}
 
 		/*
@@ -439,7 +439,7 @@ zfs_dirlook(znode_t *dzp, char *name, znode_t **zpp, int flags,
 	}
 
 	if ((flags & FIGNORECASE) && rpnp && !error)
-		(void) strlcpy(rpnp->cn_nameptr, name, rpnp->cn_namelen);
+		(void) strlcpy(rpnp->cn_nameptr, name, rpnp->cn_pnlen);
 
 	return (error);
 }
