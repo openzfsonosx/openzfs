@@ -1699,6 +1699,7 @@ handle_set_wce_iokit(struct ldi_handle *lhp, int *wce)
 	if (result != kIOReturnSuccess) {
 		// dprintf("%s couldn't get current write cache state %d\n",
 		//   __func__, ldi_zfs_handle->errnoFromReturn(result));
+		device->release();
 		return (ENXIO);
 	}
 
@@ -1715,9 +1716,11 @@ handle_set_wce_iokit(struct ldi_handle *lhp, int *wce)
 		//   __func__, ldi_zfs_handle->errnoFromReturn(result));
 		/* Flip wce to indicate current status */
 		*wce = !(*wce);
+		device->release();
 		return (ENXIO);
 	}
 
+	device->release();
 	return (0);
 }
 
