@@ -495,7 +495,34 @@ zfs_lookup(znode_t *zdp, char *nm, znode_t **zpp, int flags,
 	/*
 	 * OsX has separate vnops for XATTR activity
 	 */
+	if (flags & LOOKUP_XATTR) {
+		/*
+		 * We don't allow recursive attributes..
+		 * Maybe someday we will.
+		 */
+		if (zdp->z_pflags & ZFS_XATTR) {
+			ZFS_EXIT(zfsvfs);
+			return (SET_ERROR(EINVAL));
+		}
 
+		if ((error = zfs_get_xattrdir(zdp, zpp, cr, flags))) {
+			ZFS_EXIT(zfsvfs);
+			return (error);
+		}
+
+		/*
+		 * Do we have permission to get into attribute directory?
+		 */
+
+		if ((error = zfs_zaccess(*zpp, ACE_EXECUTE, 0,
+		    B_FALSE, cr))) {
+			zrele(*zpp);
+			*zpp = NULL;
+		}
+
+		ZFS_EXIT(zfsvfs);
+		return (error);
+	}
 
 	if (!S_ISDIR(zdp->z_mode)) {
 		ZFS_EXIT(zfsvfs);

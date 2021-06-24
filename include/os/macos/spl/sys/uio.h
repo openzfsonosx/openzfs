@@ -77,11 +77,25 @@ typedef struct zfs_uio {
 	size_t			uio_skip;
 } zfs_uio_t;
 
+
+/*
+ * Given a XNU "uio", we wrap it in a ZFS "uio", and set iov to NULL
+ * to indicate we should call XNU methods. However, sometimes, XNU
+ * passes a NULL uio (e.g. lookup size in listxattr) so we need to
+ * make the uio look like a ZFS uio for methods like setoffset() to
+ * work.
+ */
+extern struct iovec empty_iov;
+
 #define	ZFS_UIO_INIT_XNU(U, X) \
 	zfs_uio_t _U = { 0 }; \
 	zfs_uio_t *U = &_U; \
-	(U)->uio_iov = NULL; \
-	(U)->uio_xnu = X;
+	if ((X) != NULL) { \
+		(U)->uio_iov = NULL; \
+		(U)->uio_xnu = X; \
+	} else { \
+		(U)->uio_iov = &empty_iov; \
+	}
 
 static inline zfs_uio_seg_t
 zfs_uio_segflg(zfs_uio_t *uio)
@@ -165,6 +179,21 @@ zfs_uio_iovbase(zfs_uio_t *uio, unsigned int idx)
 		return ((void *)iov_base);
 	}
 	return (uio->uio_iov[(idx)].iov_base);
+}
+
+static inline void
+zfs_uio_iovec_init(zfs_uio_t *uio, const struct iovec *iov,
+    unsigned long nr_segs, off_t offset, zfs_uio_seg_t seg, ssize_t resid,
+    size_t skip)
+{
+	uio->uio_iov = iov;
+	uio->uio_iovcnt = nr_segs;
+	uio->uio_loffset = offset;
+	uio->uio_segflg = seg;
+	uio->uio_fmode = 0;
+	uio->uio_extflg = 0;
+	uio->uio_resid = resid;
+	uio->uio_skip = skip;
 }
 
 extern int zfs_uio_prefaultpages(ssize_t, zfs_uio_t *);
