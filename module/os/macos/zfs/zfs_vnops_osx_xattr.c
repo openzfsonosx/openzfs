@@ -529,10 +529,27 @@ zpl_xattr_set_sa(struct vnode *ip, const char *name, zfs_uio_t *uio,
 		if (sa_size > DXATTR_MAX_SA_SIZE)
 			return (-EFBIG);
 
-		// Sure hope the value is in one iovec
+		/* This only supports "one iovec" for the data */
+		void *buf = zfs_uio_iovbase(uio, 0);
+		int len = zfs_uio_iovlen(uio, 0);
+
+		/*
+		 * Allocate memory to copyin, which is a shame as nvlist
+		 * will also allocate memory to hold it. Could consider a
+		 * nvlist_add_byte_array_uio() so the bcopy() uses uiomove()
+		 * instead.
+		 */
+		if (zfs_uio_segflg(uio) != UIO_SYSSPACE) {
+			buf = kmem_alloc(len, KM_SLEEP);
+			zfs_uiomove(buf, len, UIO_WRITE, uio);
+		}
+
 		error = -nvlist_add_byte_array(nvl, name,
-		    (uchar_t *)zfs_uio_iovbase(uio, 0),
-		    zfs_uio_iovlen(uio, 0));
+		    (uchar_t *)buf, len);
+
+		if (zfs_uio_segflg(uio) != UIO_SYSSPACE)
+			kmem_free(buf, len);
+
 	}
 
 	/*
