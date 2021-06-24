@@ -30,6 +30,8 @@
 #include <sys/sysmacros.h>
 #include <sys/uio.h>
 
+struct iovec empty_iov = { 0 };
+
 static int
 zfs_uiomove_iov(void *p, size_t n, zfs_uio_rw_t rw, zfs_uio_t *uio)
 {

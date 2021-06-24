@@ -206,10 +206,6 @@ extern int   getpackedsize(struct attrlist *alp, boolean_t user64);
 extern void  getfinderinfo(znode_t *zp, cred_t *cr, finderinfo_t *fip);
 extern uint32_t getuseraccess(znode_t *zp, vfs_context_t ctx);
 extern void  finderinfo_update(uint8_t *finderinfo, znode_t *zp);
-extern int   zpl_xattr_set_sa(struct vnode *vp, const char *name,
-    const void *value, size_t size, int flags, cred_t *cr);
-extern int zpl_xattr_get_sa(struct vnode *vp, const char *name, void *value,
-    size_t size);
 extern void zfs_zrele_async(znode_t *zp);
 
 /*
@@ -242,6 +238,13 @@ extern struct vnodeopv_desc zfs_evnodeop_opv_desc;
 extern struct vnodeopv_desc zfs_fifonodeop_opv_desc;
 extern struct vnodeopv_desc zfs_ctldir_opv_desc;
 extern int (**zfs_ctldirops)(void *);
+
+
+extern ssize_t zpl_xattr_list(struct vnode *dvp, zfs_uio_t *uio, cred_t *cr);
+extern int zpl_xattr_get(struct vnode *ip, const char *name,
+    zfs_uio_t *uio, cred_t *cr);
+extern int zpl_xattr_set(struct vnode *ip, const char *name,
+    zfs_uio_t *uio, int flags, cred_t *cr);
 
 #ifdef	__cplusplus
 }

@@ -59,6 +59,7 @@
 #define	vnode_t struct vnode
 #define	uio_t struct uio
 
+#define	LOOKUP_XATTR 0x02 /* lookup up extended attr dir */
 
 struct caller_context;
 typedef struct caller_context caller_context_t;

@@ -10,6 +10,7 @@ zfs_CPPFLAGS = \
 	-nostdinc \
 	-mkernel \
 	-fno-builtin-printf \
+	-Wframe-larger-than=400 \
 	-D__KERNEL__ \
 	-D_KERNEL \
 	-DKERNEL \
@@ -227,6 +228,7 @@ zfs_SOURCES = \
 	zfs_vnops_os.c \
 	zfs_vnops_osx.c \
 	zfs_vnops_osx_lib.c \
+	zfs_vnops_osx_xattr.c \
 	zfs_znode.c \
 	../../../zfs/zil.c \
 	../../../zfs/zio.c \
