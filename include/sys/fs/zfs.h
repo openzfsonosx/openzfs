@@ -186,11 +186,13 @@ typedef enum {
 	ZFS_PROP_IVSET_GUID,		/* not exposed to the user */
 	ZFS_PROP_REDACTED,
 	ZFS_PROP_REDACT_SNAPS,
+#ifdef __APPLE__
 	ZFS_PROP_BROWSE,		/* macOS: nobrowse/browse */
 	ZFS_PROP_IGNOREOWNER,	/* macOS: ignoreowner mount */
 	ZFS_PROP_LASTUNMOUNT,	/* macOS: Spotlight required */
 	ZFS_PROP_MIMIC,			/* macOS: mimic=hfs|apfs */
 	ZFS_PROP_DEVDISK,		/* macOS: create IOkit virtual disk */
+#endif
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 
