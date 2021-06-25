@@ -41,8 +41,7 @@ DEFAULT_RUNFILES="common.run,$(uname | tr '[:upper:]' '[:lower:]').run"
 RUNFILES=${RUNFILES:-$DEFAULT_RUNFILES}
 FILEDIR=${FILEDIR:-/var/tmp}
 FILEDIR=$(realpath ${FILEDIR})
-# DISKS=${DISKS:-""}
-DISKS="$(diskutil list |grep 21|head -3|awk '{print $NF}'|xargs)"
+DISKS=${DISKS:-""}
 SINGLETEST=""
 SINGLETESTUSER="root"
 TAGS=""
@@ -333,6 +332,7 @@ constrain_path() {
 		# Homebrew "gnu-sed" provides gsed
 		[ -f "/usr/local/bin/gawk" ] && ln -fs /usr/local/bin/gawk "$STF_PATH/nawk"
 		[ -f "/usr/local/bin/gdd" ] && ln -fs /usr/local/bin/gdd "$STF_PATH/dd"
+		[ -f "/usr/local/bin/gmktemp" ] && ln -fs /usr/local/bin/gmktemp "$STF_PATH/mktemp"
 		[ -f "/usr/local/bin/gsum" ] && ln -fs /usr/local/bin/gsum "$STF_PATH/sum"
 		# can't use gcp because it doesn't support xattr on macOS
 		# [ -f "/usr/local/bin/gcp" ] && ln -fs /usr/local/bin/gcp "$STF_PATH/cp"
@@ -557,6 +557,7 @@ sudo zpool export -fa; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while 
 sudo sysctl kstat.zfs.darwin.tunable.zfs_disable_spotlight=1
 sudo launchctl load -w /Library/LaunchDaemons/org.openzfsonosx.zed.plist
 sudo rm -rf /Users/joe/Developer/openzfs/bin
+DISKS="$(diskutil list |grep 21|head -3|awk '{print $NF}'|xargs)"
 
 #
 # Constrain the available binaries to a known set.
