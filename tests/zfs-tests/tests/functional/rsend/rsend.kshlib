@@ -847,6 +847,26 @@ function recursive_cksum
 		    system {} | sha256 -q; lsextattr -q user {} | sha256 -q' \
 		    \; | sort | sha256 -q
 		;;
+	Darwin)
+		# Posix makes no promise on the order of readdir entries
+		# so sort the find. Alas, XNU's "xattr" also doesn't sort
+		# so it becomes a hassle. Neither command can strip the
+		# full path in filename.
+		for name in $(find $1 -type f -print0 | sort -V -z | xargs -0)
+		do
+		    # file's checksum
+		    filsum=$(sha256sum "${name}" | awk '{print $1}')
+	    	    # echo "${name}:${filsum}"
+	            echo "${filsum}"
+		    # sort xattrs too
+		    for a in $(xattr "${name}" | sort -V)
+		    do
+			cksum=$(xattr -px "$a" "${name}" | sha256sum | awk '{print $1}')
+			echo "${a}:${cksum}"
+			# echo "${cksum}"
+		    done
+		done | sha256sum | awk '{print $1}'
+		;;
 	*)
 		find $1 -type f -exec sh -c 'sha256sum {}; getfattr \
 		    --absolute-names --only-values -d {} | sha256sum' \; | \
