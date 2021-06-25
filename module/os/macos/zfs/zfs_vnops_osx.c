@@ -3615,7 +3615,7 @@ zfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 	zfsvfs_t  *zfsvfs = zp->z_zfsvfs;
 	int error = 0;
 
-	printf("+removexattr vp %p '%s'\n", ap->a_vp, ap->a_name);
+	dprintf("+removexattr vp %p '%s'\n", ap->a_vp, ap->a_name);
 
 	/* xattrs disabled? */
 	if (zfsvfs->z_xattr == B_FALSE)
