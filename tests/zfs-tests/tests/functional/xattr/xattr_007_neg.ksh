@@ -67,11 +67,11 @@ log_must touch $TESTDIR/myfile2.$$
 # snapshot the filesystem
 log_must zfs snapshot $TESTPOOL/$TESTFS@snap
 
-if is_macos; then
-        log_must zfs mount $TESTPOOL/$TESTFS@snap
-        log_must zfs unmount -f $TESTPOOL/$TESTFS@snap
-        log_must zfs mount $TESTPOOL/$TESTFS@snap
-fi
+#if is_macos; then
+#        log_must zfs mount $TESTPOOL/$TESTFS@snap
+#        log_must zfs unmount -f $TESTPOOL/$TESTFS@snap
+#        log_must zfs mount $TESTPOOL/$TESTFS@snap
+#fi
 
 # we shouldn't be able to alter the first file's xattr
 if is_illumos; then
