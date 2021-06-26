@@ -855,15 +855,17 @@ taskq_ent_destructor(void *buf, void *cdrarg)
 
 
 struct tqdelay {
-	// list
+	/* list of all dispatch_delay */
 	list_node_t tqd_listnode;
-	// time (list sorted on this)
+	/* time (list sorted on this, soonest first) */
 	clock_t	tqd_time;
-	// func
+	/* func+arg for taskq_dispatch */
 	taskq_t *tqd_taskq;
 	task_func_t	*tqd_func;
 	void *tqd_arg;
 	uint_t tqd_tqflags;
+	/* tqe once dispatch called (currently executing) */
+	taskqid_t tqd_ent;
 };
 
 typedef struct tqdelay tqdelay_t;
@@ -907,14 +909,35 @@ taskq_delay_dispatcher_thread(void *notused)
 		tqdnode = list_head(&tqd_list);
 		if (tqdnode != NULL) {
 			clock_t now = ddi_get_lbolt();
+
+			/* First node is 'running', nothing to do. */
+			if (tqdnode->tqd_ent != TASKQID_INVALID) {
+				/* Make its time in the future, and just stick on end */
+				tqdnode->tqd_time = now + SEC_TO_TICK(1);
+				list_remove(&tqd_list, tqdnode);
+				list_insert_tail(&tqd_list, tqdnode);
+				continue;
+			}
+
 			/* Time has arrived */
 			if (tqdnode->tqd_time <= now) {
-				list_remove(&tqd_list, tqdnode);
-				taskq_dispatch(tqdnode->tqd_taskq,
+
+				mutex_exit(&tqd_delay_lock);
+				/* Dispatch the taskq */
+				printf("ROG dispatch\n");
+				tqdnode->tqd_ent = taskq_dispatch(tqdnode->tqd_taskq,
 				    tqdnode->tqd_func, tqdnode->tqd_arg,
-				    tqdnode->tqd_tqflags);
-				kmem_free(tqdnode, sizeof (tqdelay_t));
+				    tqdnode->tqd_tqflags | TQ_DELAYED);
+
+				mutex_enter(&tqd_delay_lock);
+				printf("ROG dispatch tqe %p\n", tqdnode->tqd_ent);
+				if (tqdnode->tqd_ent == TASKQID_INVALID) {
+					/* Failed to dispatch, don't leak (TQ_SLEEP?) */
+					list_remove(&tqd_list, tqdnode);
+					kmem_free(tqdnode, sizeof (tqdelay_t));
+				}
 			}
+			//
 		}
 	}
 
@@ -952,6 +975,7 @@ taskq_dispatch_delay(taskq_t *tq, task_func_t func, void *arg, uint_t tqflags,
 	tqdnode->tqd_func   = func;
 	tqdnode->tqd_arg    = arg;
 	tqdnode->tqd_tqflags = tqflags;
+	tqdnode->tqd_ent    = TASKQID_INVALID;
 
 	mutex_enter(&tqd_delay_lock);
 
@@ -985,6 +1009,7 @@ taskq_cancel_id(taskq_t *tq, taskqid_t id)
 	if (task != NULL) {
 
 		/* Don't trust 'task' until it is found in the list */
+again:
 		mutex_enter(&tqd_delay_lock);
 
 		for (tqdnode = list_head(&tqd_list);
@@ -992,6 +1017,22 @@ taskq_cancel_id(taskq_t *tq, taskqid_t id)
 		    tqdnode = list_next(&tqd_list, tqdnode)) {
 
 			if (tqdnode == task) {
+				/*
+				 * First check if it has already started executing,
+				 * if so, we want for signal that it has finished
+				 * and restart the loop.
+				 */
+				if (tqdnode->tqd_ent != TASKQID_INVALID) {
+					int q;
+					printf("ROG Woah, thread is running, waiting...\n");
+					q = cv_timedwait(&tqd_delay_cv, &tqd_delay_lock,
+					    ddi_get_lbolt() + SEC_TO_TICK(1));
+					if (q == -1)
+						printf("ROG weird, timedwait timeout?\n");
+					mutex_exit(&tqd_delay_lock);
+					goto again;
+				}
+
 				/*
 				 * task exists and needs to be cancelled.
 				 * remove it from list, and wake the thread up
@@ -1211,6 +1252,23 @@ taskq_mp_init(void)
 #endif /* __APPLE__ */
 
 
+void funcA(void *a)
+{
+	printf("  A running, and exit\n");
+}
+
+void funcB(void *a)
+{
+	printf("  B running, and exit\n");
+}
+
+void funcC(void *a)
+{
+	printf("  C running, sleeping\n");
+	delay(hz << 1);
+	printf("  C exit\n");
+}
+
 /*
  * Create global system dynamic task queue.
  */
@@ -1232,8 +1290,33 @@ system_taskq_init(void)
 
 	taskq_start_delay_thread();
 
-}
 
+	printf("Starting 3 threads.\n"
+		"A) sleep 1, then run.\n"
+		"B) sleep 1, cancel early\n"
+		"C) sleep 1, run sleep 2, cancel at 2 - should block.\n");
+
+	taskqid_t B, C;
+	taskq_dispatch_delay(system_delay_taskq, funcA, NULL, 0,
+		ddi_get_lbolt() + SEC_TO_TICK(1));
+	B = taskq_dispatch_delay(system_delay_taskq, funcB, NULL, 0,
+		ddi_get_lbolt() + SEC_TO_TICK(1));
+	C = taskq_dispatch_delay(system_delay_taskq, funcC, NULL, 0,
+		ddi_get_lbolt() + SEC_TO_TICK(1));
+
+	delay(hz>>1);
+	printf("Cancelling B\n");
+	taskq_cancel_id(system_delay_taskq, B);
+	printf("Cancelled  B\n");
+
+	delay(hz);
+	printf("Cancelling C\n");
+	taskq_cancel_id(system_delay_taskq, C);
+	printf("Cancelled  C\n");
+
+	delay(hz << 1);
+	printf("tests done.\n");
+}
 
 void
 system_taskq_fini(void)
@@ -1311,6 +1394,7 @@ again:	if ((tqe = tq->tq_freelist) != NULL &&
 		if (tqe != NULL)
 			tq->tq_nalloc++;
 	}
+	tqe->tqent_un.tqent_flags = 0; // XX
 	return (tqe);
 }
 
@@ -1398,6 +1482,7 @@ taskq_bucket_dispatch(taskq_bucket_t *b, task_func_t func, void *arg)
 		tqe->tqent_next->tqent_prev = tqe->tqent_prev;
 		b->tqbucket_nalloc++;
 		b->tqbucket_nfree--;
+		tqe->tqent_un.tqent_flags = 0; // XX
 		tqe->tqent_func = func;
 		tqe->tqent_arg = arg;
 		TQ_STAT(b, tqs_hits);
@@ -1451,6 +1536,11 @@ taskq_dispatch(taskq_t *tq, task_func_t func, void *arg, uint_t flags)
 		}
 		/* Make sure we start without any flags */
 		tqe->tqent_un.tqent_flags = 0;
+
+		if (flags & TQ_DELAYED) {
+			printf("ROG tqe %p setting delayed\n", tqe);
+			tqe->tqent_un.tqent_flags = TQENT_FLAG_DELAYED;
+		}
 
 		if (flags & TQ_FRONT) {
 			TQ_ENQUEUE_FRONT(tq, tqe, func, arg);
@@ -1599,6 +1689,7 @@ taskq_dispatch_ent(taskq_t *tq, task_func_t func, void *arg, uint_t flags,
 	 * to ensure that we don't free it later.
 	 */
 	tqe->tqent_un.tqent_flags |= TQENT_FLAG_PREALLOC;
+	tqe->tqent_un.tqent_flags &= ~TQENT_FLAG_DELAYED;
 	/*
 	 * Enqueue the task to the underlying queue.
 	 */
@@ -2135,6 +2226,30 @@ taskq_thread(void *arg)
 		    taskq_ent_t *, tqe);
 		end = gethrtime();
 		rw_exit(&tq->tq_threadlock);
+
+		/* If we were launched as canceled, do some book keeping */
+		if (tqe->tqent_un.tqent_flags & TQENT_FLAG_DELAYED) {
+			tqdelay_t *tqdnode;
+			printf("ROG tqe %p marked delayed 0x%x finished\n",
+				tqe, tqe->tqent_un.tqent_flags);
+			tqe->tqent_un.tqent_flags &= ~TQENT_FLAG_DELAYED;
+			mutex_enter(&tqd_delay_lock);
+			/* Try to find this node on list */
+			for (tqdnode = list_head(&tqd_list);
+				 tqdnode != NULL;
+				 tqdnode = list_next(&tqd_list, tqdnode)) {
+				if (tqdnode->tqd_ent == (taskqid_t)tqe) {
+					printf("ROG found node, signal and exit\n");
+					list_remove(&tqd_list, tqdnode);
+					kmem_free(tqdnode, sizeof (tqdelay_t));
+					cv_broadcast(&tqd_delay_cv);
+					break;
+				}
+			}
+			mutex_exit(&tqd_delay_lock);
+			if (tqdnode == NULL)
+				printf("ROG not found, leak? or dirty tqe\n");
+		}
 
 		mutex_enter(&tq->tq_lock);
 		tq->tq_totaltime += end - start;
@@ -2756,6 +2871,7 @@ taskq_bucket_extend(void *arg)
 
 	ASSERT(tqe->tqent_thread == NULL);
 
+	tqe->tqent_un.tqent_flags = 0; // XX
 	tqe->tqent_un.tqent_bucket = b;
 
 #ifdef __APPLE__
