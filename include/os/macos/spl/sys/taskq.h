@@ -72,6 +72,7 @@ struct taskq_ent;
 #define	TQ_NOQUEUE	0x02	/* Do not enqueue if can't dispatch */
 #define	TQ_NOALLOC	0x04	/* cannot allocate memory; may fail */
 #define	TQ_FRONT	0x08	/* Put task at the front of the queue */
+#define	TQ_DELAYED	0x10	/* dispatch_delay, clean up after */
 
 #define	TASKQID_INVALID ((taskqid_t)0)
 
