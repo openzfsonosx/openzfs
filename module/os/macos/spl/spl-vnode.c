@@ -418,10 +418,18 @@ spl_cache_purgevfs_impl(struct vnode *vp, void *arg)
  * Apple won't let us call cache_purgevfs() so let's try to get
  * as close as possible
  */
+static void
+_spl_cache_purgevfs(mount_t mp)
+{
+	(void) vnode_iterate(mp, VNODE_RELOAD, spl_cache_purgevfs_impl, NULL);
+}
+
 void
 spl_cache_purgevfs(mount_t mp)
 {
-	(void) vnode_iterate(mp, VNODE_RELOAD, spl_cache_purgevfs_impl, NULL);
+	/* Start it in a taskq, so we can avoid FS re-entry */
+	taskq_dispatch(system_taskq,
+	    (task_func_t *)_spl_cache_purgevfs, mp, TQ_SLEEP);
 }
 
 /* Gross hacks - find solutions */
