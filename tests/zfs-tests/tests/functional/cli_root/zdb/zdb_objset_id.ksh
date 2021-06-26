@@ -15,7 +15,7 @@
 # Copyright (c) 2020 by Datto, Inc. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # Description:

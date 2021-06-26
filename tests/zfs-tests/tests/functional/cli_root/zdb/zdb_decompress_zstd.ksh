@@ -17,7 +17,7 @@
 # [1] Portions of this software were developed by Allan Jude
 #     under sponsorship from the FreeBSD Foundation.
 
-. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # Description:

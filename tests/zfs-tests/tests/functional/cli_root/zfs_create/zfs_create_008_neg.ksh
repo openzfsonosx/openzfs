@@ -61,7 +61,6 @@ set -A args "ab" "-?" "-cV" "-Vc" "-c -V" "c" "V" "--c" "-e" "-s" \
     "-o recordsize=256" "-o recsize=" "-o recsize=zero" "-o recordsize=0" \
     "-o mountPoint=/tmp/tmpfile$$" "-o mountpoint=non0" "-o mountpoint=" \
     "-o mountpoint=LEGACY" "-o mounpoint=none" \
-    "-o sharenfs=ON" "-o ShareNFS=off" "-o sharenfs=sss" \
     "-o checkSUM=on" "-o checksum=SHA256" "-o chsum=off" "-o checksum=aaa" \
     "-o checkSUM=on -V $VOLSIZE" "-o checksum=SHA256 -V $VOLSIZE" \
     "-o chsum=off -V $VOLSIZE" "-o checksum=aaa -V $VOLSIZE" \
@@ -87,6 +86,11 @@ set -A args "ab" "-?" "-cV" "-Vc" "-c -V" "c" "V" "--c" "-e" "-s" \
     "-o compressratio=1.00x" "-o compressratio=1.00x -V $VOLSIZE" \
     "-o version=0" "-o version=1.234" "-o version=10K" "-o version=-1" \
     "-o version=aaa" "-o version=999"
+
+if ! is_macos; then
+	args+=("-o sharenfs=ON" "-o ShareNFS=off" "-o sharenfs=sss")
+fi
+
 if is_freebsd; then
 	args+=("-o jailed=ON" "-o JaiLed=off" "-o jailed=aaa")
 else

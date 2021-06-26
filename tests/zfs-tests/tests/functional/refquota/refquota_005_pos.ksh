@@ -59,6 +59,11 @@ log_must zfs set quota=25M $fs
 log_must zfs set refquota=15M $fs
 log_must zfs create $fs/subfs
 
+if is_macos; then
+	mntpnt=$(get_prop mountpoint $fs)
+	log_must rm -f $mntpnt/{,subfs/}.VolumeIcon.icns
+fi
+
 mntpnt=$(get_prop mountpoint $fs/subfs)
 typeset -i i=0
 while ((i < 3)); do

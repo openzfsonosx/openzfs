@@ -29,6 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#ifdef __APPLE__
+#include <sys/zfs_context.h>
+#endif
 
 libzfs_handle_t *g_zfs;
 
@@ -80,6 +83,10 @@ main(int argc, char **argv)
 		libzfs_fini(g_zfs);
 		return (5);
 	}
+
+#ifdef __APPLE__
+	object = INO_XNUTOZFS(object, 2);
+#endif
 
 	char pathname[PATH_MAX * 2];
 	if (verbose) {

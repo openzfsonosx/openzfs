@@ -76,7 +76,7 @@ cd $TESTDIR || \
 
 zfs $mountcmd $TESTPOOL/$TESTFS
 ret=$?
-if is_linux || is_freebsd; then
+if is_linux || is_freebsd || is_macos; then
     (( ret == 0 )) || \
         log_fail "'zfs $mountcmd $TESTPOOL/$TESTFS' " \
             "unexpected return code of $ret."
@@ -87,7 +87,7 @@ else
 fi
 
 log_note "Make sure the filesystem $TESTPOOL/$TESTFS is unmounted"
-if is_linux || is_freebsd; then
+if is_linux || is_freebsd || is_macos; then
     mounted $TESTPOOL/$TESTFS || \
         log_fail Filesystem $TESTPOOL/$TESTFS is unmounted
 else

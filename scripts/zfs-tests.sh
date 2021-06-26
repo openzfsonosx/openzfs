@@ -40,6 +40,7 @@ FILESIZE="4G"
 DEFAULT_RUNFILES="common.run,$(uname | tr '[:upper:]' '[:lower:]').run"
 RUNFILES=${RUNFILES:-$DEFAULT_RUNFILES}
 FILEDIR=${FILEDIR:-/var/tmp}
+FILEDIR=$(realpath ${FILEDIR})
 DISKS=${DISKS:-""}
 SINGLETEST=""
 SINGLETESTUSER="root"
@@ -322,19 +323,30 @@ constrain_path() {
 	elif [ "$UNAME" = "FreeBSD" ] ; then
 		ln -fs /usr/local/bin/ksh93 "$STF_PATH/ksh"
 	elif [ "$UNAME" = "Darwin" ] ; then
-		ln -fs /bin/ksh "$STF_PATH/ksh"
+		ln -fs /usr/local/bin/mountp "$STF_PATH/mountp"
 		ln -fs /sbin/fsck_hfs "$STF_PATH/fsck"
-		ln -fs /sbin/newfs_hfs "$STF_PATH/newfs_hfs"
-		ln -fs /sbin/mount_hfs "$STF_PATH/mount"
-		ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
-		ln -fs /usr/sbin/sysctl "$STF_PATH/sysctl"
-		ln -fs /usr/bin/dscl "$STF_PATH/dscl"
-		ln -fs /usr/bin/xxd "$STF_PATH/xxd"
-		ln -fs /usr/sbin/dseditgroup "$STF_PATH/dseditgroup"
-		ln -fs /usr/bin/xattr "$STF_PATH/xattr"
-		ln -fs /usr/sbin/createhomedir "$STF_PATH/createhomedir"
+		# ln -fs /sbin/mount_hfs "$STF_PATH/mount"
+		# Homebrew "coreutils" provides timeout, truncate, gdd, gcp, gsum, and realpath, sha256sum
+		# Homebrew "fio" provides fio
+		# Homebrew "gawk" provides gawk
+		# Homebrew "gnu-sed" provides gsed
+		[ -f "/usr/local/bin/gawk" ] && ln -fs /usr/local/bin/gawk "$STF_PATH/nawk"
 		[ -f "/usr/local/bin/gdd" ] && ln -fs /usr/local/bin/gdd "$STF_PATH/dd"
-		[ -f "/usr/local/bin/gsed" ] && ln -fs /usr/local/bin/sed "$STF_PATH/dd"
+		[ -f "/usr/local/bin/gmktemp" ] && ln -fs /usr/local/bin/gmktemp "$STF_PATH/mktemp"
+		[ -f "/usr/local/bin/gsum" ] && ln -fs /usr/local/bin/gsum "$STF_PATH/sum"
+		# can't use gcp because it doesn't support xattr on macOS
+		# [ -f "/usr/local/bin/gcp" ] && ln -fs /usr/local/bin/gcp "$STF_PATH/cp"
+		[ -f "/usr/local/bin/gsed" ] && ln -fs /usr/local/bin/gsed "$STF_PATH/sed"
+                # These are provided by Homebrew but are already covered by
+                # SYSTEM_FILES_COMMON or SYSTEM_FILES_MACOS since the basenames
+                # match
+		# [ -f "/usr/local/bin/gawk" ] && ln -fs /usr/local/bin/gawk "$STF_PATH/awk"
+		# [ -f "/usr/local/bin/fio" ] && ln -fs /usr/local/bin/fio "$STF_PATH/fio"
+		# [ -f "/usr/local/bin/gtimeout" ] && ln -fs /usr/local/bin/gtimeout "$STF_PATH/timeout"
+		# [ -f "/usr/local/bin/gtruncate" ] && ln -fs /usr/local/bin/gtruncate "$STF_PATH/truncate"
+		# [ -f "/usr/local/bin/realpath" ] && ln -fs /usr/local/bin/grealpath "$STF_PATH/realpath"
+                # [ -f "/usr/local/bin/sha256sum" ] && ln -fs /usr/local/bin/sha256sum "$STF_PATH/sha256sum"
+		# ln -fs zstream "$STF_PATH/zstreamdump"
 	fi
 }
 
@@ -541,6 +553,12 @@ if [ "$(sudo whoami)" != "root" ]; then
 	fail "Passwordless sudo access required."
 fi
 
+sudo zpool export -fa; diskutil list|grep 21|grep -v s1|awk '{print $NF}'|while read f; do sudo gpt destroy $f; done
+sudo sysctl kstat.zfs.darwin.tunable.zfs_disable_spotlight=1
+sudo launchctl load -w /Library/LaunchDaemons/org.openzfsonosx.zed.plist
+sudo rm -rf /Users/joe/Developer/openzfs/bin
+DISKS="$(diskutil list |grep 21|head -3|awk '{print $NF}'|xargs)"
+
 #
 # Constrain the available binaries to a known set.
 #
@@ -739,6 +757,11 @@ elif [ "$UNAME" = "Darwin" ] ; then
 	# Tell ZFS to not to use /Volumes
 	__ZFS_MAIN_MOUNTPOINT_DIR=/
 	export __ZFS_MAIN_MOUNTPOINT_DIR
+	__ZFS_DISABLE_VOLUME_ICON=1
+	export __ZFS_DISABLE_VOLUME_ICON
+	# Use /dev even with non-debug build and avoid InvariantDisks
+	ZPOOL_IMPORT_PATH=/dev
+	export ZPOOL_IMPORT_PATH
 	# Catalina and up has root as read/only.
 	# BigSur gets even harder.
 	sudo /sbin/mount -uw /

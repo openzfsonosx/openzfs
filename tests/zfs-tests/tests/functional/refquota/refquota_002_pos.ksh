@@ -53,15 +53,26 @@ function cleanup
 }
 
 log_assert "Quotas are enforced using the minimum of the two properties"
-log_onexit cleanup
+#log_onexit cleanup
 
+log_must which -a mkfile
 TESTFILE='testfile'
 fs=$TESTPOOL/$TESTFS
 log_must zfs set quota=15M $fs
 log_must zfs set refquota=25M $fs
 
 mntpnt=$(get_prop mountpoint $fs)
-log_mustnot mkfile 20M $mntpnt/$TESTFILE
+
+if is_macos; then
+	log_must rm -f $mntpnt/.VolumeIcon.icns
+	log_must zfs set compression=off $fs
+fi
+
+log_must mkfile 5M $mntpnt/$TESTFILE.1
+log_must mkfile 5M $mntpnt/$TESTFILE.2
+log_must mkfile 1M $mntpnt/$TESTFILE.3
+log_mustnot mkfile 9M $mntpnt/$TESTFILE.4
+log_must zpool sync
 typeset -i used quota
 used=$(get_prop used $fs)
 quota=$(get_prop quota $fs)
@@ -74,15 +85,17 @@ fi
 #
 # Switch the value of them and try again
 #
-log_must rm $mntpnt/$TESTFILE
+log_must rm $mntpnt/$TESTFILE.*
 log_must zfs set quota=25M $fs
 log_must zfs set refquota=15M $fs
 
+log_must zfs list
 log_mustnot mkfile 20M $mntpnt/$TESTFILE
 used=$(get_prop used $fs)
 refquota=$(get_prop refquota $fs)
 ((used = used / (1024 * 1024)))
 ((refquota = refquota / (1024 * 1024)))
+#log_must zfs list
 if [[ $used -ne $refquota ]]; then
 	log_fail "ERROR: $used -ne $refquota Quotas are not limited by refquota"
 fi

@@ -59,8 +59,14 @@ do
 	typeset mtpt=$(get_prop mountpoint $dst)
 
 	if [[ $dst == $TESTPOOL/$TESTFS@$TESTSNAP ]]; then
+		if is_macos; then
+			log_must zfs mount $TESTPOOL/$TESTFS@$TESTSNAP
+		fi
 		mtpt=$(snapshot_mountpoint $dst)
 		log_mustnot check_atime_updated $mtpt/$TESTFILE
+		if is_macos; then
+			log_must zfs unmount $TESTPOOL/$TESTFS@$TESTSNAP
+		fi
 	else
 		if is_linux; then
 			log_must zfs set relatime=off $dst

@@ -75,6 +75,9 @@ function mini_format
 	elif is_freebsd; then
 		gpart create -s gpt $disk
 		typeset -i retval=$?
+	elif is_macos; then
+		gpt create $disk
+		typeset -i retval=$?
 	else
 		typeset format_file=$TEST_BASE_DIR/format_in.$$.1
 		echo "partition" > $format_file

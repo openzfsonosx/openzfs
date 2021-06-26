@@ -96,6 +96,12 @@ if is_linux; then
 	log_must mount -o discard $VOLUME $MNTPNT
 	FSTYPE=ext4
 	log_must rmdir $MNTPNT/lost+found
+elif is_macos; then
+	log_must new_fs $VOLUME
+	log_must mkdir -p $MNTPNT
+	log_must mount -t $NEWFS_DEFAULT_FS $VOLUME $MNTPNT
+	# log_must diskutil mount -mountPoint $MNTPNT $VOLUME
+	FSTYPE=$NEWFS_DEFAULT_FS
 else
 	log_must new_fs $VOLUME
 	log_must mkdir -p $MNTPNT

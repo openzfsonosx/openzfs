@@ -102,6 +102,9 @@ function is_linux
 # Return 0 if platform illumos, 1 if otherwise
 function is_illumos
 {
+        if is_macos; then
+           return 1
+        fi
 	if [[ $(uname -o) == "illumos" ]]; then
 		return 0
 	else
@@ -115,6 +118,9 @@ function is_illumos
 
 function is_freebsd
 {
+        if is_macos; then
+           return 1
+        fi
 	if [[ $(uname -o) == "FreeBSD" ]]; then
 		return 0
 	else
@@ -141,6 +147,9 @@ function is_macos
 
 function is_dilos
 {
+        if is_macos; then
+           return 1
+        fi
 	typeset ID=""
 	[[ -f /etc/os-release ]] && . /etc/os-release
 	if [[ $ID == "dilos" ]]; then
@@ -1057,13 +1066,16 @@ function set_partition
 		fi
 
 		typeset bytes
-		bytes=size_mb * 1024
+		((bytes = size_mb * 1024))
 
 		# Dont create zero sized partitions
 		[[ $bytes == 0 ]] && return 0
 
 		# Convert to a sector count
-		typeset sectors=$(( $bytes / $sector_size ))
+		typeset sectors=$((bytes / sector_size))
+
+		# Make sure we have a gpt
+		gpt show $disk | grep -q GPT || gpt create $disk
 
 		# Add partition as "ZFS" - hopefully prevent DiskArbitrator popup.
 		log_must gpt add -s $sectors -t "6A898CC3-1DD2-11B2-99A6-080020736631" $disk
@@ -1130,6 +1142,14 @@ function delete_partitions
 	elif is_freebsd; then
 		for disk in $DISKSARRAY; do
 			if gpart destroy -F $disk; then
+				log_note "Partitions for ${disk} deleted"
+			else
+				log_fail "Partitions for ${disk} not deleted"
+			fi
+		done
+	elif is_macos; then
+		for disk in $DISKSARRAY; do
+			if gpt destroy $disk; then
 				log_note "Partitions for ${disk} deleted"
 			else
 				log_fail "Partitions for ${disk} not deleted"
@@ -2747,7 +2767,7 @@ function add_user_macos #<group_name> <user_name> <basedir>
 	log_must dseditgroup -o edit -t user -a $user $group
 
 	# Create the home directory
-	log_must createhomedir -l -u $user 2>&1 | grep -v "shell-init"
+	log_must createhomedir -c -u $user
 
 	return 0
 }
@@ -2767,7 +2787,7 @@ function add_group_macos #<group_name>
 {
 	typeset group=$1
 
-	/usr/sbin/dseditgroup -o create $group
+	/usr/sbin/dseditgroup -q -o create $group
 	return 0
 }
 
@@ -4206,9 +4226,6 @@ function sha256digest
 	FreeBSD)
 		sha256 -q $file
 		;;
-	Darwin)
-		shasum -a 256 -p $file
-		;;
 	*)
 		sha256sum -b $file | awk '{ print $1 }'
 		;;
@@ -4222,7 +4239,17 @@ function new_fs #<args>
 		newfs "$@"
 		;;
 	Darwin)
-		newfs_hfs "$@"
+		typeset -i i=0
+		# zfs create -V returns before the symlink is created
+		for i in {1..5}; do
+			stat "$(realpath $@)" >/dev/null 2>&1
+			if [ $? -eq 0 ]; then
+				break
+			else
+				sleep 1
+			fi
+		done
+		newfs_hfs "$(realpath $@)"
 		;;
 	*)
 		echo y | newfs -v "$@"
@@ -4466,21 +4493,21 @@ function wait_for_children #children
 	return $rv
 }
 
-function disable_spotlight # pool
+function disable_spotlight # fs
 {
 	if is_macos; then
-		typeset pool=$1
-		typeset mntpnt=$(get_prop mountpoint $pool)
+		typeset fs=$1
+		typeset mntpnt=$(get_prop mountpoint $fs)
 		mdutil -i off $mntpnt
 		mdutil -E $mntpnt
 	fi
 }
 
-function enable_spotlight # pool
+function enable_spotlight # fs
 {
 	if is_macos; then
-		typeset pool=$1
-		typeset mntpnt=$(get_prop mountpoint $pool)
+		typeset fs=$1
+		typeset mntpnt=$(get_prop mountpoint $fs)
 		mdutil -i on $mntpnt
 		mdutil -E $mntpnt
 	fi

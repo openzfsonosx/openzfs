@@ -83,10 +83,10 @@ while (( 1 )); do
 	(( fn = fn + 1 ))
 done
 
-if is_linux || is_freebsd ; then
-	log_must sync
-else
+if is_illumos; then
 	log_must lockfs -f $TESTDIR
+else
+	log_must sync
 fi
 
 log_must zfs set snapdev=visible $TESTPOOL/$TESTVOL

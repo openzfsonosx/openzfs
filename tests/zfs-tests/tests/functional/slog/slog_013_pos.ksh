@@ -52,6 +52,8 @@ function cleanup_testenv
 			losetup -d $lofidev
 		elif is_freebsd; then
 			mdconfig -du ${lofidev#md}
+		elif is_macos; then
+			hdiutil detach ${lofidev}
 		else
 			lofiadm -d $lofidev
 		fi
@@ -82,6 +84,9 @@ if is_linux; then
 	lofidev=${lofidev##*/}
 elif is_freebsd; then
 	lofidev=$(mdconfig -a ${LDEV2%% *})
+elif is_macos; then
+        lofidev=$(hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount ${LDEV2%% *}|xargs)
+        lofidev=${lofidev##*/}
 else
 	lofidev=${LDEV2%% *}
 	log_must lofiadm -a $lofidev

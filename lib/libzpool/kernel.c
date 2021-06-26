@@ -595,17 +595,17 @@ __dprintf(boolean_t dprint, const char *file, const char *func,
 		/* Print out just the function name if requested */
 		flockfile(stdout);
 		if (dprintf_find_string("pid"))
-			(void) printf("%d ", getpid());
+			(void) fprintf(stderr, "%d ", getpid());
 		if (dprintf_find_string("tid"))
-			(void) printf("%ju ",
+			(void) fprintf(stderr, "%ju ",
 			    (uintmax_t)(uintptr_t)pthread_self());
 		if (dprintf_find_string("cpu"))
-			(void) printf("%u ", getcpuid());
+			(void) fprintf(stderr, "%u ", getcpuid());
 		if (dprintf_find_string("time"))
-			(void) printf("%llu ", gethrtime());
+			(void) fprintf(stderr, "%llu ", gethrtime());
 		if (dprintf_find_string("long"))
-			(void) printf("%s, line %d: ", newfile, line);
-		(void) printf("dprintf: %s: ", func);
+			(void) fprintf(stderr, "%s, line %d: ", newfile, line);
+		(void) fprintf(stderr, "dprintf: %s: ", func);
 		va_start(adx, fmt);
 		(void) vprintf(fmt, adx);
 		va_end(adx);
@@ -826,8 +826,9 @@ kernel_init(int mode)
 
 	physmem = sysconf(_SC_PHYS_PAGES);
 
-	dprintf("physmem = %llu pages (%.2f GB)\n", physmem,
-	    (double)physmem * sysconf(_SC_PAGE_SIZE) / (1ULL << 30));
+	if (zfs_flags & ZFS_DEBUG_DPRINTF)
+		fprintf(stderr, "physmem = %llu pages (%.2f GB)\n", physmem,
+		    (double)physmem * sysconf(_SC_PAGE_SIZE) / (1ULL << 30));
 
 	(void) snprintf(hw_serial, sizeof (hw_serial), "%ld",
 	    (mode & SPA_MODE_WRITE) ? get_system_hostid() : 0);

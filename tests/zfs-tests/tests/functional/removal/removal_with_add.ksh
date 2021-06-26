@@ -22,6 +22,7 @@
 . $STF_SUITE/tests/functional/removal/removal.kshlib
 
 TMPDIR=${TMPDIR:-$TEST_BASE_DIR}
+TMPDIR=$(realpath $TMPDIR)
 log_must mkfile 1g $TMPDIR/dsk1
 log_must mkfile 1g $TMPDIR/dsk2
 

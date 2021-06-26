@@ -47,7 +47,7 @@
 #define	INO_RESERVED		16ULL	/* [0-15] reserved. */
 #define	INO_ISRESERVED(ID)	((ID) < (INO_RESERVED))
 /*				0xFFFFFFFFFFFFFFF0 */
-#define	INO_MAP			((uint64_t)-INO_RESERVED) /* -16, -15, .., -1 */
+#define	INO_MAP			((uint64_t)0x7FFFFFFFFFFFFFFF-INO_RESERVED) /* -16, -15, .., -1 */
 
 #define	INO_ZFSTOXNU(ID, ROOT)	\
 	((ID) == (ROOT)?INO_ROOT:(INO_ISRESERVED(ID)?INO_MAP+(ID):(ID)))

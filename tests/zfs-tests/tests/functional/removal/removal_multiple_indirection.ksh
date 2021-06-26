@@ -45,6 +45,7 @@
 #
 
 TMPDIR=${TMPDIR:-$TEST_BASE_DIR}
+TMPDIR=$(realpath $TMPDIR)
 log_must mkfile $(($MINVDEVSIZE * 2)) $TMPDIR/dsk1
 log_must mkfile $(($MINVDEVSIZE * 2)) $TMPDIR/dsk2
 DISKS="$TMPDIR/dsk1 $TMPDIR/dsk2"

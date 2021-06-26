@@ -70,8 +70,16 @@ if is_freebsd; then
 	recursive=$(get_tunable VOL_RECURSIVE)
 	log_must set_tunable64 VOL_RECURSIVE 1
 fi
-log_must zpool add $TESTPOOL $ZVOL_DEVDIR/$TESTPOOL1/$TESTVOL
 
-log_must vdevs_in_pool "$TESTPOOL" "$ZVOL_DEVDIR/$TESTPOOL1/$TESTVOL"
+if ! is_macos; then
+	log_must zpool add $TESTPOOL $ZVOL_DEVDIR/$TESTPOOL1/$TESTVOL
+	log_must vdevs_in_pool "$TESTPOOL" "$ZVOL_DEVDIR/$TESTPOOL1/$TESTVOL"
+else
+	sleep 3 # wait for symlink to appear
+
+	# Adding the zvol gets stuck
+	# See https://github.com/openzfsonosx/openzfs/issues/47
+	log_must zpool add -n $TESTPOOL $(realpath $ZVOL_DEVDIR/$TESTPOOL1/$TESTVOL)
+fi
 
 log_pass "'zpool add <pool> <vdev> ...' adds zfs volume to the pool successfully"

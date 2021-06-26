@@ -418,7 +418,7 @@ zpool_find_import_blkid(libpc_handle_t *hdl, pthread_mutex_t *lock,
 		int dfd;
 		DIR *dirp;
 
-#ifndef DEBUG
+#if 0
 		/*
 		 * We skip imports in /dev/ in release builds, due to the
 		 * danger of cache/log devices and drive renumbering.

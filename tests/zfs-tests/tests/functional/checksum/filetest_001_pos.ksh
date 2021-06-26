@@ -85,11 +85,30 @@ log_must zpool import $TESTPOOL
 log_must zpool scrub $TESTPOOL
 log_must wait_scrubbed $TESTPOOL
 
+log_must echo TESTPOOL
+log_must echo $TESTPOOL
+log_must echo firstvdev
+log_must echo $firstvdev
+log_must echo status
+log_must zpool status -P -v $TESTPOOL
+log_must echo vdev
+log_must zpool status -P -v $TESTPOOL | grep "$firstvdev"
+log_must echo awk
+log_must zpool status -P -v $TESTPOOL | grep "$firstvdev" | awk '{print $5}'
+log_must echo cksum
+cksum=$(zpool status -P -v $TESTPOOL | grep "$firstvdev" | awk '{print $5}')
+log_must echo $cksum
+
 cksum=$(zpool status -P -v $TESTPOOL | grep "$firstvdev" | awk '{print $5}')
 log_assert "Normal file write test saw $cksum checksum errors"
 log_must [ $cksum -eq 0 ]
 
 rm -fr $TESTDIR/*
+
+# for i in {1..100}
+# do
+# 	touch $TESTDIR/z$i.txt
+# done
 
 log_assert "Test corrupting the files and seeing checksum errors"
 typeset -i j=1
@@ -100,7 +119,7 @@ while [[ $j -lt ${#CHECKSUM_TYPES[*]} ]]; do
 	    -b $WRITESZ -c $NWRITES -d R
 
 	# Corrupt the level 0 blocks of this file
-	corrupt_blocks_at_level $TESTDIR/test_$type
+	log_must corrupt_blocks_at_level $TESTDIR/test_$type
 
 	log_must zpool scrub $TESTPOOL
 	log_must wait_scrubbed $TESTPOOL

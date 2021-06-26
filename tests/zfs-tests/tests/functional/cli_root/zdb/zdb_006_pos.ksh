@@ -15,7 +15,7 @@
 # Copyright (c) 2018 by Nutanix. All rights reserved.
 #
 
-. $STF_SUITE/include/libtest.shlib
+. $STF_SUITE/tests/functional/cli_root/zdb/zdb.kshlib
 
 #
 # Description:
@@ -32,7 +32,7 @@ function cleanup
 {
 	datasetexists $TESTPOOL && destroy_pool $TESTPOOL
 	for DISK in $DISKS; do
-		zpool labelclear -f $DEV_RDSKDIR/$DISK
+		zpool labelclear -f $DISK
 	done
 }
 

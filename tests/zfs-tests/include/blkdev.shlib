@@ -605,7 +605,11 @@ function list_file_blocks # input_file
 	else
 		AWK='awk'
 	fi
+log_must echo "ds: $ds"
+log_must echo "objnum: $objnum"
+	# sleep 5
 	log_must zpool sync -f
+	# sleep 5
 	zdb -dddddd $ds $objnum | $AWK -v pad=$((4<<20)) -v bs=512 '
 	    /^$/ { looking = 0 }
 	    looking {
@@ -647,13 +651,34 @@ function corrupt_blocks_at_level # input_file corrupt_level
 		sysctl kern.geom.debugflags=16
 	fi
 
-	list_file_blocks $input_file | \
+	if is_macos; then
+		typeset ds="$(zfs list -H -o name $input_file)"
+		typeset pool="${ds%%/*}"
+		# log_must zpool export $pool
+		# log_must zpool import -o readonly=on $pool
+	fi
+
+	fileblocks=$TEST_BASE_DIR/fileblocks.$$
+	list_file_blocks $input_file | tee $fileblocks
+	log_must cat "$fileblocks"
+
+	if is_macos; then
+		log_must zpool export $pool
+	fi
+
+	cat "$fileblocks" | \
 	while read level path offset length; do
 		if [[ $level = $corrupt_level ]]; then
+log_must echo "running dd ..."
 			log_must dd if=/dev/urandom of=$path bs=512 \
 			    count=$length seek=$offset conv=notrunc
+log_must echo "... done running dd"
 		fi
 	done
+
+	if is_macos; then
+		log_must zpool import $pool
+	fi
 
 	if is_freebsd; then
 		sysctl kern.geom.debugflags=$debugflags

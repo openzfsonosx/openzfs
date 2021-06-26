@@ -1211,7 +1211,7 @@ int param_set_deadman_failmode(ZFS_MODULE_PARAM_ARGS);
 	if (zfs_flags & ZFS_DEBUG_DPRINTF) {			\
 	char *__blkbuf = kmem_alloc(BP_SPRINTF_LEN, KM_SLEEP);	\
 	snprintf_blkptr(__blkbuf, BP_SPRINTF_LEN, (bp));	\
-	dprintf(fmt " %s\n", __VA_ARGS__, __blkbuf);		\
+	fprintf(stderr, fmt " %s\n", __VA_ARGS__, __blkbuf);	\
 	kmem_free(__blkbuf, BP_SPRINTF_LEN);			\
 	} \
 _NOTE(CONSTCOND) } while (0)
