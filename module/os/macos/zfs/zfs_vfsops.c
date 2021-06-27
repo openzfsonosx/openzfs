@@ -2060,7 +2060,7 @@ zfsvfs_teardown(zfsvfs_t *zfsvfs, boolean_t unmounting)
 		    zp = list_next(&zfsvfs->z_all_znodes, zp)) {
 			if (zp->z_sa_hdl)
 				zfs_znode_dmu_fini(zp);
-			if (VN_HOLD(ZTOV(zp)) == 0) {
+			if (ZTOV(zp) != NULL && VN_HOLD(ZTOV(zp)) == 0) {
 				vnode_ref(ZTOV(zp));
 				zp->z_suspended = B_TRUE;
 				VN_RELE(ZTOV(zp));
