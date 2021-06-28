@@ -1802,7 +1802,12 @@ dsl_scan_check_resume(dsl_scan_t *scn, const dnode_phys_t *dnp,
 static void dsl_scan_visitbp(blkptr_t *bp, const zbookmark_phys_t *zb,
     dnode_phys_t *dnp, dsl_dataset_t *ds, dsl_scan_t *scn,
     dmu_objset_type_t ostype, dmu_tx_t *tx);
-inline __attribute__((always_inline)) static void dsl_scan_visitdnode(
+#ifdef __APPLE__
+noinline static void
+#else
+inline __attribute__((always_inline)) static void
+#endif
+dsl_scan_visitdnode(
     dsl_scan_t *, dsl_dataset_t *ds, dmu_objset_type_t ostype,
     dnode_phys_t *dnp, uint64_t object, dmu_tx_t *tx);
 
@@ -1911,7 +1916,15 @@ dsl_scan_recurse(dsl_scan_t *scn, dsl_dataset_t *ds, dmu_objset_type_t ostype,
 	return (0);
 }
 
+#ifdef __APPLE__
+/*
+ * dsl_scan_visitds(), or rather, inlined dsl_scan_recurse(),  will inline
+ * this call. Noinline will reduce frame-size 168 -> 88, for each descent.
+ */
+noinline static void
+#else
 inline __attribute__((always_inline)) static void
+#endif
 dsl_scan_visitdnode(dsl_scan_t *scn, dsl_dataset_t *ds,
     dmu_objset_type_t ostype, dnode_phys_t *dnp,
     uint64_t object, dmu_tx_t *tx)
@@ -2485,17 +2498,24 @@ dsl_scan_visitds(dsl_scan_t *scn, uint64_t dsobj, dmu_tx_t *tx)
 		}
 
 		if (usenext) {
-			zap_cursor_t zc;
-			zap_attribute_t za;
-			for (zap_cursor_init(&zc, dp->dp_meta_objset,
+			/* Off stack; dsl_scan_visitds 424 -> 104 */
+			zap_cursor_t *zc;
+			zap_attribute_t *za;
+			zc = (zap_cursor_t *)
+			    kmem_alloc(sizeof (zap_cursor_t), KM_SLEEP);
+			za = (zap_attribute_t *)
+			    kmem_alloc(sizeof (zap_attribute_t), KM_SLEEP);
+			for (zap_cursor_init(zc, dp->dp_meta_objset,
 			    dsl_dataset_phys(ds)->ds_next_clones_obj);
-			    zap_cursor_retrieve(&zc, &za) == 0;
-			    (void) zap_cursor_advance(&zc)) {
+			    zap_cursor_retrieve(zc, za) == 0;
+			    (void) zap_cursor_advance(zc)) {
 				scan_ds_queue_insert(scn,
-				    zfs_strtonum(za.za_name, NULL),
+				    zfs_strtonum(za->za_name, NULL),
 				    dsl_dataset_phys(ds)->ds_creation_txg);
 			}
-			zap_cursor_fini(&zc);
+			zap_cursor_fini(zc);
+			kmem_free(za, sizeof (zap_attribute_t));
+			kmem_free(zc, sizeof (zap_cursor_t));
 		} else {
 			VERIFY0(dmu_objset_find_dp(dp, dp->dp_root_dir_obj,
 			    enqueue_clones_cb, &ds->ds_object,
@@ -2668,6 +2688,13 @@ dsl_scan_ds_maxtxg(dsl_dataset_t *ds)
 	return (smt);
 }
 
+#ifdef __APPLE__
+/*
+ * dsl_scan_sync() will inline this call, frame-size 104 -> 504. Which is
+ * expensive when it descends into dsl_scan_visitbp
+ */
+noinline
+#endif
 static void
 dsl_scan_visit(dsl_scan_t *scn, dmu_tx_t *tx)
 {

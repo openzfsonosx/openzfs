@@ -9047,6 +9047,13 @@ spa_sync_condense_indirect(spa_t *spa, dmu_tx_t *tx)
 	}
 }
 
+#ifdef __APPLE__
+/*
+ * spa_sync() will inline this call, frame-size 152 -> 552. Which is
+ * expensive when it descends into dsl_scan_visitbp
+ */
+noinline
+#endif
 static void
 spa_sync_iterate_to_convergence(spa_t *spa, dmu_tx_t *tx)
 {
