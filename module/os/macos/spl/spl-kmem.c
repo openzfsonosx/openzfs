@@ -1079,6 +1079,8 @@ _bcp->bc_depth = getpcstack(_bcp->bc_stack, KMEM_STACK_DEPTH);		\
 _bcp->bc_lastlog = kmem_log_enter((lp), _bcp, sizeof (*_bcp));		\
 }
 
+/* kmem_cache_alloc 344 -> 54 */
+__attribute__((noinline))
 static void
 kmem_log_event(kmem_log_header_t *lp, kmem_cache_t *cp,
     kmem_slab_t *sp, void *addr)
@@ -1094,6 +1096,7 @@ kmem_log_event(kmem_log_header_t *lp, kmem_cache_t *cp,
 /*
  * Create a new slab for cache cp.
  */
+__attribute__((noinline))
 static kmem_slab_t *
 kmem_slab_create(kmem_cache_t *cp, int kmflag)
 {
@@ -1316,6 +1319,7 @@ kmem_slab_alloc_impl(kmem_cache_t *cp, kmem_slab_t *sp, boolean_t prefill)
 /*
  * Allocate a raw (unconstructed) buffer from cp's slab layer.
  */
+__attribute__((noinline))
 static void *
 kmem_slab_alloc(kmem_cache_t *cp, int kmflag)
 {
