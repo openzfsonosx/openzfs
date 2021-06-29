@@ -257,7 +257,7 @@ function delete_and_keep
 function do_prune
 {
 
-    delete_and_keep "${WORKDIR}/${bindir}/" "(zfs|zpool|zdb|zed|zhack|zinject|zstream|zstreamdump|ztest|InvariantDisks|zfs_util|zconfigd|arc_summary|arcstat|dbufstat|fsck.zfs|raidz_test|zfs_ids_to_path|zpool_influxdb)"
+    delete_and_keep "${WORKDIR}/${bindir}/" "(zfs|zpool|zdb|zed|zhack|zinject|zstream|zstreamdump|ztest|InvariantDisks|zfs_util|zconfigd|arc_summary|arcstat|dbufstat|fsck.zfs|raidz_test|zfs_ids_to_path|zpool_influxdb|mount_zfs|zsysctl)"
 
     pushd "${WORKDIR}" || fail "Unable to cd to ${WORKDIR}"
 
