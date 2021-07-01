@@ -2679,8 +2679,9 @@ zfs_resume_fs(zfsvfs_t *zfsvfs, dsl_dataset_t *ds)
 
 		/* see comment in zfs_suspend_fs() */
 		if (zp->z_suspended) {
-			if (vnode_getwithref(ZTOV(zp)) == 0) {
-				vnode_rele(ZTOV(zp));
+			struct vnode *vp = ZTOV(zp);
+			if (vp != NULL && vnode_getwithref(vp) == 0) {
+				vnode_rele(vp);
 				zfs_zrele_async(zp);
 				zp->z_suspended = B_FALSE;
 			}
