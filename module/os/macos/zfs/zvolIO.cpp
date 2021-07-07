@@ -153,7 +153,7 @@ org_openzfsonosx_zfs_zvol_device::attach(IOService* provider)
 	propSymbol->release();
 	propSymbol = 0;
 
-	propSymbol = OSSymbol::withCString(kIOPropertyInterconnectFileKey);
+	propSymbol = OSSymbol::withCString(kIOPropertyExternalKey);
 	if (!propSymbol) {
 		IOLog("could not create interconnect location string\n");
 		return (true);
