@@ -125,8 +125,8 @@ org_openzfsonosx_zfs_zvol_device::attach(IOService* provider)
 
 	/*
 	 * We want to set some additional properties for ZVOLs, in
-	 * particular, "Virtual Device", and type "File"
-	 * (or is Internal better?)
+	 * particular, "Virtual Device", and type "USB"
+	 * and setting it to "internal/external"
 	 *
 	 * Finally "Generic" type.
 	 *
@@ -153,7 +153,19 @@ org_openzfsonosx_zfs_zvol_device::attach(IOService* provider)
 	propSymbol->release();
 	propSymbol = 0;
 
-	propSymbol = OSSymbol::withCString(kIOPropertyExternalKey);
+	propSymbol = OSSymbol::withCString(
+		kIOPropertyPhysicalInterconnectTypeUSB);
+	if (!propSymbol) {
+		IOLog("could not create interconnect location string\n");
+		return (true);
+	}
+	protocolCharacteristics->setObject(
+	    kIOPropertyPhysicalInterconnectTypeKey, propSymbol);
+	
+	propSymbol->release();
+	propSymbol = 0;
+
+	propSymbol = OSSymbol::withCString(kIOPropertyInternalExternalKey);
 	if (!propSymbol) {
 		IOLog("could not create interconnect location string\n");
 		return (true);
