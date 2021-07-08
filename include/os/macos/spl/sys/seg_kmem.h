@@ -41,8 +41,9 @@ extern "C" {
 
 extern uint64_t segkmem_total_allocated;
 
-/* qcaching for abd */
+/* segregated vmem arenas for abd */
 extern vmem_t *abd_arena;
+extern vmem_t *abd_subpage_arena;
 
 /*
  * segkmem page vnodes
