@@ -592,27 +592,21 @@ org_openzfsonosx_zfs_zvol_device::doAsyncReadWrite(
 	/* Make sure we don't go away while the command is being executed */
 	/* Open should be holding a retain */
 
+	struct iovec iov;
+	iov.iov_base = (void *)buffer;
+	iov.iov_len = actualByteCount;
+	zfs_uio_t uio;
+	zfs_uio_iovec_func_init(&uio, &iov, 1, block*(ZVOL_BSIZE),
+	    (zfs_uio_seg_t)UIO_FUNCSPACE, actualByteCount, 0, zvolIO_strategy);
+
 	if (direction == kIODirectionIn) {
-
-		if (zvol_os_read_zv(zv, (block*(ZVOL_BSIZE)),
-		    actualByteCount, (const void *)buffer)) {
-
-			actualByteCount = 0;
-		}
-
+	    zvol_os_read_zv(zv, &uio);
 	} else {
-
-		if (zvol_os_write_zv(zv, (block*(ZVOL_BSIZE)),
-		    actualByteCount, (const void *)buffer)) {
-			actualByteCount = 0;
-		}
-
+		zvol_os_write_zv(zv, &uio);
 	}
 
-	/* Open should be holding a retain */
-
-	if (actualByteCount != nblks*(ZVOL_BSIZE))
-		dprintf("Read/Write operation failed\n");
+	if (zfs_uio_resid(&uio) != 0)
+		printf("Read/Write operation failed\n");
 
 	// Call the completion function.
 	(completion->action)(completion->target, completion->parameter,
@@ -1150,39 +1144,17 @@ zvolSetVolsize(zvol_state_t *zv)
 	return (0);
 }
 
-size_t
-zvolIO_kit_read(const void *privptr, char *address, uint64_t offset,
-    uint64_t logical_offset, size_t len)
+
+size_t zvolIO_strategy(char *addr, uint64_t offset,
+    size_t len, zfs_uio_rw_t rw, const void *privptr)
 {
 	IOMemoryDescriptor *iomem = (IOMemoryDescriptor *)privptr;
-	IOByteCount done;
-	IOLog("zvolIO_kit_read offset %p count %lx to offset %llx\n",
-           address, len, offset);
-	ASSERT(iomem && address && len > 0);
 
-	if (address == NULL)
-	    return (len);
-
-	done = iomem->writeBytes(logical_offset, (void *)address, len);
-
-	return (done);
+	if (rw == UIO_READ)
+		return (iomem->writeBytes(offset, (void *)addr, len));
+	else
+		return (iomem->readBytes(offset, (void *)addr, len));
 }
-
-size_t
-zvolIO_kit_write(const void *privptr, char *address, uint64_t offset,
-    uint64_t logical_offset, size_t len)
-{
-	IOMemoryDescriptor *iomem = (IOMemoryDescriptor *)privptr;
-	IOByteCount done;
-	// IOLog("zvolIO_kit_write offset %p count %llx to offset %llx\n",
-	//    address, len, offset);
-	ASSERT(iomem && address && len > 0);
-
-	done = iomem->readBytes(logical_offset, (void *)address, len);
-
-	return (done);
-}
-
 
 boolean_t
 zvol_os_is_zvol_impl(const char *path)

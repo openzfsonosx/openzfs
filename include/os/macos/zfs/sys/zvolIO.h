@@ -37,12 +37,8 @@ extern "C" {
 #include <sys/zvol.h>
 #include <sys/zvol_impl.h>
 
-extern size_t
-zvolIO_kit_read(const void *privptr, char *address, uint64_t offset,
-    uint64_t logical_offset, size_t len);
-extern size_t
-zvolIO_kit_write(const void *privptr, char *address, uint64_t offset,
-    uint64_t logical_offset, size_t len);
+extern size_t zvolIO_strategy(char *addr, uint64_t offset,
+    size_t len, zfs_uio_rw_t rw, const void *privptr);
 
 #ifdef __cplusplus
 } /* extern "C" */

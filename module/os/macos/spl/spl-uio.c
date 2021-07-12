@@ -49,6 +49,13 @@ zfs_uiomove_iov(void *p, size_t n, zfs_uio_rw_t rw, zfs_uio_t *uio)
 					bcopy(iov->iov_base + skip, (void *)p,
 					    cnt);
 				break;
+
+			case UIO_FUNCSPACE:
+				VERIFY3P(uio->uio_iofunc, !=, NULL);
+				cnt = uio->uio_iofunc(p, skip, cnt, rw,
+				    iov->iov_base);
+				break;
+
 			default:
 				VERIFY(0);
 				return (-1);

@@ -54,6 +54,18 @@ typedef enum uio_seg zfs_uio_seg_t;
 typedef enum uio_rw zfs_uio_rw_t;
 
 /*
+ * Invent a 3rd kind of uio for iokit.
+ * Used by zvol_os.c to issue IO to an IOMemoryDescriptor*,
+ * Where we, in spl-uio.c's uiomove, issue iomem->writeBytes
+ * (readBytes) instead. Offset is always from 0, counting up.
+ * and iovbase is the iomem void *.
+ */
+#define	UIO_FUNCSPACE 99
+
+typedef size_t (*zfs_uio_func)(char *addr, uint64_t offset, size_t len,
+    zfs_uio_rw_t rw, const void *privptr);
+
+/*
  * Hybrid uio, use OS uio for IO and communicating with XNU
  * and internal uio for ZFS / crypto. The default mode is
  * ZFS style, as zio_crypt.c creates uios on the stack, and
@@ -75,6 +87,7 @@ typedef struct zfs_uio {
 	uint16_t		uio_extflg;
 	ssize_t			uio_resid;
 	size_t			uio_skip;
+	zfs_uio_func		uio_iofunc;
 } zfs_uio_t;
 
 
@@ -194,6 +207,16 @@ zfs_uio_iovec_init(zfs_uio_t *uio, const struct iovec *iov,
 	uio->uio_extflg = 0;
 	uio->uio_resid = resid;
 	uio->uio_skip = skip;
+	uio->uio_iofunc = NULL;
+}
+
+static inline void
+zfs_uio_iovec_func_init(zfs_uio_t *uio, const struct iovec *iov,
+    unsigned long nr_segs, off_t offset, zfs_uio_seg_t seg, ssize_t resid,
+    size_t skip, zfs_uio_func func)
+{
+	zfs_uio_iovec_init(uio, iov, nr_segs, offset, seg, resid, skip);
+	uio->uio_iofunc = func;
 }
 
 extern int zfs_uio_prefaultpages(ssize_t, zfs_uio_t *);
