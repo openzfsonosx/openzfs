@@ -549,8 +549,6 @@ org_openzfsonosx_zfs_zvol_device::doAsyncReadWrite(
 {
 	IODirection direction;
 	IOByteCount actualByteCount;
-	struct iomem iomem;
-	iomem.buf = NULL;
 
 	// Return errors for incoming I/O if we have been terminated.
 	if (isInactive() == true) {
@@ -591,15 +589,13 @@ org_openzfsonosx_zfs_zvol_device::doAsyncReadWrite(
 	/* Perform the read or write operation through the transport driver. */
 	actualByteCount = (nblks*(ZVOL_BSIZE));
 
-	iomem.buf = buffer;
-
 	/* Make sure we don't go away while the command is being executed */
 	/* Open should be holding a retain */
 
 	if (direction == kIODirectionIn) {
 
 		if (zvol_os_read_zv(zv, (block*(ZVOL_BSIZE)),
-		    actualByteCount, &iomem)) {
+		    actualByteCount, (const void *)buffer)) {
 
 			actualByteCount = 0;
 		}
@@ -607,14 +603,13 @@ org_openzfsonosx_zfs_zvol_device::doAsyncReadWrite(
 	} else {
 
 		if (zvol_os_write_zv(zv, (block*(ZVOL_BSIZE)),
-		    actualByteCount, &iomem)) {
+		    actualByteCount, (const void *)buffer)) {
 			actualByteCount = 0;
 		}
 
 	}
 
 	/* Open should be holding a retain */
-	iomem.buf = NULL; // overkill
 
 	if (actualByteCount != nblks*(ZVOL_BSIZE))
 		dprintf("Read/Write operation failed\n");
@@ -1155,30 +1150,35 @@ zvolSetVolsize(zvol_state_t *zv)
 	return (0);
 }
 
-uint64_t
-zvolIO_kit_read(struct iomem *iomem, uint64_t offset,
-    char *address, uint64_t len)
+size_t
+zvolIO_kit_read(const void *privptr, char *address, uint64_t offset,
+    uint64_t logical_offset, size_t len)
 {
+	IOMemoryDescriptor *iomem = (IOMemoryDescriptor *)privptr;
 	IOByteCount done;
-	// IOLog("zvolIO_kit_read offset %p count %llx to offset %llx\n",
-	//    address, len, offset);
+	IOLog("zvolIO_kit_read offset %p count %lx to offset %llx\n",
+           address, len, offset);
 	ASSERT(iomem && address && len > 0);
 
-	done = iomem->buf->writeBytes(offset, (void *)address, len);
+	if (address == NULL)
+	    return (len);
+
+	done = iomem->writeBytes(logical_offset, (void *)address, len);
 
 	return (done);
 }
 
-uint64_t
-zvolIO_kit_write(struct iomem *iomem, uint64_t offset,
-    char *address, uint64_t len)
+size_t
+zvolIO_kit_write(const void *privptr, char *address, uint64_t offset,
+    uint64_t logical_offset, size_t len)
 {
+	IOMemoryDescriptor *iomem = (IOMemoryDescriptor *)privptr;
 	IOByteCount done;
 	// IOLog("zvolIO_kit_write offset %p count %llx to offset %llx\n",
 	//    address, len, offset);
 	ASSERT(iomem && address && len > 0);
 
-	done = iomem->buf->readBytes(offset, (void *)address, len);
+	done = iomem->readBytes(logical_offset, (void *)address, len);
 
 	return (done);
 }

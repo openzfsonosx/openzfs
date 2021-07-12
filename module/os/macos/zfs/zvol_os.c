@@ -39,6 +39,7 @@
 #include <sys/zvol.h>
 #include <sys/zvol_impl.h>
 #include <sys/zvol_os.h>
+#include <sys/zvolIO.h>
 #include <sys/fm/fs/zfs.h>
 
 static uint32_t zvol_major = ZVOL_MAJOR;
@@ -58,13 +59,6 @@ typedef struct zv_request {
 
 	taskq_ent_t	ent;
 } zv_request_t;
-
-int
-dmu_read_iokit_dnode(dnode_t *dn, uint64_t *offset,
-	uint64_t position, uint64_t *size, struct iomem *iomem);
-int
-dmu_write_iokit_dnode(dnode_t *dn, uint64_t *offset, uint64_t position,
-    uint64_t *size, struct iomem *iomem, dmu_tx_t *tx);
 
 #define	ZVOL_LOCK_HELD		(1<<0)
 #define	ZVOL_LOCK_SPA		(1<<1)
@@ -235,7 +229,7 @@ zvol_os_read(dev_t dev, struct uio *uio, int p)
 
 int
 zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
-    uint64_t count, struct iomem *iomem)
+    uint64_t count, const void *iomem)
 {
 	uint64_t volsize;
 	zfs_locked_range_t *lr;
@@ -302,27 +296,23 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 			break;
 		}
 
-		/*
-		 * offset and bytes are mutated by dmu_write_iokit_dnode,
-		 * save them for zvol_log_write if the call succeeds
-		 */
-		uint64_t save_offset = offset;
-		uint64_t save_bytes = bytes;
+		error = dmu_write_func_dnode(zv->zv_dn, position + offset,
+		    bytes, iomem, zvolIO_kit_write, tx);
 
-		error = dmu_write_iokit_dnode(zv->zv_dn, &offset,
-		    position, &bytes, iomem, tx);
-
-		if (error == 0) {
-			count -= MIN(count,
-			    (DMU_MAX_ACCESS >> 1)) + bytes;
-			zvol_log_write(zv, tx, position+save_offset, save_bytes,
-			    sync);
-		}
-		dmu_tx_commit(tx);
-
-		if (error)
+		if (error != 0)
 			break;
+
+		zvol_log_write(zv, tx, position+offset, bytes, sync);
+
+		count -= bytes;
+		offset += bytes;
+
+		dmu_tx_commit(tx);
 	}
+
+	if (error)
+		error = SET_ERROR(ENOSPC);
+
 	zfs_rangelock_exit(lr);
 
 	dataset_kstats_update_write_kstats(&zv->zv_kstat, offset);
@@ -337,7 +327,7 @@ zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
 
 int
 zvol_os_read_zv(zvol_state_t *zv, uint64_t position,
-    uint64_t count, struct iomem *iomem)
+    uint64_t count, const void *iomem)
 {
 	uint64_t volsize;
 	zfs_locked_range_t *lr;
@@ -368,17 +358,19 @@ zvol_os_read_zv(zvol_state_t *zv, uint64_t position,
 		    "zvol_read_iokit: position",
 		    position, offset, count, bytes);
 
-		error = dmu_read_iokit_dnode(zv->zv_dn, &offset, position,
-		    &bytes, iomem);
+		error = dmu_read_func_dnode(zv->zv_dn, position + offset,
+		    bytes, iomem, zvolIO_kit_read, DMU_READ_PREFETCH);
 
-		if (error) {
-			/* convert checksum errors into IO errors */
-			if (error == ECKSUM)
-				error = EIO;
+		if (error != 0)
 			break;
-		}
-		count -= MIN(count, DMU_MAX_ACCESS >> 1) - bytes;
+
+		count -= bytes;
+		offset += bytes;
 	}
+
+	if (error)
+		error = SET_ERROR(EIO);
+
 	zfs_rangelock_exit(lr);
 
 	dataset_kstats_update_read_kstats(&zv->zv_kstat, offset);

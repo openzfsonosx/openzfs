@@ -37,14 +37,12 @@ extern "C" {
 #include <sys/zvol.h>
 #include <sys/zvol_impl.h>
 
-struct iomem {
-	IOMemoryDescriptor *buf;
-};
-
-uint64_t zvolIO_kit_read(struct iomem *iomem, uint64_t offset,
-    char *address, uint64_t len);
-uint64_t zvolIO_kit_write(struct iomem *iomem, uint64_t offset,
-    char *address, uint64_t len);
+extern size_t
+zvolIO_kit_read(const void *privptr, char *address, uint64_t offset,
+    uint64_t logical_offset, size_t len);
+extern size_t
+zvolIO_kit_write(const void *privptr, char *address, uint64_t offset,
+    uint64_t logical_offset, size_t len);
 
 #ifdef __cplusplus
 } /* extern "C" */
