@@ -28,7 +28,6 @@ extern "C" {
 /* struct wrapper for IOKit class */
 typedef struct zvol_iokit zvol_iokit_t;
 typedef struct zvol_state zvol_state_t;
-struct iomem;
 
 struct zvol_state_os {
 	dev_t	zvo_dev;	/* device id */
@@ -47,10 +46,8 @@ extern int zvol_os_close(dev_t dev, int flag, int otyp, struct proc *p);
 extern int zvol_os_read(dev_t dev, struct uio *uio, int p);
 extern int zvol_os_write(dev_t dev, struct uio *uio, int p);
 
-extern int zvol_os_read_zv(zvol_state_t *zv, uint64_t position,
-    uint64_t count, struct iomem *iomem);
-extern int zvol_os_write_zv(zvol_state_t *zv, uint64_t position,
-    uint64_t count, struct iomem *iomem);
+extern int zvol_os_read_zv(zvol_state_t *zv, zfs_uio_t *uio);
+extern int zvol_os_write_zv(zvol_state_t *zv, zfs_uio_t *uio);
 extern int zvol_os_unmap(zvol_state_t *zv, uint64_t off, uint64_t bytes);
 
 extern void zvol_os_strategy(struct buf *bp);
