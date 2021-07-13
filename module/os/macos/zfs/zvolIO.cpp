@@ -1170,14 +1170,14 @@ zvol_os_is_zvol_impl(const char *path)
 	/* Validate path */
 	if (path == 0 || strlen(path) <= 1) {
 		dprintf("%s no path provided\n", __func__);
-		return (ret);
+		return (SET_ERROR(ret));
 	}
 	/* Translate /dev/diskN and InvariantDisks paths */
 	if (strncmp(path, "/dev/", 5) != 0 &&
 	    strncmp(path, "/var/run/disk/by-id/", 20) != 0 &&
 	    strncmp(path, "/private/var/run/disk/by-id/", 28) != 0) {
 		dprintf("%s Unrecognized path %s\n", __func__, path);
-		return (ret);
+		return (SET_ERROR(ret));
 	}
 
 	/* Validate path and alloc bsdName */
@@ -1241,14 +1241,14 @@ zvol_os_is_zvol_impl(const char *path)
 			dprintf("%s Unsupported device-GUID path %s\n",
 			    __func__, path);
 		} else {
-			printf("%s unrecognized path %s\n", __func__, path);
+			dprintf("%s unrecognized path %s\n", __func__, path);
 		}
 		/* by-path and by-serial are handled separately */
 	}
 
 	if (!bsdName && !uuid) {
 		dprintf("%s Invalid path %s\n", __func__, path);
-		return (ret);
+		return (SET_ERROR(ret));
 	}
 
 	/* Match on IOMedia by BSD disk name */
@@ -1257,7 +1257,7 @@ zvol_os_is_zvol_impl(const char *path)
 		dprintf("%s couldn't get matching dictionary\n", __func__);
 		if (bsdName) bsdName->release();
 		if (uuid) uuid->release();
-		return (ret);
+		return (SET_ERROR(ret));
 	}
 	if (bsdName) {
 
@@ -1280,7 +1280,7 @@ zvol_os_is_zvol_impl(const char *path)
 	if (uuid) uuid->release();
 
 	if (matchDict == 0)
-		return (ret);
+		return (SET_ERROR(ret));
 
 	OSIterator *iter = 0;
 	OSObject *obj = 0;
@@ -1293,7 +1293,7 @@ zvol_os_is_zvol_impl(const char *path)
 	if (!iter) {
 		dprintf("%s No iterator from getMatchingServices\n",
 		    __func__);
-		return (ret);
+		return (SET_ERROR(ret));
 	}
 
 	/* Get first object from iterator */
@@ -1313,9 +1313,9 @@ zvol_os_is_zvol_impl(const char *path)
 	}
 
 	if (!media) {
-		printf("%s no match found\n", __func__);
+		dprintf("%s no match found\n", __func__);
 		iter->release();
-		return (ret);
+		return (SET_ERROR(ret));
 	}
 
 	iter->release();
@@ -1327,15 +1327,13 @@ zvol_os_is_zvol_impl(const char *path)
 
 	name = media->getName();
 
-	printf("The match we got is: %s\n", name);
-
 	if (strncmp(name, ZVOL_PRODUCT_NAME_PREFIX,
 	    strlen(ZVOL_PRODUCT_NAME_PREFIX)) == 0)
 		ret = B_TRUE;
 
 	media->release();
 
-	return (ret);
+	return (SET_ERROR(ret));
 }
 
 
