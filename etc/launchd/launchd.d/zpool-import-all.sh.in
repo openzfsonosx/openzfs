@@ -29,13 +29,14 @@ fi
 date
 
 if [ -f "@sysconfdir@/zfs/zsysctl.conf" ]; then
-    zsysctl -f @sysconfdir@/zfs/zsysctl.conf
+    @sbindir@/zsysctl -f @sysconfdir@/zfs/zsysctl.conf
 fi
 
 sleep 10
 echo "Running zpool import -a"
 date
 
+/bin/launchctl load /Library/LaunchDaemons/org.openzfsonosx.zpool-import.plist
 /bin/launchctl kickstart system/org.openzfsonosx.zpool-import
 ret=$?
 
