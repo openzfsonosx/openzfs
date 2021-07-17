@@ -64,7 +64,6 @@ static kcondvar_t spl_free_thread_cv;
 static kmutex_t spl_free_thread_lock;
 static boolean_t spl_free_thread_exit;
 static volatile _Atomic int64_t spl_free;
-int64_t spl_free_delta_ema;
 
 static volatile _Atomic int64_t spl_free_manual_pressure = 0;
 static volatile _Atomic boolean_t spl_free_fast_pressure = FALSE;
@@ -521,7 +520,6 @@ typedef struct spl_stats {
 	kstat_named_t spl_spl_free;
 	kstat_named_t spl_spl_free_manual_pressure;
 	kstat_named_t spl_spl_free_fast_pressure;
-	kstat_named_t spl_spl_free_delta_ema;
 	kstat_named_t spl_spl_free_negative_count;
 	kstat_named_t spl_osif_malloc_success;
 	kstat_named_t spl_osif_malloc_bytes;
@@ -588,7 +586,6 @@ static spl_stats_t spl_stats = {
 	{"spl_spl_free", KSTAT_DATA_INT64},
 	{"spl_spl_free_manual_pressure", KSTAT_DATA_UINT64},
 	{"spl_spl_free_fast_pressure", KSTAT_DATA_UINT64},
-	{"spl_spl_free_delta_ema", KSTAT_DATA_UINT64},
 	{"spl_spl_free_negative_count", KSTAT_DATA_UINT64},
 	{"spl_osif_malloc_success", KSTAT_DATA_UINT64},
 	{"spl_osif_malloc_bytes", KSTAT_DATA_UINT64},
@@ -4427,9 +4424,6 @@ spl_free_thread()
 	callb_cpr_t cpr;
 	uint64_t last_update = zfs_lbolt();
 	int64_t last_spl_free;
-	double ema_new = 0;
-	double ema_old = 0;
-	double alpha;
 
 	CALLB_CPR_INIT(&cpr, &spl_free_thread_lock, callb_generic_cpr, FTAG);
 
@@ -4890,18 +4884,6 @@ spl_free_thread()
 		if (lowmem)
 			recent_lowmem = time_now;
 
-		// maintain an exponential moving average for the ema kstat
-		if (last_update > hz)
-			alpha = 1.0;
-		else {
-			double td_tick  = (double)(time_now - last_update);
-			alpha = td_tick / (double)(hz*50.0); // roughly 0.02
-		}
-
-		ema_new = (alpha * delta) + (1.0 - alpha)*ema_old;
-		spl_free_delta_ema = ema_new;
-		ema_old = ema_new;
-
 	justwait:
 		mutex_enter(&spl_free_thread_lock);
 		CALLB_CPR_SAFE_BEGIN(&cpr);
@@ -4977,7 +4959,6 @@ spl_kstat_update(kstat_t *ksp, int rw)
 		    spl_free_manual_pressure;
 		ks->spl_spl_free_fast_pressure.value.i64 =
 		    spl_free_fast_pressure;
-		ks->spl_spl_free_delta_ema.value.i64 = spl_free_delta_ema;
 		ks->spl_osif_malloc_success.value.ui64 =
 		    stat_osif_malloc_success;
 		ks->spl_osif_malloc_bytes.value.ui64 = stat_osif_malloc_bytes;
