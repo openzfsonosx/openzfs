@@ -24,7 +24,7 @@
  * Copyright (C) 2008 MacZFS
  * Copyright (C) 2013, 2020 Jorgen Lundman <lundman@lundman.net>
  * Copyright (C) 2014 Brendon Humphrey <brendon.humphrey@mac.com>
- * Copyright (C) 2017 Sean Doran <smd@use.net>
+ * Copyright (C) 2017, 2021 Sean Doran <smd@use.net>
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  *
  */
@@ -510,6 +510,9 @@ uint64_t spl_arc_reclaim_avoided = 0;
 
 uint64_t kmem_free_to_slab_when_fragmented = 0;
 
+extern _Atomic unsigned int spl_lowest_stack_remaining;
+extern unsigned int spl_vmem_split_stack_below;
+
 typedef struct spl_stats {
 	kstat_named_t spl_os_alloc;
 	kstat_named_t spl_active_threads;
@@ -574,6 +577,8 @@ typedef struct spl_stats {
 	kstat_named_t spl_vm_pages_reclaimed;
 	kstat_named_t spl_vm_pages_wanted;
 	kstat_named_t spl_vm_pressure_level;
+	kstat_named_t spl_lowest_stack_remaining;
+	kstat_named_t spl_vmem_split_stack_below;
 } spl_stats_t;
 
 static spl_stats_t spl_stats = {
@@ -640,6 +645,8 @@ static spl_stats_t spl_stats = {
 	{"spl_vm_pages_reclaimed", KSTAT_DATA_UINT64},
 	{"spl_vm_pages_wanted", KSTAT_DATA_UINT64},
 	{"spl_vm_pressure_level", KSTAT_DATA_UINT64},
+	{"lowest_stack_remaining", KSTAT_DATA_UINT64},
+	{"split_stack_below", KSTAT_DATA_UINT64},
 };
 
 static kstat_t *spl_ksp = 0;
@@ -4422,7 +4429,6 @@ static void
 spl_free_thread()
 {
 	callb_cpr_t cpr;
-	uint64_t last_update = zfs_lbolt();
 	int64_t last_spl_free;
 
 	CALLB_CPR_INIT(&cpr, &spl_free_thread_lock, callb_generic_cpr, FTAG);
@@ -4827,8 +4833,6 @@ spl_free_thread()
 				new_spl_free = -1024LL;
 		}
 
-		double delta = (double)new_spl_free - (double)last_spl_free;
-
 		boolean_t spl_free_is_negative = false;
 
 		if (new_spl_free < 0LL) {
@@ -4948,6 +4952,13 @@ spl_kstat_update(kstat_t *ksp, int rw)
 			    ks->kmem_free_to_slab_when_fragmented.value.ui64;
 		}
 
+		if ((unsigned int) ks->spl_vmem_split_stack_below.value.ui64 !=
+		    spl_vmem_split_stack_below) {
+			spl_vmem_split_stack_below =
+			    (unsigned int)
+			    ks->spl_vmem_split_stack_below.value.ui64;
+		}
+
 	} else {
 		ks->spl_os_alloc.value.ui64 = segkmem_total_mem_allocated;
 		ks->spl_active_threads.value.ui64 = zfs_threads;
@@ -5036,6 +5047,10 @@ spl_kstat_update(kstat_t *ksp, int rw)
 		ks->spl_vm_pressure_level.value.ui64 =
 		    spl_vm_pressure_level;
 
+		ks->spl_lowest_stack_remaining.value.ui64 =
+		    spl_lowest_stack_remaining;
+		ks->spl_vmem_split_stack_below.value.ui64 =
+		    spl_vmem_split_stack_below;
 	}
 
 	return (0);
