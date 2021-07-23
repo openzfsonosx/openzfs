@@ -26,7 +26,7 @@
 /*
  * Copyright (c) 2012 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
- * Copyright (c) 2017 Sean Doran <smd@use.net>
+ * Copyright (c) 2017, 2021 by Sean Doran <smd@use.net>
  */
 
 /*
@@ -221,6 +221,9 @@
 #include <sys/debug.h>
 #include <sys/types.h>
 #include <stdbool.h>
+#include <mach/machine/vm_types.h>
+#include <libkern/OSDebug.h>
+#include <kern/thread_call.h>
 
 #define	VMEM_INITIAL		21	/* early vmem arenas */
 #define	VMEM_SEG_INITIAL	800
@@ -360,7 +363,9 @@ static vmem_kstat_t vmem_kstat_template = {
 	{ "parent_alloc",	KSTAT_DATA_UINT64 },
 	{ "parent_free",	KSTAT_DATA_UINT64 },
 	{ "threads_waiting",	KSTAT_DATA_UINT64 },
-	{ "excess",	KSTAT_DATA_UINT64 },
+	{ "excess",		KSTAT_DATA_UINT64 },
+	{ "lowest_stack",	KSTAT_DATA_UINT64 },
+	{ "async_stack_calls",	KSTAT_DATA_UINT64 },
 };
 
 
@@ -449,7 +454,7 @@ extern void IOSleep(unsigned milliseconds);
 /*
  * Get a vmem_seg_t from the global segfree list.
  */
-static vmem_seg_t *
+static inline vmem_seg_t *
 vmem_getseg_global(void)
 {
 	vmem_seg_t *vsp;
@@ -468,7 +473,7 @@ vmem_getseg_global(void)
 /*
  * Put a vmem_seg_t on the global segfree list.
  */
-static void
+static inline void
 vmem_putseg_global(vmem_seg_t *vsp)
 {
 	mutex_enter(&vmem_segfree_lock);
@@ -480,7 +485,7 @@ vmem_putseg_global(vmem_seg_t *vsp)
 /*
  * Get a vmem_seg_t from vmp's segfree list.
  */
-static vmem_seg_t *
+static inline vmem_seg_t *
 vmem_getseg(vmem_t *vmp)
 {
 	vmem_seg_t *vsp;
@@ -497,7 +502,7 @@ vmem_getseg(vmem_t *vmp)
 /*
  * Put a vmem_seg_t on vmp's segfree list.
  */
-static void
+static inline void
 vmem_putseg(vmem_t *vmp, vmem_seg_t *vsp)
 {
 	vsp->vs_knext = vmp->vm_segfree;
@@ -823,7 +828,7 @@ vmem_seg_create(vmem_t *vmp, vmem_seg_t *vprev, uintptr_t start, uintptr_t end)
 /*
  * Remove segment vsp from the arena.
  */
-static void
+static inline void
 vmem_seg_destroy(vmem_t *vmp, vmem_seg_t *vsp)
 {
 	ASSERT(vsp->vs_type != VMEM_ROTOR);
@@ -957,7 +962,7 @@ vmem_seg_alloc(vmem_t *vmp, vmem_seg_t *vsp, uintptr_t addr, size_t size)
  * Returns 1 if we are populating, 0 otherwise.
  * Call it if we want to prevent recursion from HAT.
  */
-int
+inline int
 vmem_is_populator()
 {
 	return (mutex_owner(&vmem_sleep_lock) == curthread ||
@@ -1238,7 +1243,7 @@ vmem_nextfit_alloc(vmem_t *vmp, size_t size, int vmflag)
  * Used to decide if a newly imported span is superfluous after re-acquiring
  * the arena lock.
  */
-static int
+static inline int
 vmem_canalloc(vmem_t *vmp, size_t size)
 {
 	int hb;
@@ -1257,7 +1262,7 @@ vmem_canalloc(vmem_t *vmp, size_t size)
 // allocation ability when not holding the lock.
 // These are unreliable because vmp->vm_freemap is
 // liable to change immediately after being examined.
-int
+inline int
 vmem_canalloc_lock(vmem_t *vmp, size_t size)
 {
 	mutex_enter(&vmp->vm_lock);
@@ -1284,7 +1289,7 @@ vmem_canalloc_atomic(vmem_t *vmp, size_t size)
 	return (flist);
 }
 
-static inline uint64_t
+uint64_t
 spl_vmem_xnu_useful_bytes_free(void)
 {
 	extern _Atomic uint32_t spl_vm_pages_reclaimed;
@@ -1312,7 +1317,7 @@ vmem_xnu_useful_bytes_free(void)
 }
 
 
-static void *
+static inline void *
 spl_vmem_malloc_unconditionally_unlocked(size_t size)
 {
 	extern void *osif_malloc(uint64_t);
@@ -1321,7 +1326,7 @@ spl_vmem_malloc_unconditionally_unlocked(size_t size)
 	return (osif_malloc(size));
 }
 
-static void *
+static inline void *
 spl_vmem_malloc_unconditionally(size_t size)
 {
 	mutex_enter(&vmem_xnu_alloc_lock);
@@ -1330,7 +1335,7 @@ spl_vmem_malloc_unconditionally(size_t size)
 	return (m);
 }
 
-static void *
+static inline void *
 spl_vmem_malloc_if_no_pressure(size_t size)
 {
 	// The mutex serializes concurrent callers, providing time for
@@ -1358,16 +1363,16 @@ spl_vmem_malloc_if_no_pressure(size_t size)
  * resulting segment [addr, addr + size) is a subset of [minaddr, maxaddr)
  * that does not straddle a nocross-aligned boundary.
  */
-void *
+inline void *
 vmem_xalloc(vmem_t *vmp, size_t size, size_t align_arg, size_t phase,
     size_t nocross, void *minaddr, void *maxaddr, int vmflag)
 {
 	vmem_seg_t *vsp;
 	vmem_seg_t *vbest = NULL;
-	uintptr_t addr, taddr, start, end;
+	uintptr_t addr = 0, taddr, start, end;
 	uintptr_t align = (align_arg != 0) ? align_arg : vmp->vm_quantum;
 	void *vaddr, *xvaddr = NULL;
-	size_t xsize;
+	size_t xsize = 0;
 	int hb, flist, resv;
 	uint32_t mtbf;
 
@@ -1526,7 +1531,7 @@ do_alloc:
 			vmp->vm_nsegfree -= resv;	/* reserve our segs */
 			mutex_exit(&vmp->vm_lock);
 			if (vmp->vm_cflags & VMC_XALLOC) {
-				size_t oasize = asize;
+				ASSERTV(size_t oasize = asize);
 				vaddr = ((vmem_ximport_t *)
 				    vmp->vm_source_alloc)(vmp->vm_source,
 				    &asize, align, vmflag & VM_KMFLAGS);
@@ -1726,14 +1731,179 @@ vmem_xfree(vmem_t *vmp, void *vaddr, size_t size)
 }
 
 /*
+ * vmem_alloc() and auxiliary functions :
+ *
  * Allocate size bytes from arena vmp.  Returns the allocated address
  * on success, NULL on failure.  vmflag specifies VM_SLEEP or VM_NOSLEEP,
  * and may also specify best-fit, first-fit, or next-fit allocation policy
  * instead of the default instant-fit policy.  VM_SLEEP allocations are
  * guaranteed to succeed.
  */
+
+/*
+ * If there is less space on the kernel stack than
+ * (dynamically tunable) spl_vmem_split_stack_below
+ * then perform the vmem_alloc in the thread_call
+ * function
+ */
+unsigned int spl_vmem_split_stack_below = 8192;
+
+/* kstat tracking the global minimum free stack space */
+_Atomic unsigned int spl_lowest_stack_remaining = UINT_MAX;
+
+/* forward decls */
+static inline void *wrapped_vmem_alloc(vmem_t *, size_t, int);
+static void *vmem_alloc_in_worker_thread(vmem_t *, size_t, int);
+
+/*
+ * unwrapped vmem_alloc() :
+ * Examine stack remaining; if it is less than our split stack below
+ * threshold, or (for code coverage early near kext load time) is less than
+ * the lowest we have seen call out to a worker thread that will
+ * perform the wrapped_vmem_alloc() and update stat counters.
+ */
 void *
 vmem_alloc(vmem_t *vmp, size_t size, int vmflag)
+{
+	const vm_offset_t r = OSKernelStackRemaining();
+
+	if (vmp->vm_kstat.vk_lowest_stack.value.ui64 == 0) {
+		vmp->vm_kstat.vk_lowest_stack.value.ui64 = r;
+	} else if (vmp->vm_kstat.vk_lowest_stack.value.ui64 > r) {
+		vmp->vm_kstat.vk_lowest_stack.value.ui64 = r;
+	}
+
+	if (vmem_is_populator()) {
+		/*
+		 * Current thread holds one of the vmem locks and the worker
+		 * thread invoked in vmem_alloc_in_worker_thread() would
+		 * therefore deadlock. vmem_populate on a vmem cache is an
+		 * early (and rare) operation and typically does descend below
+		 * the vmem source.
+		 */
+		return (wrapped_vmem_alloc(vmp, size, vmflag));
+	}
+
+	if (r < spl_lowest_stack_remaining ||
+	    r < spl_vmem_split_stack_below) {
+		return (vmem_alloc_in_worker_thread(vmp, size, vmflag));
+	}
+
+	return (wrapped_vmem_alloc(vmp, size, vmflag));
+}
+
+/* parameters passed between thread_call threads */
+typedef struct cb_params {
+	vmem_t		*vmp;
+	size_t		size;
+	int		vmflag;
+	vm_offset_t	r_parent;
+	vm_offset_t	r_cb;
+	void		*r_alloc;
+} cb_params_t;
+
+/*
+ * Executes in a kernel worker thread, which will start with an essentially
+ * empty stack.  The stack above the immediate client of the vmem_alloc() that
+ * has thread_enter1()-ed this function is already over a depth threshold.
+ */
+static void
+vmem_alloc_update_lowest_cb(thread_call_param_t param0,
+    thread_call_param_t param1)
+{
+
+	/* param 0 is a vmp, set in vmem_create() */
+	/* param 1 is the in-params */
+
+	vmem_t *vmp0 = (vmem_t *)param0;
+
+	/* synchronize param1 and make sure vmp identity */
+	mutex_enter(&vmp0->vm_stack_lock);
+	cb_params_t *cbp = (cb_params_t *)param1;
+	vmem_t *vmp = cbp->vmp;
+	mutex_exit(&vmp0->vm_stack_lock);
+
+	VERIFY3P(vmp0, ==, vmp);
+
+	dprintf("SPL: %s:%d got vm_name %s, alloc size %lu, "
+	    "parent depth %lu, our depth %lu\n",
+	    __func__, __LINE__, vmp->vm_name, cbp->size,
+	    cbp->r_parent, OSKernelStackRemaining());
+
+	atomic_inc_64(&vmp->vm_kstat.vk_async_stack_calls.value.ui64);
+
+	spl_lowest_stack_remaining = cbp->r_parent;
+
+	cbp->r_alloc = wrapped_vmem_alloc(cbp->vmp,
+	    cbp->size, cbp->vmflag);
+
+	mutex_enter(&vmp->vm_stack_lock);
+	/*
+	 * There can be other cv_broadcast() callers
+	 * and other cv_waiters() in different threads intercepting
+	 * them, so the (arbitrary) nonzero value MUST be visible
+	 * in our cbp->r_cb with immediate sequential consistency,
+	 * or our calling thread may hang.
+	 */
+	__atomic_store_n(&cbp->r_cb,
+	    MAX(OSKernelStackRemaining(), 1),
+	    __ATOMIC_SEQ_CST);
+	cv_broadcast(&vmp->vm_stack_cv);
+	mutex_exit(&vmp->vm_stack_lock);
+}
+
+/*
+ * Set up parameters and thread_enter1() to send them to a worker thread
+ * executing vmem_alloc_update_lowest_cb().   Wait for the worker thread
+ * to set r_cb to nonzero.
+ */
+void *
+vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
+{
+	cb_params_t cb = { 0 };
+	cb.vmp = vmp;
+	cb.size = size;
+	cb.vmflag = vmflag;
+	cb.r_parent = OSKernelStackRemaining();
+
+	mutex_enter(&vmp->vm_stack_lock);
+
+	/*
+	 * send a pointer to our parameter struct to the worker thread's
+	 * vmem_alloc_update_lowest_cb()'s param1.
+	 */
+#ifdef DEBUG
+	boolean_t tc_already_pending =
+#endif
+	    thread_call_enter1(vmp->vm_stack_call_thread, &cb);
+
+	/* in DEBUG, bleat if worker thread was already working */
+	ASSERT0(tc_already_pending);
+
+	/*
+	 * wait until the worker thread sets a nonzero in our
+	 * cb.r_cb. Other threads doing this vmem_alloc() on this
+	 * vmem arena may also be causing the worker function
+	 * to emit cv_broadcasts, but we must not progress from
+	 * here until *our* work has been done.
+	 */
+	for (;;) {
+		cv_wait(&vmp->vm_stack_cv, &vmp->vm_stack_lock);
+		if (cb.r_cb != 0)
+			break;
+	}
+	mutex_exit(&vmp->vm_stack_lock);
+
+	ASSERT3P(cb.r_alloc, !=, NULL);
+
+	return (cb.r_alloc);
+}
+
+/*
+ * The guts of vmem_alloc()
+ */
+static inline void *
+wrapped_vmem_alloc(vmem_t *vmp, size_t size, int vmflag)
 {
 	vmem_seg_t *vsp;
 	uintptr_t addr;
@@ -2095,6 +2265,19 @@ vmem_create_common(const char *name, void *base, size_t size, size_t quantum,
 		return (NULL);
 	}
 
+	/* set up thread call */
+	mutex_init(&vmp->vm_stack_lock, "lock for thread call",
+	    MUTEX_DEFAULT, NULL);
+	cv_init(&vmp->vm_stack_cv, NULL, CV_DEFAULT, NULL);
+	vmp->vm_stack_call_thread = thread_call_allocate_with_options(
+	    (thread_call_func_t)vmem_alloc_update_lowest_cb,
+	    (thread_call_param_t)vmp,
+	    THREAD_CALL_PRIORITY_KERNEL,
+	    0);
+
+	printf("SPL: %s:%d: setup of %s done\n",
+	    __func__, __LINE__, vmp->vm_name);
+
 	return (vmp);
 }
 
@@ -2133,6 +2316,21 @@ vmem_destroy(vmem_t *vmp)
 	vmem_seg_t *seg0 = &vmp->vm_seg0;
 	vmem_seg_t *vsp, *anext;
 	size_t leaked;
+
+	/* check for possible async stack calls */
+
+	const boolean_t ret_thread_call_cancel __maybe_unused =
+	    thread_call_cancel(vmp->vm_stack_call_thread);
+	ASSERT0(ret_thread_call_cancel);
+
+	/* tear down async stack call mechanisms */
+
+	const boolean_t ret_thread_call_free __maybe_unused =
+	    thread_call_free(vmp->vm_stack_call_thread);
+	ASSERT0(!ret_thread_call_free);
+
+	mutex_destroy(&vmp->vm_stack_lock);
+	cv_destroy(&vmp->vm_stack_cv);
 
 	/*
 	 * set vm_nsegfree to zero because vmem_free_span_list
@@ -2358,7 +2556,7 @@ vmem_bucket_number(size_t size)
 	if (bucket < 0)
 		bucket = 0;
 
-	return (bucket);
+	return ((int16_t)bucket);
 }
 
 static inline vmem_t *
@@ -2369,7 +2567,7 @@ vmem_bucket_arena_by_size(size_t size)
 	return (vmem_bucket_arena[bucket]);
 }
 
-vmem_t *
+inline vmem_t *
 spl_vmem_bucket_arena_by_size(size_t size)
 {
 	return (vmem_bucket_arena_by_size(size));
@@ -2778,7 +2976,7 @@ vmem_bucket_alloc(vmem_t *null_vmp, size_t size, const int vmflags)
 
 	static volatile _Atomic uint16_t buckets_busy_allocating = 0;
 	const uint16_t bucket_number = vmem_bucket_number(size);
-	const uint16_t bucket_bit = (uint16_t)1 << bucket_number;
+	const uint16_t bucket_bit = (uint16_t)(1 << bucket_number);
 
 	spl_vba_threads[bucket_number]++;
 
@@ -3120,12 +3318,12 @@ vmem_bucket_arena_used(int bucket)
 }
 
 
-int64_t
+inline int64_t
 vmem_buckets_size(int typemask)
 {
 	int64_t total_size = 0;
 
-	for (int i = 0; i < VMEM_BUCKETS; i++) {
+	for (uint16_t i = 0; i < VMEM_BUCKETS; i++) {
 		int64_t u = vmem_bucket_arena_used(i);
 		int64_t f = vmem_bucket_arena_free(i);
 		if (typemask & VMEM_ALLOC)
@@ -3139,7 +3337,7 @@ vmem_buckets_size(int typemask)
 	return ((size_t)total_size);
 }
 
-static uint64_t
+static inline uint64_t
 spl_validate_bucket_span_size(uint64_t val)
 {
 	if (!ISP2(val)) {
@@ -3244,14 +3442,14 @@ spl_set_bucket_tunable_small_span(uint64_t size)
 	spl_printf_bucket_span_sizes();
 }
 
-static void *
+static inline void *
 spl_vmem_default_alloc(vmem_t *vmp, size_t size, int vmflags)
 {
 	extern void *osif_malloc(uint64_t);
 	return (osif_malloc(size));
 }
 
-static void
+static inline void
 spl_vmem_default_free(vmem_t *vmp, void *vaddr, size_t size)
 {
 	extern void osif_free(void *, uint64_t);

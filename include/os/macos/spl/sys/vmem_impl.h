@@ -115,7 +115,13 @@ typedef struct vmem_kstat {
 	kstat_named_t   vk_threads_waiting; /* threads in cv_wait in vmem */
 					/* allocator function */
 	kstat_named_t   vk_excess;	/* count of retained excess imports */
+	kstat_named_t	vk_lowest_stack; /* least remaining stack seen */
+	kstat_named_t	vk_async_stack_calls; /* times allocated off-thread */
 } vmem_kstat_t;
+
+
+/* forward declaration of opaque xnu struct */
+typedef struct thread_call *thread_call_t;
 
 struct vmem {
 	char		vm_name[VMEM_NAMELEN]; /* arena name */
@@ -146,6 +152,9 @@ struct vmem {
 	void		*vm_qcache[VMEM_NQCACHE_MAX]; /* quantum caches */
 	vmem_freelist_t	vm_freelist[VMEM_FREELISTS + 1]; /* power-of-2 flists */
 	vmem_kstat_t	vm_kstat;	/* kstat data */
+	thread_call_t	vm_stack_call_thread;
+	kmutex_t	vm_stack_lock;
+	kcondvar_t	vm_stack_cv;
 };
 
 #ifdef	__cplusplus
