@@ -1794,20 +1794,22 @@ vmem_alloc(vmem_t *vmp, size_t size, int vmflag)
 
 /* parameters passed between thread_call threads */
 typedef struct cb_params {
-	vmem_t		*vmp;
+	boolean_t	in_child;	/* set in worker callback function */
+	boolean_t	already_pending; /* sanity check thread_call_enter1() */
+	vmem_t		*vmp;		/* vmem_alloc() parameters */
 	size_t		size;
 	int		vmflag;
-	vm_offset_t	r_parent;
-	vm_offset_t	r_cb;
-	void		*r_alloc;
+	void		*r_alloc;	/* vmem_alloc() return value */
+	boolean_t	c_done;		/* flag worker callback is done */
 } cb_params_t;
 
 /*
- * Executes in a kernel worker thread, which will start with an essentially
- * empty stack.  The stack above the immediate client of the vmem_alloc() that
- * has thread_enter1()-ed this function is already over a depth threshold.
+ * Executes a wrapped_vmem_alloc() in a kernel worker thread, which will start
+ * with an essentially empty stack.  The stack above the immediate client of
+ * the vmem_alloc() that has thread_enter1()-ed this function is already over
+ * a depth threshold.
  */
-static void
+void
 vmem_alloc_update_lowest_cb(thread_call_param_t param0,
     thread_call_param_t param1)
 {
@@ -1817,82 +1819,141 @@ vmem_alloc_update_lowest_cb(thread_call_param_t param0,
 
 	vmem_t *vmp0 = (vmem_t *)param0;
 
-	/* synchronize param1 and make sure vmp identity */
-	mutex_enter(&vmp0->vm_stack_lock);
 	cb_params_t *cbp = (cb_params_t *)param1;
-	vmem_t *vmp = cbp->vmp;
-	mutex_exit(&vmp0->vm_stack_lock);
+	VERIFY3U(cbp->in_child, ==, B_FALSE);
 
+	/* tell the caller we are live */
+	cbp->in_child = B_TRUE;
+	__atomic_store_n(&cbp->in_child, B_TRUE, __ATOMIC_SEQ_CST);
+
+	/* make sure vmp is sane */
+	vmem_t *vmp = cbp->vmp;
 	VERIFY3P(vmp0, ==, vmp);
 
-	dprintf("SPL: %s:%d got vm_name %s, alloc size %lu, "
-	    "parent depth %lu, our depth %lu\n",
-	    __func__, __LINE__, vmp->vm_name, cbp->size,
-	    cbp->r_parent, OSKernelStackRemaining());
+	/* are we ever here after pending? */
+	ASSERT0(cbp->already_pending);
 
 	atomic_inc_64(&vmp->vm_kstat.vk_async_stack_calls.value.ui64);
-
-	spl_lowest_stack_remaining = cbp->r_parent;
 
 	cbp->r_alloc = wrapped_vmem_alloc(cbp->vmp,
 	    cbp->size, cbp->vmflag);
 
-	mutex_enter(&vmp->vm_stack_lock);
-	/*
-	 * There can be other cv_broadcast() callers
-	 * and other cv_waiters() in different threads intercepting
-	 * them, so the (arbitrary) nonzero value MUST be visible
-	 * in our cbp->r_cb with immediate sequential consistency,
-	 * or our calling thread may hang.
-	 */
-	__atomic_store_n(&cbp->r_cb,
-	    MAX(OSKernelStackRemaining(), 1),
-	    __ATOMIC_SEQ_CST);
-	cv_broadcast(&vmp->vm_stack_cv);
-	mutex_exit(&vmp->vm_stack_lock);
+	ASSERT3P(cbp->r_alloc, !=, NULL);
+
+	/* indicate that we are done and wait for our caller */
+	__atomic_store_n(&cbp->c_done, B_TRUE, __ATOMIC_SEQ_CST);
+	/* from this point we cannot use param1, vmp, or cbp */
+
+	mutex_enter(&vmp0->vm_stack_lock);
+	cv_signal(&vmp0->vm_stack_cv);
+	mutex_exit(&vmp0->vm_stack_lock);
 }
 
 /*
  * Set up parameters and thread_enter1() to send them to a worker thread
  * executing vmem_alloc_update_lowest_cb().   Wait for the worker thread
- * to set r_cb to nonzero.
+ * to set c_done to nonzero.
  */
 void *
 vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 {
 	cb_params_t cb = { 0 };
+
 	cb.vmp = vmp;
 	cb.size = size;
 	cb.vmflag = vmflag;
-	cb.r_parent = OSKernelStackRemaining();
+
+	cb.c_done = B_FALSE;
+	cb.r_alloc = NULL;
+	cb.in_child = B_FALSE;
+	cb.already_pending = B_FALSE;
+
+	const vm_offset_t sr = OSKernelStackRemaining();
+
+	if (sr < spl_lowest_stack_remaining)
+		spl_lowest_stack_remaining = sr;
+
+	/*
+	 * Loop until we can grab cb_busy flag for ourselves:
+	 * allow only one thread at a time to thread_call_enter
+	 * on this vmem arena, because there is a race wherein
+	 * a later racer can cancel a "medallist" who got to
+	 * the callback registered earlier before the medallist
+	 * has begun running in the callback function.
+	 */
+
+	for (unsigned int i = 1; ; i++) {
+		/*
+		 * if busy == f then busy = true and
+		 * return result is true; otherwise result is
+		 * false and f = true
+		 */
+		bool f = false;
+		if (!__c11_atomic_compare_exchange_strong(
+		    &vmp->vm_cb_busy, &f, true,
+		    __ATOMIC_SEQ_CST, __ATOMIC_RELAXED)) {
+			/* delay and loop */
+			extern void IODelay(unsigned microseconds);
+			if ((i % 1000) == 0)
+				IOSleep(1); // ms
+			else
+				IODelay(1); // us
+			continue;
+		} else {
+			VERIFY0(!vmp->vm_cb_busy);
+			break;
+		}
+	}
 
 	mutex_enter(&vmp->vm_stack_lock);
-
 	/*
 	 * send a pointer to our parameter struct to the worker thread's
 	 * vmem_alloc_update_lowest_cb()'s param1.
 	 */
-#ifdef DEBUG
-	boolean_t tc_already_pending =
-#endif
+	boolean_t tc_already_pending __maybe_unused =
 	    thread_call_enter1(vmp->vm_stack_call_thread, &cb);
 
 	/* in DEBUG, bleat if worker thread was already working */
 	ASSERT0(tc_already_pending);
 
+	cb.already_pending = tc_already_pending;
+
 	/*
-	 * wait until the worker thread sets a nonzero in our
-	 * cb.r_cb. Other threads doing this vmem_alloc() on this
-	 * vmem arena may also be causing the worker function
-	 * to emit cv_broadcasts, but we must not progress from
-	 * here until *our* work has been done.
+	 * Wait for a cv_signal from our worker thread.
+	 * "Impossible" things, left over from before the
+	 * cb_busy flag, which limits concurrency:
+	 * If the worker has died we will time out and panic.
+	 * If we get a spurious signal, it may have been
+	 * for someone else.
+	 * Less impossibly: if we lost the signal from
+	 * the worker, log that and carry one.
 	 */
-	for (;;) {
-		cv_wait(&vmp->vm_stack_cv, &vmp->vm_stack_lock);
-		if (cb.r_cb != 0)
-			break;
+	for (unsigned int i = 0; cb.c_done != B_TRUE; i++) {
+		int retval = cv_timedwait(&vmp->vm_stack_cv,
+		    &vmp->vm_stack_lock,
+		    ddi_get_lbolt() + SEC_TO_TICK(10));
+		if (retval == -1) {
+			if (cb.c_done != B_TRUE) {
+				panic("timed out waiting for"
+				    " child callback, inchild: %d",
+				    cb.in_child);
+			} else {
+				printf("SPL: %s:%d timedout, lost cv_signal!\n",
+				    __func__, __LINE__);
+				cv_signal(&vmp->vm_stack_cv);
+			}
+		} else if (retval == 1 && cb.c_done != B_TRUE) {
+			ASSERT(cb.in_child);
+			/* this was not for us, wake up someone else */
+			cv_signal(&vmp->vm_stack_cv);
+		}
+		VERIFY(mutex_owned(&vmp->vm_stack_lock));
 	}
 	mutex_exit(&vmp->vm_stack_lock);
+
+	/* give up busy flag */
+	VERIFY0(!vmp->vm_cb_busy);
+	vmp->vm_cb_busy = false;
 
 	ASSERT3P(cb.r_alloc, !=, NULL);
 
@@ -2266,6 +2327,7 @@ vmem_create_common(const char *name, void *base, size_t size, size_t quantum,
 	}
 
 	/* set up thread call */
+	vmp->vm_cb_busy = false;
 	mutex_init(&vmp->vm_stack_lock, "lock for thread call",
 	    MUTEX_DEFAULT, NULL);
 	cv_init(&vmp->vm_stack_cv, NULL, CV_DEFAULT, NULL);
