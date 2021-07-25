@@ -296,7 +296,8 @@ xdrmem_dec_char(XDR *xdrs, char *cp)
 	if (val > 0xff)
 		return (FALSE);
 
-	*((unsigned char *) cp) = val;
+	/* & 0xff for -Wimplicit-int-coversion */
+	*((unsigned char *) cp) = val & 0xff;
 
 	return (TRUE);
 }
@@ -326,7 +327,7 @@ xdrmem_dec_ushort(XDR *xdrs, unsigned short *usp)
 	if (val > 0xffff)
 		return (FALSE);
 
-	*usp = val;
+	*usp = val & 0xffff; /* the & for -Wimplicit-int-coversion */
 
 	return (TRUE);
 }
