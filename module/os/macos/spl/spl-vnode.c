@@ -94,7 +94,7 @@ errno_t
 VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
     struct componentname *cn, vfs_context_t ct)
 {
-	char path[MAXPATHLEN];
+	char *path = IOMalloc(MAXPATHLEN);
 	char *lookup_name = cn->cn_nameptr;
 
 	/*
@@ -110,14 +110,17 @@ VOP_LOOKUP(struct vnode *dvp, struct vnode **vpp,
 
 		len = MAXPATHLEN;
 		result = vn_getpath(dvp, path, &len);
-		if (result != 0)
+		if (result != 0) {
+			IOFree(path, MAXPATHLEN);
 			return (result);
+		}
 
 		strlcat(path, "/", MAXPATHLEN);
 		strlcat(path, cn->cn_nameptr, MAXPATHLEN);
 
 		lookup_name = path;
 	}
+	IOFree(path, MAXPATHLEN);
 	return (vnode_lookup(lookup_name, 0, vpp, ct));
 }
 

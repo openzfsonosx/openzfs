@@ -178,7 +178,7 @@ extern kmod_info_t *kmod; /* the list of modules */
 
 extern addr64_t  kvtophys(vm_offset_t va);
 
-static int
+static int __maybe_unused
 panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
     const char *module_name)
 {
@@ -257,7 +257,7 @@ panic_print_macho_symbol_name(kernel_mach_header_t *mh, vm_address_t search,
 }
 
 
-static void
+static void __maybe_unused
 panic_print_kmod_symbol_name(vm_address_t search)
 {
 #if 0	// gLoadedKextSummaries is no longer available
@@ -301,7 +301,7 @@ panic_print_symbol_name(vm_address_t search)
 void
 spl_backtrace(char *thesignal)
 {
-	void *stackptr;
+	void *stackptr = NULL;
 
 	printf("SPL: backtrace \"%s\"\n", thesignal);
 
@@ -343,7 +343,7 @@ int
 getpcstack(uintptr_t *pcstack, int pcstack_limit)
 {
 	int  depth = 0;
-	void *stackptr;
+	void *stackptr = NULL;
 
 #if defined(__i386__)
 	__asm__ volatile("movl %%ebp, %0" : "=m" (stackptr));

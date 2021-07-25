@@ -1377,7 +1377,7 @@ static void kmem_slab_move_yes(kmem_cache_t *, kmem_slab_t *, void *);
 static void
 kmem_slab_free(kmem_cache_t *cp, void *buf)
 {
-	kmem_slab_t *sp;
+	kmem_slab_t *sp = NULL;
 	kmem_bufctl_t *bcp, **prev_bcpp;
 
 	ASSERT(buf != NULL);
@@ -1808,7 +1808,7 @@ kmem_cpu_reload(kmem_cpu_cache_t *ccp, kmem_magazine_t *mp, int rounds)
 	ccp->cc_ploaded = ccp->cc_loaded;
 	ccp->cc_prounds = ccp->cc_rounds;
 	ccp->cc_loaded = mp;
-	ccp->cc_rounds = rounds;
+	ccp->cc_rounds = (short)rounds;
 }
 
 /*
@@ -3623,7 +3623,7 @@ kmem_cache_create(
 		ASSERT(chunksize + sizeof (kmem_slab_t) <= cp->cache_slabsize);
 		ASSERT(!(cp->cache_flags & KMF_AUDIT));
 	} else {
-		size_t chunks, bestfit, waste, slabsize;
+		size_t chunks, bestfit = 0, waste, slabsize;
 		size_t minwaste = LONG_MAX;
 
 		for (chunks = 1; chunks <= KMEM_VOID_FRACTION; chunks++) {
