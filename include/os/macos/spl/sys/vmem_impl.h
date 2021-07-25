@@ -152,9 +152,10 @@ struct vmem {
 	void		*vm_qcache[VMEM_NQCACHE_MAX]; /* quantum caches */
 	vmem_freelist_t	vm_freelist[VMEM_FREELISTS + 1]; /* power-of-2 flists */
 	vmem_kstat_t	vm_kstat;	/* kstat data */
-	thread_call_t	vm_stack_call_thread;
-	kmutex_t	vm_stack_lock;
+	thread_call_t	vm_stack_call_thread; /* worker thread for vmem_alloc */
+	kmutex_t	vm_stack_lock; /* synchronize with worker thread */
 	kcondvar_t	vm_stack_cv;
+	_Atomic bool	vm_cb_busy; /* gateway before thread_call_enter1() */
 };
 
 #ifdef	__cplusplus
