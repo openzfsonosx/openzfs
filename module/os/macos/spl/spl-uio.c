@@ -41,7 +41,7 @@ zfs_uiomove_iov(void *p, size_t n, zfs_uio_rw_t rw, zfs_uio_t *uio)
 
 	while (n && uio->uio_resid) {
 		cnt = MIN(iov->iov_len - skip, n);
-		switch (uio->uio_segflg) {
+		switch ((int)uio->uio_segflg) {
 			case UIO_SYSSPACE:
 				if (rw == UIO_READ)
 					bcopy(p, iov->iov_base + skip, cnt);
