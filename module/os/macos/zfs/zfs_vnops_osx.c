@@ -84,6 +84,7 @@ unsigned int zfs_vnop_ignore_negatives = 0;
 unsigned int zfs_vnop_ignore_positives = 0;
 unsigned int zfs_vnop_create_negatives = 1;
 unsigned int zfs_disable_spotlight = 0;
+unsigned int zfs_disable_trashes = 0;
 #endif
 
 #define	DECLARE_CRED(ap) \
@@ -1653,7 +1654,12 @@ zfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 		    strcmp(ap->a_cnp->cn_nameptr, ".Spotlight-V100") == 0)
 			return (EINVAL);
 	}
-
+	if (zfs_disable_trashes) {
+		/* Let's deny OS X .trashes */
+	    if (ap->a_cnp->cn_nameptr &&
+		    strcmp(ap->a_cnp->cn_nameptr, ".Trashes") == 0)
+			return (EINVAL);
+	}
 	/*
 	 * extern int zfs_mkdir(struct vnode *dvp, char *dirname, vattr_t *vap,
 	 *     struct vnode **vpp, cred_t *cr, caller_context_t *ct, int flags,

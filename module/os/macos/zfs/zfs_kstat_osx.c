@@ -241,7 +241,9 @@ osx_kstat_t osx_kstat = {
 	{"zvol_volmode",			KSTAT_DATA_UINT64  },
 	{"zfs_zevent_retain_max",			KSTAT_DATA_UINT64  },
 	{"zfs_disable_spotlight",			KSTAT_DATA_UINT64  },
-
+	{"zfs_disable_trashes",			KSTAT_DATA_UINT64  },
+	{"zfs_dbgmsg_enable",			KSTAT_DATA_UINT64  },
+	{"zfs_dbgmsg_maxsize",			KSTAT_DATA_UINT64  },
 };
 
 static char vdev_raidz_string[KSTAT_STRLEN] = { 0 };
@@ -579,6 +581,9 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		zvol_volmode = ks->zvol_volmode.value.ui64;
 		zfs_zevent_retain_max = ks->zfs_zevent_retain_max.value.ui64;
 		zfs_disable_spotlight = ks->zfs_disable_spotlight.value.ui64;
+		zfs_disable_trashes = ks->zfs_disable_trashes.value.ui64;
+		zfs_dbgmsg_enable = ks->zfs_dbgmsg_enable.value.ui64;
+		zfs_dbgmsg_maxsize = ks->zfs_dbgmsg_maxsize.value.ui64;
 
 	} else {
 
@@ -868,6 +873,10 @@ static int osx_kstat_update(kstat_t *ksp, int rw)
 		ks->zvol_volmode.value.ui64 = zvol_volmode;
 		ks->zfs_zevent_retain_max.value.ui64 = zfs_zevent_retain_max;
 		ks->zfs_disable_spotlight.value.ui64 = zfs_disable_spotlight;
+
+		ks->zfs_disable_trashes.value.ui64 = zfs_disable_trashes;
+		ks->zfs_dbgmsg_enable.value.ui64 = zfs_dbgmsg_enable;
+		ks->zfs_dbgmsg_maxsize.value.ui64 = zfs_dbgmsg_maxsize;
 
 	}
 
