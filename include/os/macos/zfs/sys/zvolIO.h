@@ -40,8 +40,26 @@ extern "C" {
 extern size_t zvolIO_strategy(char *addr, uint64_t offset,
     size_t len, zfs_uio_rw_t rw, const void *privptr);
 
+extern void OSReportWithBacktrace(const char *str, ...);
+
 #ifdef __cplusplus
 } /* extern "C" */
+
+#define CLASS_OBJECT_FORMAT_STRING "[%s@%p:%dx]"
+#define CLASS_OBJECT_FORMAT(obj) myClassName(obj), obj, myRefCount(obj)
+
+#include <libkern/c++/OSObject.h>
+
+inline int myRefCount(const OSObject* obj)
+{
+	return obj ? obj->getRetainCount() : 0;
+}
+
+inline const char* myClassName(const OSObject* obj)
+{
+	if (!obj) return "(null)";
+	return obj->getMetaClass()->getClassName();
+}
 
 class org_openzfsonosx_zfs_zvol : public IOService
 {
@@ -61,7 +79,10 @@ public:
 	virtual bool handleIsOpen(const IOService *client) const override;
 	virtual void handleClose(IOService *client,
 	    IOOptionBits options) override;
-	virtual bool isOpen(const IOService *forClient = 0) const override;
+    virtual bool isOpen(const IOService *forClient = 0) const override;
+
+	virtual void taggedRetain(const void* tag) const override;
+	virtual void taggedRelease(const void * tag) const override;
 
 private:
 	OSSet *_openClients;
@@ -130,7 +151,12 @@ public:
 	virtual int refreshDevice(void);
 
 	virtual void clearState(void);
+
+	virtual void taggedRetain(const void* tag) const override;
+	virtual void taggedRelease(const void * tag) const override;
+
 };
+
 #endif /* __cplusplus */
 
 #endif /* ZVOLIO_H_INCLUDED */

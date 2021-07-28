@@ -860,6 +860,27 @@ org_openzfsonosx_zfs_zvol_device::setWriteCacheState(bool enabled)
 	return (kIOReturnSuccess);
 }
 
+void org_openzfsonosx_zfs_zvol_device::taggedRetain(const void* tag) const
+{
+    OSReportWithBacktrace(
+	"org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRetain(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
+    IOService::taggedRetain(tag);
+}
+
+void org_openzfsonosx_zfs_zvol_device::taggedRelease(const void * tag) const
+{
+    OSReportWithBacktrace(
+	"org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
+    int count = getRetainCount();
+    IOService::taggedRelease(tag);
+    if (count == 1)
+	printf(
+	    "org_openzfsonosx_zfs_zvol_device::taggedRelease(tag=%p) final done\n", tag);
+    else
+	printf(
+	    "org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p) done\n", CLASS_OBJECT_FORMAT(this), tag);
+}
+
 extern "C" {
 
 /* C interfaces */
@@ -1335,6 +1356,5 @@ zvol_os_is_zvol_impl(const char *path)
 
 	return (SET_ERROR(ret));
 }
-
 
 } /* extern "C" */
