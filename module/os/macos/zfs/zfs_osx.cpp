@@ -310,21 +310,35 @@ org_openzfsonosx_zfs_zvol::stop(IOService *provider)
 
 void org_openzfsonosx_zfs_zvol::taggedRetain(const void* tag) const
 {
-    OSReportWithBacktrace(
-	"org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRetain(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
+    printf(
+	"org_openzfsonosx_zfs_zvol" CLASS_OBJECT_FORMAT_STRING "::taggedRetain(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
     IOService::taggedRetain(tag);
 }
 
 void org_openzfsonosx_zfs_zvol::taggedRelease(const void * tag) const
 {
-    OSReportWithBacktrace(
-	"org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
+    printf(
+	"org_openzfsonosx_zfs_zvol" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
     int count = getRetainCount();
     IOService::taggedRelease(tag);
     if (count == 1)
 	printf(
-	    "org_openzfsonosx_zfs_zvol_device::taggedRelease(tag=%p) final done\n", tag);
+	    "org_openzfsonosx_zfs_zvol::taggedRelease(tag=%p) final done\n", tag);
     else
 	printf(
-	    "org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p) done\n", CLASS_OBJECT_FORMAT(this), tag);
+	    "org_openzfsonosx_zfs_zvol" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p) done\n", CLASS_OBJECT_FORMAT(this), tag);
+}
+
+void org_openzfsonosx_zfs_zvol::taggedRelease(const void * tag, const int freewhen) const
+{
+    printf(
+	"org_openzfsonosx_zfs_zvol" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
+    int count = getRetainCount();
+    IOService::taggedRelease(tag, freewhen);
+    if (count == 1)
+	printf(
+	    "org_openzfsonosx_zfs_zvol::taggedRelease(tag=%p) final done\n", tag);
+    else
+	printf(
+	    "org_openzfsonosx_zfs_zvol" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p) done\n", CLASS_OBJECT_FORMAT(this), tag);
 }

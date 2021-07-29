@@ -459,6 +459,8 @@ zvol_os_clear_private(zvol_state_t *zv)
 
 	dprintf("%s\n", __func__);
 
+	printf("Removing iokit zvol for '%s'\n", zv->zv_name);
+
 	/* We can do all removal work, except call terminate. */
 	term = zvolRemoveDevice(zv);
 	if (term == NULL)
@@ -646,6 +648,7 @@ zvol_os_create_minor(const char *name)
 	dataset_kstats_create(&zv->zv_kstat, zv->zv_objset);
 
 	/* Create the IOKit zvol while owned */
+	printf("Creating iokit zvol for '%s'\n", name);
 	if ((error = zvolCreateNewDevice(zv)) != 0) {
 		dprintf("%s zvolCreateNewDevice error %d\n",
 		    __func__, error);

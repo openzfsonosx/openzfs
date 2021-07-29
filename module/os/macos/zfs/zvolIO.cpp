@@ -862,23 +862,33 @@ org_openzfsonosx_zfs_zvol_device::setWriteCacheState(bool enabled)
 
 void org_openzfsonosx_zfs_zvol_device::taggedRetain(const void* tag) const
 {
-    OSReportWithBacktrace(
-	"org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRetain(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
+	uintptr_t stack[10];
+	int count = getRetainCount();
+	getpcstack(stack, 10);
+	printf("taggedRetain: [%p] %d -> %d: 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx\n",
+		this, count, count+1, stack[0], stack[1], stack[2],
+		stack[3], stack[4], stack[5], stack[6], stack[7], stack[8]);
     IOService::taggedRetain(tag);
 }
 
 void org_openzfsonosx_zfs_zvol_device::taggedRelease(const void * tag) const
 {
-    OSReportWithBacktrace(
-	"org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p)\n", CLASS_OBJECT_FORMAT(this), tag);
-    int count = getRetainCount();
+	uintptr_t stack[10];
+	int count = getRetainCount();
+	getpcstack(stack, 10);
+	printf("taggedRelease1: [%p] %d -> %d: 0x%lx 0x%lx 0x%lx \n",
+		this, count, count-1, stack[0], stack[1], stack[2]);
     IOService::taggedRelease(tag);
-    if (count == 1)
-	printf(
-	    "org_openzfsonosx_zfs_zvol_device::taggedRelease(tag=%p) final done\n", tag);
-    else
-	printf(
-	    "org_openzfsonosx_zfs_zvol_device" CLASS_OBJECT_FORMAT_STRING "::taggedRelease(tag=%p) done\n", CLASS_OBJECT_FORMAT(this), tag);
+}
+
+void org_openzfsonosx_zfs_zvol_device::taggedRelease(const void * tag, const int freewhen) const
+{
+	uintptr_t stack[10];
+	int count = getRetainCount();
+	getpcstack(stack, 10);
+	printf("taggedRelease2: [%p] %d -> %d: 0x%lx 0x%lx 0x%lx \n",
+		this, count, count-1, stack[0], stack[1], stack[2]);
+    IOService::taggedRelease(tag, freewhen);
 }
 
 extern "C" {
@@ -910,6 +920,8 @@ zvolCreateNewDevice(zvol_state_t *zv)
 	}
 
 	zvol = new org_openzfsonosx_zfs_zvol_device;
+
+	printf("new zvol is %p\n", zvol);
 
 	/* Validate creation, initialize and attach */
 	if (!zvol || zvol->init(zv) == false ||
@@ -1048,7 +1060,7 @@ zvolRemoveDevice(zvol_state_t *zv)
 {
 	zvol_iokit_t *iokitdev = zv->zv_zso->zvo_iokitdev;
 	org_openzfsonosx_zfs_zvol_device *zvol;
-	dprintf("%s\n", __func__);
+	printf("%s: this %p\n", __func__, iokitdev);
 
 	if (!iokitdev) {
 		dprintf("%s missing argument\n", __func__);

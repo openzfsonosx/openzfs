@@ -40,7 +40,7 @@ extern "C" {
 extern size_t zvolIO_strategy(char *addr, uint64_t offset,
     size_t len, zfs_uio_rw_t rw, const void *privptr);
 
-extern void OSReportWithBacktrace(const char *str, ...);
+extern int getpcstack(uintptr_t *pcstack, int pcstack_limit);
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -83,6 +83,7 @@ public:
 
 	virtual void taggedRetain(const void* tag) const override;
 	virtual void taggedRelease(const void * tag) const override;
+	virtual void taggedRelease(const void * tag, const int) const override;
 
 private:
 	OSSet *_openClients;
@@ -154,6 +155,7 @@ public:
 
 	virtual void taggedRetain(const void* tag) const override;
 	virtual void taggedRelease(const void * tag) const override;
+	virtual void taggedRelease(const void * tag, const int) const override;
 
 };
 
