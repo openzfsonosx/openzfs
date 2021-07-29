@@ -1123,6 +1123,7 @@ zvolRenameDevice(zvol_state_t *zv)
 	 * like zpool export.
 	 */
 	/* Inform clients of this device that name has changed */
+	delay(hz<<1);
 	if (zvol->offlineDevice() != 0 ||
 	    zvol->onlineDevice() != 0) {
 		dprintf("%s media reset failed\n", __func__);
