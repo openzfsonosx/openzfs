@@ -920,42 +920,29 @@ zvolCreateNewDevice(zvol_state_t *zv)
 	return (0);
 }
 
-int
-zvolRegisterDevice(zvol_state_t *zv)
+
+/*
+ * Sometimes we need to wait for zvol name to show up.
+ * 0 means success - if ret_service is given, service is returned.
+ * Caller should release()
+ * > 0 means error of some kind
+ * -1 means timeout.
+ */
+static int
+zvolWaitForName(char *name, char *vendor, uint64_t timeout,
+    IOService **ret_service)
 {
-	org_openzfsonosx_zfs_zvol_device *zvol;
-	OSDictionary *matching;
-	IOService *service = 0;
-	IOMedia *media = 0;
-	OSString *nameStr = 0, *bsdName = 0;
-	uint64_t timeout = (5ULL * kSecondScale);
-	bool ret = false;
+    OSDictionary *matching;
+    IOService *service = 0;
+	OSString *nameStr = 0;
+	char str[MAXNAMELEN];
 
-	if (!zv || !zv->zv_zso->zvo_iokitdev || zv->zv_name[0] == 0) {
-		dprintf("%s missing zv, iokitdev, or name\n", __func__);
-		return (EINVAL);
+	snprintf(str, MAXNAMELEN, "%s %s Media",
+	    vendor, name);
+	if ((nameStr = OSString::withCString(str)) == NULL) {
+		dprintf("%s problem with name string\n", __func__);
+		return (ENOMEM);
 	}
-
-	if ((zvol = zv->zv_zso->zvo_iokitdev->dev) == NULL) {
-		dprintf("%s couldn't get zvol device\n", __func__);
-		return (EINVAL);
-	}
-
-	if (!zvol->getVendorString()) {
-		return (EINVAL);
-	}
-
-	/* Create matching string and dictionary */
-	{
-		char str[MAXNAMELEN];
-		snprintf(str, MAXNAMELEN, "%s %s Media",
-		    zvol->getVendorString(), zv->zv_name);
-		if ((nameStr = OSString::withCString(str)) == NULL) {
-			dprintf("%s problem with name string\n", __func__);
-			return (ENOMEM);
-		}
-	}
-
 
 	matching = IOService::serviceMatching("IOMedia");
 	if (!matching || !matching->setObject(gIONameMatchKey, nameStr)) {
@@ -964,20 +951,62 @@ zvolRegisterDevice(zvol_state_t *zv)
 		return (ENOMEM);
 	}
 
-	/* Register device for service matching */
-	zvol->registerService(kIOServiceAsynchronous);
-
 	/* Wait for upper layer BSD client */
-	dprintf("%s waiting for IOMedia\n", __func__);
-	/* Wait for up to 5 seconds */
+	printf("%s waiting for IOMedia\n", __func__);
+
+	/* Wait for up to `timeout` */
 	service = IOService::waitForMatchingService(matching, timeout);
 	dprintf("%s %s service\n", __func__, (service ? "got" : "no"));
 
+	nameStr->release();
+	matching->release();
+
+	if (!service)
+		return (SET_ERROR(-1));
+
+	if (ret_service != 0)
+		*ret_service = service;
+	else
+		service->release();
+
+	return (0);
+}
+
+int
+zvolRegisterDevice(zvol_state_t *zv)
+{
+	org_openzfsonosx_zfs_zvol_device *zvol;
+	IOService *service = 0;
+	IOMedia *media = 0;
+	OSString *bsdName = 0;
+	int ret = ENOENT;
+
+	if (!zv || !zv->zv_zso->zvo_iokitdev || zv->zv_name[0] == 0) {
+		dprintf("%s missing zv, iokitdev, or name\n", __func__);
+		return (SET_ERROR(EINVAL));
+	}
+
+	if ((zvol = zv->zv_zso->zvo_iokitdev->dev) == NULL) {
+		dprintf("%s couldn't get zvol device\n", __func__);
+		return (SET_ERROR(EINVAL));
+	}
+
+	if (!zvol->getVendorString()) {
+		return (SET_ERROR(EINVAL));
+	}
+
+	/* Register device for service matching */
+	zvol->registerService(kIOServiceAsynchronous);
+
+	if (zvolWaitForName(zv->zv_name, zvol->getVendorString(),
+	    (5ULL * kSecondScale), &service) != 0) {
+		dprintf("%s couldn't get matching dictionary\n", __func__);
+		return (SET_ERROR(ENOMEM));
+	}
+
 	if (!service) {
 		dprintf("%s couldn't get matching service\n", __func__);
-		nameStr->release();
-		matching->release();
-		return (false);
+		return (SET_ERROR(ENOENT));
 	}
 
 	dprintf("%s casting to IOMedia\n", __func__);
@@ -985,10 +1014,8 @@ zvolRegisterDevice(zvol_state_t *zv)
 
 	if (!media) {
 		dprintf("%s no IOMedia\n", __func__);
-		nameStr->release();
-		matching->release();
 		service->release();
-		return (false);
+		return (SET_ERROR(ENOENT));
 	}
 
 	dprintf("%s getting IOBSDNameKey\n", __func__);
@@ -1007,14 +1034,12 @@ zvolRegisterDevice(zvol_state_t *zv)
 		    zv->zv_zso->zvo_bsdname);
 		zvol_add_symlink(zv, zv->zv_zso->zvo_bsdname+1,
 		    zv->zv_zso->zvo_bsdname);
-		ret = true;
+		ret = 0;
 	} else {
 		dprintf("%s couldn't get BSD Name\n", __func__);
 	}
 
 	/* Release retain held by waitForMatchingService */
-	nameStr->release();
-	matching->release();
 	service->release();
 
 	dprintf("%s complete\n", __func__);
@@ -1102,6 +1127,11 @@ zvolRenameDevice(zvol_state_t *zv)
 	 * like zpool export.
 	 */
 	/* Inform clients of this device that name has changed */
+	if (zvolWaitForName(zv->zv_name, zvol->getVendorString(),
+	    (2ULL * kSecondScale), NULL) != 0)
+		dprintf("wait for rename failed.\n");
+
+
 	if (zvol->offlineDevice() != 0 ||
 	    zvol->onlineDevice() != 0) {
 		dprintf("%s media reset failed\n", __func__);
