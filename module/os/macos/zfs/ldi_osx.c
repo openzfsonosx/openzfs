@@ -2315,6 +2315,7 @@ ldi_bioinit(ldi_buf_t *lbp)
 	lbp->b_lblkno = 0;
 	lbp->b_resid = 0;
 	lbp->b_error = 0;
+	lbp->b_private = NULL;
 }
 
 /*
