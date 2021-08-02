@@ -37,15 +37,20 @@
 #include <sys/zio.h>
 #include <sys/ldi_osx.h>
 #include <sys/disk.h>
+#include <libkern/OSDebug.h>
 
 /*
  * Virtual device vector for disks.
  */
 
+static taskq_t *vdev_disk_taskq;
+
 /* XXX leave extern if declared elsewhere - originally was in zfs_ioctl.c */
 ldi_ident_t zfs_li;
 
 static void vdev_disk_close(vdev_t *);
+
+extern unsigned int spl_vmem_split_stack_below;
 
 typedef struct vdev_disk_ldi_cb {
 	list_node_t		lcb_next;
@@ -449,8 +454,7 @@ vdev_disk_ldi_physio(ldi_handle_t vd_lh, caddr_t data,
 static void
 vdev_disk_io_intr(ldi_buf_t *bp)
 {
-	vdev_buf_t *vb = (vdev_buf_t *)bp;
-	zio_t *zio = vb->vb_io;
+	zio_t *zio = (zio_t *)bp->b_private;
 
 	/*
 	 * The rest of the zio stack only deals with EIO, ECKSUM, and ENXIO.
@@ -469,8 +473,6 @@ vdev_disk_io_intr(ldi_buf_t *bp)
 		abd_return_buf(zio->io_abd, bp->b_un.b_addr,
 		    zio->io_size);
 	}
-
-	kmem_free(vb, sizeof (vdev_buf_t));
 
 	zio_delay_interrupt(zio);
 }
@@ -496,14 +498,72 @@ vdev_disk_ioctl_done(void *zio_arg, int error)
 }
 
 static void
+vdev_disk_io_strategy(void *arg)
+{
+	zio_t *zio = (zio_t *)arg;
+	vdev_t *vd = zio->io_vd;
+	vdev_disk_t *dvd = vd->vdev_tsd;
+	ldi_buf_t *bp = NULL;
+	int flags = 0;
+	int error = 0;
+
+	ASSERT(zio->io_abd != NULL);
+	ASSERT(zio->io_size != 0);
+
+	bp = &zio->macos.zm_buf;
+	bioinit(bp);
+
+	switch (zio->io_type) {
+
+	case ZIO_TYPE_WRITE:
+		if (zio->io_priority == ZIO_PRIORITY_SYNC_WRITE)
+			flags = B_WRITE;
+		else
+			flags = B_WRITE | B_ASYNC;
+
+		bp->b_un.b_addr =
+		    abd_borrow_buf_copy(zio->io_abd, zio->io_size);
+		break;
+
+	case ZIO_TYPE_READ:
+		if (zio->io_priority == ZIO_PRIORITY_SYNC_READ)
+			flags = B_READ;
+		else
+			flags = B_READ | B_ASYNC;
+
+		bp->b_un.b_addr =
+		    abd_borrow_buf(zio->io_abd, zio->io_size);
+		break;
+
+	default:
+		panic("unknown zio->io_type");
+	}
+
+	/* Stop OSX from also caching our data */
+	flags |= B_NOCACHE | B_PASSIVE | B_BUSY;
+
+	bp->b_flags = flags;
+	bp->b_bcount = zio->io_size;
+	bp->b_lblkno = lbtodb(zio->io_offset);
+	bp->b_bufsize = zio->io_size;
+	bp->b_iodone = (int (*)(ldi_buf_t *))vdev_disk_io_intr;
+	bp->b_private = (void *)zio;
+
+	error = ldi_strategy(dvd->vd_lh, bp);
+	if (error != 0) {
+		dprintf("%s error from ldi_strategy %d\n", __func__, error);
+		zio->io_error = SET_ERROR(EIO);
+		zio_execute(zio);
+	}
+}
+
+static void
 vdev_disk_io_start(zio_t *zio)
 {
 	vdev_t *vd = zio->io_vd;
 	vdev_disk_t *dvd = vd->vdev_tsd;
-	vdev_buf_t *vb;
 	struct dk_callback *dkc;
-	ldi_buf_t *bp = 0;
-	int flags, error = 0;
+	int error = 0;
 
 	/*
 	 * If the vdev is closed, it's likely in the REMOVED or FAULTED state.
@@ -565,20 +625,6 @@ vdev_disk_io_start(zio_t *zio)
 		zio_execute(zio);
 		return;
 
-	case ZIO_TYPE_WRITE:
-		if (zio->io_priority == ZIO_PRIORITY_SYNC_WRITE)
-			flags = B_WRITE;
-		else
-			flags = B_WRITE | B_ASYNC;
-		break;
-
-	case ZIO_TYPE_READ:
-		if (zio->io_priority == ZIO_PRIORITY_SYNC_READ)
-			flags = B_READ;
-		else
-			flags = B_READ | B_ASYNC;
-		break;
-
 	case ZIO_TYPE_TRIM:
 	{
 		dkioc_free_list_ext_t dfle;
@@ -590,6 +636,10 @@ vdev_disk_io_start(zio_t *zio)
 		return;
 	}
 
+	case ZIO_TYPE_WRITE:
+	case ZIO_TYPE_READ:
+		break;
+
 	default:
 		zio->io_error = SET_ERROR(ENOTSUP);
 		zio_execute(zio);
@@ -598,44 +648,16 @@ vdev_disk_io_start(zio_t *zio)
 
 	ASSERT(zio->io_type == ZIO_TYPE_READ || zio->io_type == ZIO_TYPE_WRITE);
 
-	/* Stop OSX from also caching our data */
-	flags |= B_NOCACHE | B_PASSIVE;
-
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 
-	vb = kmem_alloc(sizeof (vdev_buf_t), KM_SLEEP);
-
-	vb->vb_io = zio;
-	bp = &vb->vb_buf;
-
-	ASSERT(bp != NULL);
-	ASSERT(zio->io_abd != NULL);
-	ASSERT(zio->io_size != 0);
-
-	bioinit(bp);
-	bp->b_flags = B_BUSY | flags;
-	bp->b_bcount = zio->io_size;
-
-	if (zio->io_type == ZIO_TYPE_READ) {
-		bp->b_un.b_addr =
-		    abd_borrow_buf(zio->io_abd, zio->io_size);
-	} else {
-		bp->b_un.b_addr =
-		    abd_borrow_buf_copy(zio->io_abd, zio->io_size);
+	/* Start IO - possibly as taskq */
+	const vm_offset_t r = OSKernelStackRemaining();
+	if (r < spl_vmem_split_stack_below) {
+		VERIFY3U(taskq_dispatch(vdev_disk_taskq, vdev_disk_io_strategy,
+		    zio, TQ_SLEEP), !=, 0);
+		return;
 	}
-
-	bp->b_lblkno = lbtodb(zio->io_offset);
-	bp->b_bufsize = zio->io_size;
-	bp->b_iodone = (int (*)(struct ldi_buf *))vdev_disk_io_intr;
-
-	error = ldi_strategy(dvd->vd_lh, bp);
-	if (error != 0) {
-		dprintf("%s error from ldi_strategy %d\n", __func__, error);
-		zio->io_error = EIO;
-		kmem_free(vb, sizeof (vdev_buf_t));
-		zio_execute(zio);
-		// zio_interrupt(zio);
-	}
+	vdev_disk_io_strategy(zio);
 }
 
 static void
@@ -720,6 +742,21 @@ vdev_ops_t vdev_disk_ops = {
 	.vdev_op_type = VDEV_TYPE_DISK,	/* name of this vdev type */
 	.vdev_op_leaf = B_TRUE		/* leaf vdev */
 };
+
+void
+vdev_disk_init(void)
+{
+	vdev_disk_taskq = taskq_create("vdev_disk_taskq", 100, minclsyspri,
+	    max_ncpus, INT_MAX, TASKQ_PREPOPULATE | TASKQ_THREADS_CPU_PCT);
+
+	VERIFY(vdev_disk_taskq);
+}
+
+void
+vdev_disk_fini(void)
+{
+	taskq_destroy(vdev_disk_taskq);
+}
 
 /*
  * Given the root disk device devid or pathname, read the label from

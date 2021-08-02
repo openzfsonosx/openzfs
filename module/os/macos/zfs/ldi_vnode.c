@@ -602,8 +602,6 @@ buf_strategy_vnode(ldi_buf_t *lbp, struct ldi_handle *lhp)
 		vnode_startwrite(LH_VNODE(lhp));
 	}
 
-
-
 	/* Issue the IO, preserving error */
 	error = VNOP_STRATEGY(bp);
 

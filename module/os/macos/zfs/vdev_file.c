@@ -290,6 +290,9 @@ vdev_ops_t vdev_file_ops = {
 	.vdev_op_leaf = B_TRUE		/* leaf vdev */
 };
 
+extern void vdev_disk_init(void);
+extern void vdev_disk_fini(void);
+
 void
 vdev_file_init(void)
 {
@@ -297,11 +300,15 @@ vdev_file_init(void)
 	    max_ncpus, INT_MAX, TASKQ_PREPOPULATE | TASKQ_THREADS_CPU_PCT);
 
 	VERIFY(vdev_file_taskq);
+
+	vdev_disk_init();
 }
 
 void
 vdev_file_fini(void)
 {
+	vdev_disk_fini();
+
 	taskq_destroy(vdev_file_taskq);
 }
 

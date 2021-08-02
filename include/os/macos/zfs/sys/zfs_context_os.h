@@ -26,6 +26,14 @@
 #include <sys/ioctl.h>
 #include <sys/callb.h>
 
+#include <sys/ldi_buf.h>
+
+#define	ZIO_OS_FIELDS \
+	struct { \
+		ldi_buf_t	zm_buf; \
+	} macos;
+
+
 #define	MSEC_TO_TICK(msec)		((msec) / (MILLISEC / hz))
 
 #define	KMALLOC_MAX_SIZE		MAXPHYS
