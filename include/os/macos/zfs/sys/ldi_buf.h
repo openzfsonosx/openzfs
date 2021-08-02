@@ -33,6 +33,16 @@ extern "C" {
 #endif /* __cplusplus */
 
 /*
+ * Can not include C++ header in C, so we make space for it here.
+ * We check it is enough space with CTASSERT in ldi_iokit.cpp.
+ * If we one day compile everything with C++ we can embed IOStorageCompletion
+ * directly here.
+ */
+struct opaque_iocompletion {
+	void *space[3];
+};
+
+/*
  * Buffer context for LDI strategy
  */
 typedef struct ldi_buf {
@@ -47,7 +57,8 @@ typedef struct ldi_buf {
 	uint64_t	b_resid;	/* Remaining IO size */
 	int		b_flags;	/* Read or write, options */
 	int		b_error;	/* IO error code */
-	uint64_t	pad;		/* Pad to 64 bytes */
+	void	*b_private; /* caller own ptr */
+	struct opaque_iocompletion b_completion;
 } ldi_buf_t;				/* XXX Currently 64b */
 
 ldi_buf_t *ldi_getrbuf(int);

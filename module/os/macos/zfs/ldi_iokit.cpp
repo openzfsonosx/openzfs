@@ -66,6 +66,7 @@
  */
 #include <sys/ldi_impl_osx.h>
 
+
 /* Debug prints */
 
 /* Attach created IOService objects to the IORegistry under ZFS. */
@@ -1178,35 +1179,26 @@ media_from_path(const char *path = 0)
 	return (media);
 }
 
-/* Define an IOKit buffer for buf_strategy_iokit */
-typedef struct ldi_iokit_buf {
-	IOMemoryDescriptor	*iomem;
-	IOStorageCompletion	iocompletion;
-	IOStorageAttributes	ioattr;
-} ldi_iokit_buf_t;		/* XXX Currently 64b */
-
 /* Completion handler for IOKit strategy */
 static void
 ldi_iokit_io_intr(void *target, void *parameter,
     IOReturn status, UInt64 actualByteCount)
 {
-	ldi_iokit_buf_t *iobp = (ldi_iokit_buf_t *)target;
+	IOMemoryDescriptor *iomem = (IOMemoryDescriptor *)target;
+
 	ldi_buf_t *lbp = (ldi_buf_t *)parameter;
 
 #ifdef DEBUG
 	/* In debug builds, verify buffer pointers */
 	ASSERT3U(lbp, !=, 0);
-	ASSERT3U(iobp, !=, 0);
 
-	if (!iobp || !lbp) {
+	if (!lbp) {
 		printf("%s missing a buffer\n", __func__);
 		return;
 	}
 
-	ASSERT3U(iobp->iomem, !=, 0);
-
-	if (!iobp->iomem) {
-		printf("%s missing iobp->iomem\n", __func__);
+	if (!iomem) {
+		printf("%s missing iomem\n", __func__);
 		return;
 	}
 
@@ -1230,9 +1222,9 @@ ldi_iokit_io_intr(void *target, void *parameter,
 #endif
 
 	/* Complete and release IOMemoryDescriptor */
-	iobp->iomem->complete();
-	iobp->iomem->release();
-	iobp->iomem = 0;
+	iomem->complete();
+	iomem->release();
+	iomem = 0;
 
 	/* Compute resid */
 	ASSERT3U(lbp->b_bcount, >=, actualByteCount);
@@ -1246,46 +1238,10 @@ ldi_iokit_io_intr(void *target, void *parameter,
 		lbp->b_error = EIO;
 	}
 
-	/* Free IOKit buffer */
-	kmem_free(iobp, sizeof (ldi_iokit_buf_t));
-
 	/* Call original completion function */
 	if (lbp->b_iodone) {
 		(void) lbp->b_iodone(lbp);
 	}
-}
-
-/* Synchronous IO, called by buf_strategy_iokit */
-static int
-buf_sync_strategy_iokit(ldi_buf_t *lbp, ldi_iokit_buf_t *iobp,
-    struct ldi_handle *lhp)
-{
-	UInt64 actualByteCount = 0;
-	IOReturn result;
-
-#if !defined(MAC_OS_X_VERSION_10_9) || \
-  (MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_9)
-	iobp->ioattr.priority = 0;
-#endif
-	iobp->ioattr.options = 0;
-
-	/* Read or write */
-	if (lbp->b_flags & B_READ) {
-		result = LH_MEDIA(lhp)->IOStorage::read(LH_CLIENT(lhp),
-		    dbtolb(lbp->b_lblkno), iobp->iomem,
-		    &iobp->ioattr, &actualByteCount);
-	} else {
-		result = LH_MEDIA(lhp)->IOStorage::write(LH_CLIENT(lhp),
-		    dbtolb(lbp->b_lblkno), iobp->iomem,
-		    &iobp->ioattr, &actualByteCount);
-	}
-
-	/* Call completion */
-	ldi_iokit_io_intr((void *)iobp, (void *)lbp,
-	    result, actualByteCount);
-
-	/* Return success based on result */
-	return (result == kIOReturnSuccess ? 0 : EIO);
 }
 
 /*
@@ -1304,7 +1260,6 @@ buf_sync_strategy_iokit(ldi_buf_t *lbp, ldi_iokit_buf_t *iobp,
 int
 buf_strategy_iokit(ldi_buf_t *lbp, struct ldi_handle *lhp)
 {
-	ldi_iokit_buf_t *iobp = 0;
 
 	ASSERT3U(lbp, !=, NULL);
 	ASSERT3U(lhp, !=, NULL);
@@ -1318,86 +1273,94 @@ buf_strategy_iokit(ldi_buf_t *lbp, struct ldi_handle *lhp)
 	}
 #endif /* DEBUG */
 
-	/* Allocate an IOKit buffer */
-	iobp = (ldi_iokit_buf_t *)kmem_alloc(sizeof (ldi_iokit_buf_t),
-	    KM_SLEEP);
-	if (!iobp) {
-		dprintf("%s couldn't allocate buf_iokit_t\n", __func__);
-		return (ENOMEM);
-	}
-#ifdef LDI_ZERO
-	/* Zero the new buffer struct */
-	bzero(iobp, sizeof (ldi_iokit_buf_t));
-#endif
-
-	/* Set completion and attributes for async IO */
-	if (lbp->b_iodone != NULL) {
-		iobp->iocompletion.target = iobp;
-		iobp->iocompletion.parameter = lbp;
-		iobp->iocompletion.action = &ldi_iokit_io_intr;
-	}
-
-/* XXX Zeroed above if LDI_ZERO, otherwise here */
-#ifndef LDI_ZERO
-	/* XXX Zero the ioattr struct */
-	bzero(&iobp->ioattr, sizeof (IOStorageAttributes));
-#endif
-
-#if !defined(MAC_OS_X_VERSION_10_9) || \
-  (MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_9)
-	/* Priority of I/O */
-	if (lbp->b_flags & B_THROTTLED_IO) {
-		lbp->b_flags &= ~B_THROTTLED_IO;
-		iobp->ioattr.priority = kIOStoragePriorityBackground;
-		if (lbp->b_flags & B_WRITE)
-			iobp->ioattr.priority--;
-	}
-	else if ((lbp->b_flags & B_ASYNC) == 0 || (lbp->b_flags & B_WRITE))
-		iobp->ioattr.priority = kIOStoragePriorityDefault - 1;
-	else
-		iobp->ioattr.priority = kIOStoragePriorityDefault;
-#endif
-
 	/* Allocate a memory descriptor pointing to the data address */
-	iobp->iomem = IOMemoryDescriptor::withAddress(
+	IOMemoryDescriptor	*iomem;
+	iomem = IOMemoryDescriptor::withAddress(
 	    lbp->b_un.b_addr, lbp->b_bcount,
 	    (lbp->b_flags & B_READ ? kIODirectionIn : kIODirectionOut));
 
 	/* Verify the buffer */
-	if (!iobp->iomem || iobp->iomem->getLength() != lbp->b_bcount ||
-	    iobp->iomem->prepare() != kIOReturnSuccess) {
+	if (!iomem || iomem->getLength() != lbp->b_bcount ||
+	    iomem->prepare() != kIOReturnSuccess) {
 		dprintf("%s couldn't allocate IO buffer\n",
 		    __func__);
-		if (iobp->iomem) {
-			iobp->iomem->release();
+		if (iomem) {
+			iomem->release();
 		}
-		kmem_free(iobp, sizeof (ldi_iokit_buf_t));
 		return (ENOMEM);
 	}
 
 	/* Recheck instantaneous value of handle status */
 	if (lhp->lh_status != LDI_STATUS_ONLINE) {
 		dprintf("%s device not online\n", __func__);
-		iobp->iomem->complete();
-		iobp->iomem->release();
-		kmem_free(iobp, sizeof (ldi_iokit_buf_t));
+		iomem->complete();
+		iomem->release();
 		return (ENODEV);
 	}
 
+	IOStorageAttributes	ioattr = { 0 };
+
 	/* Synchronous or async */
 	if (lbp->b_iodone == NULL) {
-		return (buf_sync_strategy_iokit(lbp, iobp, lhp));
+		UInt64 actualByteCount = 0;
+		IOReturn result;
+
+		/* Read or write */
+		if (lbp->b_flags & B_READ) {
+			result = LH_MEDIA(lhp)->IOStorage::read(LH_CLIENT(lhp),
+			    dbtolb(lbp->b_lblkno), iomem,
+			    &ioattr, &actualByteCount);
+		} else {
+			result = LH_MEDIA(lhp)->IOStorage::write(LH_CLIENT(lhp),
+				dbtolb(lbp->b_lblkno), iomem,
+				&ioattr, &actualByteCount);
+		}
+
+		/* Call completion */
+		ldi_iokit_io_intr((void *)iomem, (void *)lbp,
+		    result, actualByteCount);
+
+		/* Return success based on result */
+		return (result == kIOReturnSuccess ? 0 : EIO);
 	}
+
+#if !defined(MAC_OS_X_VERSION_10_9) || \
+  (MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_9)
+	/* Priority of I/O */
+	if (lbp->b_flags & B_THROTTLED_IO) {
+		lbp->b_flags &= ~B_THROTTLED_IO;
+		ioattr.priority = kIOStoragePriorityBackground;
+		if (lbp->b_flags & B_WRITE)
+			ioattr.priority--;
+	} else if ((lbp->b_flags & B_ASYNC) == 0 || (lbp->b_flags & B_WRITE))
+		ioattr.priority = kIOStoragePriorityDefault - 1;
+	else
+		ioattr.priority = kIOStoragePriorityDefault;
+#endif
+
+	/*
+	 * Make sure there is enough space to hold IOCompletion.
+	 * If this trips, increase the space in ldi_buf.h's
+	 * struct opaque_iocompletion.
+	 */
+	CTASSERT(sizeof (struct opaque_iocompletion) >=
+	    sizeof (struct IOStorageCompletion));
+
+	IOStorageCompletion	*iocompletion;
+	iocompletion = (IOStorageCompletion *)&lbp->b_completion;
+	iocompletion->target = (void *)iomem;
+	iocompletion->parameter = lbp;
+	iocompletion->action = &ldi_iokit_io_intr;
 
 	/* Read or write */
 	if (lbp->b_flags & B_READ) {
 		LH_MEDIA(lhp)->IOMedia::read(LH_CLIENT(lhp),
-		    dbtolb(lbp->b_lblkno), iobp->iomem,
-		    &iobp->ioattr, &iobp->iocompletion);
+		    dbtolb(lbp->b_lblkno), iomem,
+		    &ioattr, iocompletion);
 	} else {
 		LH_MEDIA(lhp)->IOMedia::write(LH_CLIENT(lhp),
-		    dbtolb(lbp->b_lblkno), iobp->iomem,
-		    &iobp->ioattr, &iobp->iocompletion);
+		    dbtolb(lbp->b_lblkno), iomem,
+		    &ioattr, iocompletion);
 	}
 
 	/* Return success, will call io_intr when done */
