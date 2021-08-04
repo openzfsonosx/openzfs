@@ -1742,14 +1742,14 @@ vmem_xfree(vmem_t *vmp, void *vaddr, size_t size)
 
 /*
  * If there is less space on the kernel stack than
- * (dynamically tunable) spl_vmem_split_stack_below
+ * (dynamically tunable) spl_split_stack_below
  * then perform the vmem_alloc in the thread_call
  * function
  */
-unsigned int spl_vmem_split_stack_below = 8192;
+unsigned int spl_split_stack_below = 8192;
 
 /* kstat tracking the global minimum free stack space */
-_Atomic unsigned int spl_lowest_stack_remaining = UINT_MAX;
+_Atomic unsigned int spl_lowest_alloc_stack_remaining = UINT_MAX;
 
 /* forward decls */
 static inline void *wrapped_vmem_alloc(vmem_t *, size_t, int);
@@ -1784,8 +1784,8 @@ vmem_alloc(vmem_t *vmp, size_t size, int vmflag)
 		return (wrapped_vmem_alloc(vmp, size, vmflag));
 	}
 
-	if (r < spl_lowest_stack_remaining ||
-	    r < spl_vmem_split_stack_below) {
+	if (r < spl_lowest_alloc_stack_remaining ||
+	    r < spl_split_stack_below) {
 		return (vmem_alloc_in_worker_thread(vmp, size, vmflag));
 	}
 
@@ -1870,8 +1870,8 @@ vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 
 	const vm_offset_t sr = OSKernelStackRemaining();
 
-	if (sr < spl_lowest_stack_remaining)
-		spl_lowest_stack_remaining = sr;
+	if (sr < spl_lowest_alloc_stack_remaining)
+		spl_lowest_alloc_stack_remaining = sr;
 
 	/*
 	 * Loop until we can grab cb_busy flag for ourselves:
