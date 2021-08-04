@@ -44,13 +44,14 @@
  */
 
 static taskq_t *vdev_disk_taskq;
+_Atomic unsigned int spl_lowest_vdev_disk_stack_remaining = UINT_MAX;
 
 /* XXX leave extern if declared elsewhere - originally was in zfs_ioctl.c */
 ldi_ident_t zfs_li;
 
 static void vdev_disk_close(vdev_t *);
 
-extern unsigned int spl_vmem_split_stack_below;
+extern unsigned int spl_split_stack_below;
 
 typedef struct vdev_disk_ldi_cb {
 	list_node_t		lcb_next;
@@ -650,9 +651,17 @@ vdev_disk_io_start(zio_t *zio)
 
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 
-	/* Start IO - possibly as taskq */
+	/*
+	 * Check stack remaining, record lowest.  If below
+	 * threshold start IO on taskq, otherwise on this
+	 * thread.
+	 */
 	const vm_offset_t r = OSKernelStackRemaining();
-	if (r < spl_vmem_split_stack_below) {
+
+	if (r < spl_lowest_vdev_disk_stack_remaining)
+		spl_lowest_vdev_disk_stack_remaining = r;
+
+	if (r < spl_split_stack_below) {
 		VERIFY3U(taskq_dispatch(vdev_disk_taskq, vdev_disk_io_strategy,
 		    zio, TQ_SLEEP), !=, 0);
 		return;
