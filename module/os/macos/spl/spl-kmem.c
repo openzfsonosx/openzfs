@@ -512,6 +512,7 @@ uint64_t kmem_free_to_slab_when_fragmented = 0;
 
 /* stack splitting via thread_call (vmem_alloc) or taskq (vdev_disk) */
 extern _Atomic unsigned int spl_lowest_vdev_disk_stack_remaining;
+extern _Atomic unsigned int spl_lowest_zvol_stack_remaining;
 extern _Atomic unsigned int spl_lowest_alloc_stack_remaining;
 extern unsigned int spl_split_stack_below;
 
@@ -581,6 +582,7 @@ typedef struct spl_stats {
 	kstat_named_t spl_vm_pressure_level;
 	kstat_named_t spl_lowest_alloc_stack_remaining;
 	kstat_named_t spl_lowest_vdev_disk_stack_remaining;
+	kstat_named_t spl_lowest_zvol_stack_remaining;
 	kstat_named_t spl_split_stack_below;
 } spl_stats_t;
 
@@ -650,6 +652,7 @@ static spl_stats_t spl_stats = {
 	{"spl_vm_pressure_level", KSTAT_DATA_UINT64},
 	{"lowest_alloc_stack_remaining", KSTAT_DATA_UINT64},
 	{"lowest_vdev_disk_stack_remaining", KSTAT_DATA_UINT64},
+	{"lowest_zvol_stack_remaining", KSTAT_DATA_UINT64},
 	{"split_stack_below", KSTAT_DATA_UINT64},
 };
 
@@ -5055,6 +5058,8 @@ spl_kstat_update(kstat_t *ksp, int rw)
 		    spl_lowest_alloc_stack_remaining;
 		ks->spl_lowest_vdev_disk_stack_remaining.value.ui64 =
 		    spl_lowest_vdev_disk_stack_remaining;
+		ks->spl_lowest_zvol_stack_remaining.value.ui64 =
+		    spl_lowest_zvol_stack_remaining;
 		ks->spl_split_stack_below.value.ui64 =
 		    spl_split_stack_below;
 	}
