@@ -41,6 +41,7 @@
 #include <sys/zvol_os.h>
 #include <sys/zvolIO.h>
 #include <sys/fm/fs/zfs.h>
+#include <libkern/OSDebug.h>
 
 static uint32_t zvol_major = ZVOL_MAJOR;
 
@@ -51,13 +52,24 @@ unsigned int zvol_threads = 8;
 
 taskq_t *zvol_taskq;
 
+extern unsigned int spl_split_stack_below;
+_Atomic unsigned int spl_lowest_zvol_stack_remaining = UINT_MAX;
+
 typedef struct zv_request {
-	zvol_state_t	*zv;
+	zvol_state_t	*zv_zv;
 
-	void (*zv_func)(void *);
+	union {
+		void (*zv_func)(zvol_state_t *, void *);
+		int (*zv_ifunc)(zvol_state_t *, void *);
+	};
 	void *zv_arg;
+	int zv_rv;
 
-	taskq_ent_t	ent;
+	/* Used with zv_ifunc to wait for completion */
+	kmutex_t zv_lock;
+	kcondvar_t zv_cv;
+
+	taskq_ent_t	zv_ent;
 } zv_request_t;
 
 #define	ZVOL_LOCK_HELD		(1<<0)
@@ -68,24 +80,70 @@ static void
 zvol_os_spawn_cb(void *param)
 {
 	zv_request_t *zvr = (zv_request_t *)param;
-
-	zvr->zv_func(zvr->zv_arg);
-
+	zvr->zv_func(zvr->zv_zv, zvr->zv_arg);
 	kmem_free(zvr, sizeof (zv_request_t));
 }
 
 static void
-zvol_os_spawn(void (*func)(void *), void *arg)
+zvol_os_spawn(zvol_state_t *zv,
+    void (*func)(zvol_state_t *, void *), void *arg)
 {
 	zv_request_t *zvr;
 	zvr = kmem_alloc(sizeof (zv_request_t), KM_SLEEP);
+	zvr->zv_zv = zv;
 	zvr->zv_arg = arg;
 	zvr->zv_func = func;
 
-	taskq_init_ent(&zvr->ent);
+	taskq_init_ent(&zvr->zv_ent);
 
 	taskq_dispatch_ent(zvol_taskq,
-	    zvol_os_spawn_cb, zvr, 0, &zvr->ent);
+	    zvol_os_spawn_cb, zvr, 0, &zvr->zv_ent);
+}
+
+static void
+zvol_os_spawn_wait_cb(void *param)
+{
+	zv_request_t *zvr = (zv_request_t *)param;
+
+	zvr->zv_rv = zvr->zv_ifunc(zvr->zv_zv, zvr->zv_arg);
+
+	zvr->zv_func = NULL;
+	mutex_enter(&zvr->zv_lock);
+	cv_broadcast(&zvr->zv_cv);
+	mutex_exit(&zvr->zv_lock);
+}
+
+static int
+zvol_os_spawn_wait(zvol_state_t *zv,
+    int (*func)(zvol_state_t *, void *), void *arg)
+{
+	int rv;
+	zv_request_t *zvr;
+	zvr = kmem_alloc(sizeof (zv_request_t), KM_SLEEP);
+	zvr->zv_zv = zv;
+	zvr->zv_arg = arg;
+	zvr->zv_ifunc = func;
+
+	taskq_init_ent(&zvr->zv_ent);
+	cv_init(&zvr->zv_cv, NULL, CV_DEFAULT, NULL);
+	mutex_init(&zvr->zv_lock, NULL, MUTEX_DEFAULT, NULL);
+
+	mutex_enter(&zvr->zv_lock);
+
+	taskq_dispatch_ent(zvol_taskq,
+	    zvol_os_spawn_wait_cb, zvr, 0, &zvr->zv_ent);
+
+	/* Make sure it ran, by waiting */
+	cv_wait(&zvr->zv_cv, &zvr->zv_lock);
+	mutex_exit(&zvr->zv_lock);
+
+	mutex_destroy(&zvr->zv_lock);
+	cv_destroy(&zvr->zv_cv);
+
+	VERIFY3P(zvr->zv_ifunc, ==, NULL);
+	rv = zvr->zv_rv;
+	kmem_free(zvr, sizeof (zv_request_t));
+	return (rv);
 }
 
 /*
@@ -200,9 +258,8 @@ zvol_os_verify_lock_exit(zvol_state_t *zv, int locks)
 }
 
 static void
-zvol_os_register_device_cb(void *param)
+zvol_os_register_device_cb(zvol_state_t *zv, void *param)
 {
-	zvol_state_t *zv = (zvol_state_t *)param;
 	int locks;
 
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
@@ -227,9 +284,10 @@ zvol_os_read(dev_t dev, struct uio *uio, int p)
 	return (ENOTSUP);
 }
 
-int
-zvol_os_write_zv(zvol_state_t *zv, zfs_uio_t *uio)
+static int
+zvol_os_write_zv_impl(zvol_state_t *zv, void *param)
 {
+	zfs_uio_t *uio = (zfs_uio_t *)param;
 	int error = 0;
 
 	if (zv == NULL)
@@ -306,8 +364,25 @@ zvol_os_write_zv(zvol_state_t *zv, zfs_uio_t *uio)
 }
 
 int
-zvol_os_read_zv(zvol_state_t *zv, zfs_uio_t *uio)
+zvol_os_write_zv(zvol_state_t *zv, zfs_uio_t *uio)
 {
+	/* Start IO - possibly as taskq */
+	const vm_offset_t r = OSKernelStackRemaining();
+
+	if (r < spl_lowest_zvol_stack_remaining)
+		spl_lowest_zvol_stack_remaining = r;
+
+	if (zfs_uio_resid(uio) != 0 &&
+	    r < spl_split_stack_below)
+		return (zvol_os_spawn_wait(zv, zvol_os_write_zv_impl, uio));
+
+	return (zvol_os_write_zv_impl(zv, uio));
+}
+
+int
+zvol_os_read_zv_impl(zvol_state_t *zv, void *param)
+{
+	zfs_uio_t *uio = (zfs_uio_t *)param;
 	int error = 0;
 
 	ASSERT3P(zv, !=, NULL);
@@ -344,6 +419,22 @@ zvol_os_read_zv(zvol_state_t *zv, zfs_uio_t *uio)
 
 
 	return (error);
+}
+
+int
+zvol_os_read_zv(zvol_state_t *zv, zfs_uio_t *uio)
+{
+	/* Start IO - possibly as taskq */
+	const vm_offset_t r = OSKernelStackRemaining();
+
+	if (r < spl_lowest_zvol_stack_remaining)
+		spl_lowest_zvol_stack_remaining = r;
+
+	if (zfs_uio_resid(uio) != 0 &&
+	    r < spl_split_stack_below)
+		return (zvol_os_spawn_wait(zv, zvol_os_read_zv_impl, uio));
+
+	return (zvol_os_read_zv_impl(zv, uio));
 }
 
 int
@@ -447,7 +538,7 @@ zvol_os_update_volsize(zvol_state_t *zv, uint64_t volsize)
 }
 
 static void
-zvol_os_clear_private_cb(void *param)
+zvol_os_clear_private_cb(zvol_state_t *zv, void *param)
 {
 	zvolRemoveDeviceTerminate(param);
 }
@@ -469,7 +560,7 @@ zvol_os_clear_private(zvol_state_t *zv)
 	zv->zv_zso->zvo_iokitdev = NULL;
 
 	/* Call terminate in the background */
-	zvol_os_spawn(zvol_os_clear_private_cb, term);
+	zvol_os_spawn(zv, zvol_os_clear_private_cb, term);
 
 }
 
@@ -664,7 +755,7 @@ out_doi:
 
 		/* Register (async) IOKit zvol after disown and unlock */
 		/* The callback with release the mutex */
-		zvol_os_spawn(zvol_os_register_device_cb, zv);
+		zvol_os_spawn(zv, zvol_os_register_device_cb, NULL);
 
 	} else {
 
@@ -675,10 +766,10 @@ out_doi:
 }
 
 
-static void zvol_os_rename_device_cb(void *param)
+static void zvol_os_rename_device_cb(zvol_state_t *zv, void *param)
 {
-	zvol_state_t *zv = (zvol_state_t *)param;
 	int locks;
+
 	if ((locks = zvol_os_verify_and_lock(zv, zv->zv_open_count == 0)) == 0)
 		return;
 
@@ -706,7 +797,7 @@ zvol_os_rename_minor(zvol_state_t *zv, const char *newname)
 	hlist_del(&zv->zv_hlink);
 	hlist_add_head(&zv->zv_hlink, ZVOL_HT_HEAD(zv->zv_hash));
 
-	zvol_os_spawn(zvol_os_rename_device_cb, zv);
+	zvol_os_spawn(zv, zvol_os_rename_device_cb, NULL);
 
 	/*
 	 * The block device's read-only state is briefly changed causing
