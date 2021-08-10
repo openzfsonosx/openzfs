@@ -1895,8 +1895,27 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 		if (vap->va_flags & UF_COMPRESSED) {
 			zp->z_skip_truncate_undo_decmpfs = B_TRUE;
 			dprintf("setattr trying to set COMPRESSED!\n");
-			/* We return failure here, stops libarchive */
-			return (SET_ERROR(ENOTSUP));
+
+			vap->va_flags &= ~UF_COMPRESSED;
+
+			if (zp->z_size == 0) {
+				dprintf("zero-length file, returning EINVAL\n");
+				return (EINVAL);
+			}
+
+			/* delete the xattr, can be either of 2 names */
+			error = zpl_xattr_set(ap->a_vp, DECMPFS_XATTR_NAME,
+			    NULL, 0, cr);
+			dprintf("del xattr '%s': %d\n", DECMPFS_XATTR_NAME,
+			    error);
+			error = zpl_xattr_set(ap->a_vp, XATTR_RESOURCEFORK_NAME,
+			    NULL, 0, cr);
+			dprintf("del xattr '%s': %d\n", XATTR_RESOURCEFORK_NAME,
+			    error);
+
+			if (error != 0)
+				dprintf("setattr failed to delete xattr?!\n");
+
 		}
 		/* Map OS X file flags to zfs file flags */
 		zfs_setbsdflags(zp, vap->va_flags);
@@ -1921,13 +1940,10 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 
 		dprintf("setattr setsize with compress attempted\n");
 
-		if (zpl_xattr_set(ap->a_vp, DECMPFS_XATTR_NAME, NULL,
-		    0, cr) == 0) {
-			/* Successfully deleted the XATTR - skip truncate */
-			VATTR_CLEAR_ACTIVE(vap, va_total_size);
-			VATTR_CLEAR_ACTIVE(vap, va_data_size);
-			dprintf("setattr skipping truncate!\n");
-		}
+		/* Successfully deleted the XATTR - skip truncate */
+		VATTR_CLEAR_ACTIVE(vap, va_total_size);
+		VATTR_CLEAR_ACTIVE(vap, va_data_size);
+
 	}
 
 	error = zfs_setattr(VTOZ(ap->a_vp), ap->a_vap, /* flag */0, cr);
