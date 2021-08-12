@@ -34,7 +34,7 @@
 
 typedef struct ucred cred_t;
 
-#define	kcred	(cred_t *)NOCRED
+#define	kcred	spl_kcred()
 #define	CRED()	(cred_t *)kauth_cred_get()
 #define	KUID_TO_SUID(x)		(x)
 #define	KGID_TO_SGID(x)		(x)
@@ -65,6 +65,7 @@ extern int crgetngroups(const cred_t *cr);
 extern gid_t *crgetgroups(const cred_t *cr);
 extern void crgetgroupsfree(gid_t *gids);
 extern int spl_cred_ismember_gid(cred_t *cr, gid_t gid);
+extern cred_t *spl_kcred(void);
 
 #define	crgetsid(cred, i)	(NULL)
 
