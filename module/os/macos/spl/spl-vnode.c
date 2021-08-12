@@ -27,6 +27,7 @@
  */
 
 #include <sys/sysmacros.h>
+#include <sys/kauth.h>
 #include <sys/vnode.h>
 #include <sys/debug.h>
 #include <sys/malloc.h>
@@ -449,4 +450,21 @@ vnode_iocount(struct vnode *vp)
 	binvp = (int32_t *)vp;
 
 	return (binvp[25]);
+}
+
+cred_t *
+spl_kcred(void)
+{
+	cred_t *ret;
+
+	/*
+	 * How bad is it to return a released reference?
+	 * We have no way to return it when we are done with it. But
+	 * it is the kernel, so it should not go away.
+	 */
+	cred_t *cr = kauth_cred_proc_ref(kernproc);
+	ret = cr;
+	kauth_cred_unref(&cr);
+
+	return (ret);
 }
