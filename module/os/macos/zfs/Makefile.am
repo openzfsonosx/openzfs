@@ -35,11 +35,9 @@ zfs_CPPFLAGS += @KERNEL_DEBUG_CPPFLAGS@
 
 zfs_CFLAGS = -Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conditional-uninitialized
 zfs_CFLAGS += -Wno-shadow -Wno-implicit-int-conversion
-zfs_CFLAGS += -finline-hint-functions
 
 zfs_CXXFLAGS = -Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conditional-uninitialized
 zfs_CXXFLAGS += -std=gnu++11
-zfs_CXXFLAGS += -finline-hint-functions
 
 zfs_LDFLAGS = \
 	-Xlinker \

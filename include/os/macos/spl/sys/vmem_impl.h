@@ -155,7 +155,7 @@ struct vmem {
 	thread_call_t	vm_stack_call_thread; /* worker thread for vmem_alloc */
 	kmutex_t	vm_stack_lock; /* synchronize with worker thread */
 	kcondvar_t	vm_stack_cv;
-	_Atomic bool	vm_cb_busy; /* gateway before thread_call_enter1() */
+	_Atomic int	vm_cb_busy; /* gateway before thread_call_enter1() */
 };
 
 #ifdef	__cplusplus
