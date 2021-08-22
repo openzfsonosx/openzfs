@@ -8,7 +8,7 @@ libspl_la_CPPFLAGS= \
 	-mkernel \
 	-fno-builtin-printf \
 	-Wframe-larger-than=400 \
-	-finline-hint-functions \
+	$(INLINE_HINT_FUNCTIONS) \
 	-D_KERNEL \
 	-DKERNEL \
 	-DKERNEL_PRIVATE \
