@@ -33,6 +33,7 @@
 #include <sys/condvar.h>
 #include <sys/thread.h>
 #include <sys/systm.h>
+#include <stdbool.h>
 
 #ifdef	__cplusplus
 extern "C" {

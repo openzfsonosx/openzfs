@@ -2331,11 +2331,18 @@ vmem_create_common(const char *name, void *base, size_t size, size_t quantum,
 	mutex_init(&vmp->vm_stack_lock, "lock for thread call",
 	    MUTEX_DEFAULT, NULL);
 	cv_init(&vmp->vm_stack_cv, NULL, CV_DEFAULT, NULL);
+
+#if defined(MAC_OS_X_VERSION_10_13) && \
+	(MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_13)
 	vmp->vm_stack_call_thread = thread_call_allocate_with_options(
 	    (thread_call_func_t)vmem_alloc_update_lowest_cb,
 	    (thread_call_param_t)vmp,
 	    THREAD_CALL_PRIORITY_KERNEL,
 	    0);
+#else
+	vmp->vm_stack_call_thread = thread_call_allocate(
+	    vmem_alloc_update_lowest_cb, vmp);
+#endif
 
 	printf("SPL: %s:%d: setup of %s done\n",
 	    __func__, __LINE__, vmp->vm_name);
