@@ -32,12 +32,6 @@
 #include "zed_log.h"
 #include "zed_strings.h"
 
-#ifdef __APPLE__
-ssize_t readv(int, const struct iovec *, int);
-ssize_t writev(int, const struct iovec *, int);
-#endif
-
-
 /*
  * Initialise the configuration with default values.
  */

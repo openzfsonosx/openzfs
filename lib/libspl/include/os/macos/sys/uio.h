@@ -37,8 +37,8 @@
  * contributors.
  */
 
-#ifndef	_LIBSPL_SYS_UIO_H
-#define	_LIBSPL_SYS_UIO_H
+#ifndef	_LIBSPL_OSX_SYS_UIO_H
+#define	_LIBSPL_OSX_SYS_UIO_H
 
 #include <sys/kernel_types.h>
 #include_next <sys/uio.h>
@@ -46,6 +46,8 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+#include <sys/_types/_iovec_t.h>
 
 #include <sys/types.h>
 #include <sys/errno.h>
@@ -57,19 +59,19 @@ extern "C" {
  * structure to reflect what was done.
  */
 
-typedef struct iovec iovec_t;
-
+ssize_t readv(int, const struct iovec *, int);
+ssize_t writev(int, const struct iovec *, int);
 
 /*
  * I/O direction.
  */
-// typedef enum uio_rw { UIO_READ, UIO_WRITE } uio_rw_t;
 
 /*
  * Segment flag values.
  */
 typedef enum uio_seg { UIO_USERSPACE, UIO_SYSSPACE, UIO_USERISPACE } uio_seg_t;
 
+typedef enum uio_seg  zfs_uio_seg_t;
 
 struct uio {
 	struct iovec	*uio_iov;	/* pointer to array of iovecs */
@@ -104,7 +106,7 @@ void uio_setrw(uio_t *a_uio, int a_value);
 int	uiomove(void *, uint32_t, enum uio_rw, struct uio *);
 int	spllib_uiomove(const uint8_t *, uint32_t, struct uio *);
 void uioskip(struct uio *, uint32_t);
-int	uiodup(struct uio *, struct uio *, iovec_t *, int);
+int	uiodup(struct uio *, struct uio *, struct iovec *, int);
 
 // xuio struct is not used in this platform, but we define it
 // to allow compilation and easier patching

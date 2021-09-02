@@ -223,6 +223,9 @@ extern int zfs_uio_prefaultpages(ssize_t, zfs_uio_t *);
 #define	zfs_uio_fault_disable(uio, set)
 #define	zfs_uio_fault_move(p, n, rw, u) zfs_uiomove((p), (n), (rw), (u))
 
+ssize_t readv(int, const struct iovec *, int);
+ssize_t writev(int, const struct iovec *, int);
+
 #ifdef  __cplusplus
 }
 #endif

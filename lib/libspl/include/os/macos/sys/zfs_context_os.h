@@ -56,8 +56,6 @@
 struct spa_iokit;
 typedef struct spa_iokit spa_iokit_t;
 
-typedef off_t loff_t;
-
 #define	zc_fd_offset zc_zoneid
 
 struct zfs_handle;
