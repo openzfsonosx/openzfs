@@ -882,9 +882,6 @@ zfs_slm_deliver_event(const char *class, const char *subclass, nvlist_t *nvl)
 static void *
 zfs_enum_pools(void *arg)
 {
-#ifdef __APPLE__
-	pthread_setname_np("enum-pools");
-#endif
 	(void) zpool_iter(g_zfshdl, zfs_unavail_pool, (void *)&g_pool_list);
 	/*
 	 * Linux - instead of using a thread pool, each list entry
@@ -921,9 +918,7 @@ zfs_slm_init()
 		return (-1);
 	}
 
-#ifndef __APPLE__
 	pthread_setname_np(g_zfs_tid, "enum-pools");
-#endif
 	list_create(&g_device_list, sizeof (struct pendingdev),
 	    offsetof(struct pendingdev, pd_node));
 
