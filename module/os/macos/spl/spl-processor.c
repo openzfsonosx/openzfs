@@ -30,7 +30,10 @@
 extern int cpu_number(void);
 
 #ifdef __x86_64__
-#define	cpuid(func, a, b, c, d) \
+
+#include <i386/cpuid.h>
+
+#define	_spl_cpuid(func, a, b, c, d)			\
 	__asm__ __volatile__( \
 	"        pushq %%rbx        \n" \
 	"        xorq %%rcx,%%rcx   \n" \
@@ -38,14 +41,17 @@ extern int cpu_number(void);
 	"        movq %%rbx, %%rsi  \n" \
 	"        popq %%rbx         \n" : \
 	"=a" (a), "=S" (b), "=c" (c), "=d" (d) : "a" (func))
+
 #else /* Add ARM */
-#define	cpuid(func, a, b, c, d) \
+
+#define	_spl_cpuid(func, a, b, c, d)				\
 	a = b = c = d = 0
+
 #endif
 
-static uint64_t cpuid_features = 0ULL;
-static uint64_t cpuid_features_leaf7 = 0ULL;
-static boolean_t cpuid_has_xgetbv = B_FALSE;
+static uint64_t _spl_cpuid_features = 0ULL;
+static uint64_t _spl_cpuid_features_leaf7 = 0ULL;
+static boolean_t _spl_cpuid_has_xgetbv = B_FALSE;
 
 uint32_t
 getcpuid()
@@ -61,28 +67,45 @@ getcpuid()
 uint64_t
 spl_cpuid_features(void)
 {
+
+#if defined(__aarch64__)
+
+	// Find arm64 solution.
+	_spl_cpuid_has_xgetbv = B_FALSE; /* Silence unused */
+
+#else /* X64 */
+
 	static int first_time = 1;
 	uint64_t a, b, c, d;
 
 	if (first_time == 1) {
 		first_time = 0;
-		cpuid(0, a, b, c, d);
+		// Wikipedia: stored in EAX, EBX, EDX, ECX (in that order).
+		_spl_cpuid(0, a, b, d, c);
 		if (a >= 1) {
-			cpuid(1, a, b, c, d);
-			cpuid_features = d;
-			cpuid_has_xgetbv = (c & 0x08000000); // number->#define
+			_spl_cpuid(1, a, b, d, c);
+			_spl_cpuid_features = d | (c << 32);
+
+			// GETBV is bit 26 in ECX. Apple defines it as:
+			// CPUID_FEATURE_XSAVE _HBit(26)
+			// ( ECX & (1 << 26)
+			// or, (feature & 400000000000000)
+			_spl_cpuid_has_xgetbv =
+			    _spl_cpuid_features & CPUID_FEATURE_XSAVE;
 		}
 		if (a >= 7) {
-			cpuid(7, a, b, c, d);
-			cpuid_features_leaf7 = b;
-			cpuid_features_leaf7 |= (c << 32);
+			c = 0;
+			_spl_cpuid(7, a, b, d, c);
+			_spl_cpuid_features_leaf7 = b | (c << 32);
 		}
 	}
-	return (cpuid_features);
+#endif
+
+	return (_spl_cpuid_features);
 }
 
 uint64_t
 spl_cpuid_leaf7_features(void)
 {
-	return (cpuid_features_leaf7);
+	return (_spl_cpuid_features_leaf7);
 }
