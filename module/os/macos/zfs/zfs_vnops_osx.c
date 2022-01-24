@@ -1317,6 +1317,7 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 			vnode_put(*ap->a_vpp);
 		}
 		/* Negatives are only followed if not CREATE, from HFS+. */
+
 		if (cnp->cn_nameiop != CREATE) {
 			if (!zfs_vnop_ignore_negatives) {
 				goto exit; /* Negative cache hit */
@@ -1354,21 +1355,23 @@ zfs_vnop_lookup(struct vnop_lookup_args *ap)
 	 * It appears that VFS layer adds negative cache entries for us, so
 	 * we do not need to add them here, or they are duplicated.
 	 */
-	if ((error == ENOENT) && zfs_vnop_create_negatives) {
-		if ((ap->a_cnp->cn_nameiop == CREATE ||
-		    ap->a_cnp->cn_nameiop == RENAME) &&
-		    (cnp->cn_flags & ISLASTCN)) {
-			error = EJUSTRETURN;
-			goto exit;
-		}
-		/* Insert name into cache (as non-existent) if appropriate. */
-		if ((cnp->cn_flags & MAKEENTRY) &&
-		    ap->a_cnp->cn_nameiop != CREATE) {
-			cache_enter(ap->a_dvp, NULL, ap->a_cnp);
-			dprintf("Negative-cache made for '%s'\n",
-			    filename);
-		}
-	} /* ENOENT */
+	if (!negative_cache) {
+		if ((error == ENOENT) && zfs_vnop_create_negatives) {
+			if ((ap->a_cnp->cn_nameiop == CREATE ||
+			    ap->a_cnp->cn_nameiop == RENAME) &&
+			    (cnp->cn_flags & ISLASTCN)) {
+				error = EJUSTRETURN;
+				goto exit;
+			}
+			/* Insert name into cache (non-existent) */
+			if ((cnp->cn_flags & MAKEENTRY) &&
+			    ap->a_cnp->cn_nameiop != CREATE) {
+				cache_enter(ap->a_dvp, NULL, ap->a_cnp);
+				dprintf("Negative-cache made for '%s'\n",
+				    filename);
+			}
+		} /* ENOENT */
+	}
 #endif
 
 exit:
@@ -1417,13 +1420,73 @@ zfs_vnop_create(struct vnop_create_args *ap)
 	 */
 	excl = (vap->va_vaflags & VA_EXCLUSIVE) ? EXCL : NONEXCL;
 
+	/*
+	 * This comment is from HFS: hfs_vnops.c
+	 * Note that our [xnu] NFS server code does not set the
+	 * VA_EXCLUSIVE flag so you cannot assume that callers don't want
+	 * EEXIST errors if it's not set.  The common case, where users
+	 * are calling open with the O_CREAT mode, is handled in VFS; when
+	 * we return EEXIST, it will loop and do the look-up again.
+	 */
+	excl = EXCL;
+
+	dprintf("*** %s: with %x: %s: mode supplied %o: UTIME_NULL is %s\n",
+		__func__, excl,
+		excl ? "EXCL" : "NONEXCL",
+		vap->va_mode,
+		vap->va_vaflags & VA_UTIMES_NULL ? "set" : "not set");
+
+	if (VATTR_IS_ACTIVE(vap, va_access_time)) {
+		ZFS_TIME_ENCODE(&vap->va_access_time, zp->z_atime);
+	}
+
+
 	error = zfs_create(VTOZ(ap->a_dvp), cnp->cn_nameptr, vap, excl, mode,
 	    &zp, cr, 0, NULL);
 	if (!error) {
 		cache_purge_negatives(ap->a_dvp);
 		*ap->a_vpp = ZTOV(zp);
-	} else {
-		dprintf("%s error %d\n", __func__, error);
+
+		// Also tell XNU what VAPs we handled.
+		if (VATTR_IS_ACTIVE(vap, va_mode))
+			VATTR_SET_SUPPORTED(vap, va_mode);
+		if (VATTR_IS_ACTIVE(vap, va_data_size))
+			VATTR_SET_SUPPORTED(vap, va_data_size);
+		if (VATTR_IS_ACTIVE(vap, va_type))
+			VATTR_SET_SUPPORTED(vap, va_type);
+		if (VATTR_IS_ACTIVE(vap, va_uid))
+			VATTR_SET_SUPPORTED(vap, va_uid);
+		if (VATTR_IS_ACTIVE(vap, va_gid))
+			VATTR_SET_SUPPORTED(vap, va_gid);
+		if (VATTR_IS_ACTIVE(vap, va_flags))
+			VATTR_SET_SUPPORTED(vap, va_flags);
+		if (VATTR_IS_ACTIVE(vap, va_create_time))
+			VATTR_SET_SUPPORTED(vap, va_create_time);
+		if (VATTR_IS_ACTIVE(vap, va_access_time))
+			VATTR_SET_SUPPORTED(vap, va_access_time);
+		if (VATTR_IS_ACTIVE(vap, va_modify_time))
+			VATTR_SET_SUPPORTED(vap, va_modify_time);
+		if (VATTR_IS_ACTIVE(vap, va_change_time))
+			VATTR_SET_SUPPORTED(vap, va_change_time);
+		if (VATTR_IS_ACTIVE(vap, va_backup_time))
+			VATTR_SET_SUPPORTED(vap, va_backup_time);
+
+		uint64_t missing = 0;
+		missing =
+		    (vap->va_active ^ (vap->va_active & vap->va_supported));
+		if (missing != 0) {
+			dprintf("%s: asked %08llx replied %08llx "
+			    " missing %08llx\n", __func__,
+			    vap->va_active, vap->va_supported,
+			    missing);
+		}
+
+		/* We need to update name here for NFS; issue #104 */
+		vnode_update_identity(*ap->a_vpp, NULL,
+			(const char *)ap->a_cnp->cn_nameptr,
+			ap->a_cnp->cn_namelen, 0,
+			VNODE_UPDATE_NAME);
+
 	}
 
 	return (error);
@@ -1617,8 +1680,8 @@ zfs_vnop_remove(struct vnop_remove_args *ap)
 		cache_purge(ap->a_vp);
 
 		zfs_remove_hardlink(ap->a_vp,
-							ap->a_dvp,
-							ap->a_cnp->cn_nameptr);
+		    ap->a_dvp,
+		    ap->a_cnp->cn_nameptr);
 	} else {
 		dprintf("%s error %d\n", __func__, error);
 	}
@@ -1855,6 +1918,9 @@ zfs_vnop_setattr(struct vnop_setattr_args *ap)
 	/* Translate OS X requested mask to ZFS */
 	mask = vap->va_mask;
 
+	if (VATTR_IS_ACTIVE(vap, va_access_time)) {
+		ZFS_TIME_ENCODE(&vap->va_access_time, zp->z_atime);
+	}
 	/*
 	 * Both 'flags' and 'acl' can come to setattr, but without 'mode' set.
 	 * However, ZFS assumes 'mode' is also set. We need to look up 'mode' in

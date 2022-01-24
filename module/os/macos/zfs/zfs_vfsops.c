@@ -2524,7 +2524,6 @@ zfs_vfs_fhtovp(struct mount *mp, int fhlen, unsigned char *fhp,
 	znode_t		*zp;
 	uint64_t	obj_num = 0;
 	uint64_t	fid_gen = 0;
-	uint64_t	zp_gen;
 	int 		i;
 	int		error;
 
@@ -2546,15 +2545,16 @@ zfs_vfs_fhtovp(struct mount *mp, int fhlen, unsigned char *fhp,
 	for (i = 0; i < sizeof (zfid->zf_gen); i++)
 		fid_gen |= ((uint64_t)zfid->zf_gen[i]) << (8 * i);
 
+	obj_num = INO_XNUTOZFS(obj_num, zfsvfs->z_root);
+
 	if ((error = zfs_zget(zfsvfs, obj_num, &zp))) {
 		goto out;
 	}
 
-	zp_gen = zp->z_gen;
-	if (zp_gen == 0)
-		zp_gen = 1;
+	if (zp->z_gen == 0)
+		zp->z_gen = 1;
 
-	if (zp->z_unlinked || zp_gen != fid_gen) {
+	if (zp->z_unlinked || zp->z_gen != fid_gen) {
 		vnode_put(ZTOV(zp));
 		error = EINVAL;
 		goto out;
@@ -2588,7 +2588,7 @@ zfs_vfs_vptofh(vnode_t *vp, int *fhlenp, unsigned char *fhp,
 
 	ZFS_ENTER(zfsvfs);
 
-	obj_num = zp->z_id;
+	obj_num = INO_ZFSTOXNU(zp->z_id, zfsvfs->z_root);
 	zp_gen = zp->z_gen;
 	if (zp_gen == 0)
 		zp_gen = 1;

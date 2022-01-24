@@ -77,40 +77,6 @@ typedef uint64_t vfs_feature_t;
 #define	VFSFT_REPARSE		0x100000100	/* Supports reparse point */
 #define	VFSFT_ZEROCOPY_SUPPORTED 0x100000200	/* Supports loaning buffers */
 
-#define	ZFS_SUPPORTED_VATTRS \
-	(VNODE_ATTR_va_mode | \
-		VNODE_ATTR_va_uid | \
-		VNODE_ATTR_va_gid |	\
-		VNODE_ATTR_va_fsid | \
-		VNODE_ATTR_va_fileid | \
-		VNODE_ATTR_va_nlink | \
-		VNODE_ATTR_va_data_size | \
-		VNODE_ATTR_va_total_size | \
-		VNODE_ATTR_va_rdev | \
-		VNODE_ATTR_va_gen | \
-		VNODE_ATTR_va_create_time | \
-		VNODE_ATTR_va_access_time | \
-		VNODE_ATTR_va_modify_time | \
-		VNODE_ATTR_va_change_time |	\
-		VNODE_ATTR_va_backup_time |	\
-		VNODE_ATTR_va_flags | \
-		VNODE_ATTR_va_parentid | \
-		VNODE_ATTR_va_iosize | \
-		VNODE_ATTR_va_filerev | \
-		VNODE_ATTR_va_type    |	\
-		VNODE_ATTR_va_encoding | \
-		0)
-
-// VNODE_ATTR_va_uuuid |
-// VNODE_ATTR_va_guuid |
-
-
-
-
-
-
-
-
 /*
  * fnv_32a_str - perform a 32 bit Fowler/Noll/Vo FNV-1a hash on a string
  *
@@ -210,21 +176,31 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 	ZFS_ENTER(zfsvfs);
 	ZFS_VERIFY_ZP(zp);
 
-	if (VATTR_IS_ACTIVE(vap, va_acl)) {
-		// printf("want acl\n");
+	// If wanted, return NULL guids
+	if (VATTR_IS_ACTIVE(vap, va_uuuid))
 		VATTR_RETURN(vap, va_uuuid, kauth_null_guid);
+	if (VATTR_IS_ACTIVE(vap, va_guuid))
 		VATTR_RETURN(vap, va_guuid, kauth_null_guid);
 
+#if 0 // Issue #192
+	if (VATTR_IS_ACTIVE(vap, va_uuuid)) {
+		kauth_cred_uid2guid(zp->z_uid, &vap->va_uuuid);
+		VATTR_RETURN(vap, va_uuuid, vap->va_uuuid);
+	}
+	if (VATTR_IS_ACTIVE(vap, va_guuid)) {
+		kauth_cred_gid2guid(zp->z_gid, &vap->va_guuid);
+		VATTR_RETURN(vap, va_guuid, vap->va_guuid);
+	}
+#endif
+
+	// But if we are to check acl, can fill in guids
+	if (VATTR_IS_ACTIVE(vap, va_acl)) {
 		// dprintf("Calling getacl\n");
 		if ((error = zfs_getacl(zp, &vap->va_acl, B_FALSE, NULL))) {
 			// dprintf("zfs_getacl returned error %d\n", error);
 			error = 0;
 		} else {
-
 			VATTR_SET_SUPPORTED(vap, va_acl);
-			/* va_acl implies va_uuuid & va_guuid are supported. */
-			VATTR_RETURN(vap, va_uuuid, kauth_null_guid);
-			VATTR_RETURN(vap, va_guuid, kauth_null_guid);
 		}
 
 	}
@@ -271,8 +247,10 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 
 	vap->va_data_size = zp->z_size;
 	vap->va_total_size = zp->z_size;
-	// vap->va_gen = zp->z_gen;
-	vap->va_gen = 0;
+	if (zp->z_gen == 0)
+		zp->z_gen = 1;
+	vap->va_gen = zp->z_gen;
+
 #if defined(DEBUG) || defined(ZFS_DEBUG)
 	if (zp->z_gen != 0)
 		dprintf("%s: va_gen %lld -> 0\n", __func__, zp->z_gen);
@@ -307,7 +285,8 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 
 	vap->va_iosize = zp->z_blksz ? zp->z_blksz : zfsvfs->z_max_blksz;
 	// vap->va_iosize = 512;
-	VATTR_SET_SUPPORTED(vap, va_iosize);
+	if (VATTR_IS_ACTIVE(vap, va_iosize))
+		VATTR_SET_SUPPORTED(vap, va_iosize);
 
 	/* Don't include '.' and '..' in the number of entries */
 	if (VATTR_IS_ACTIVE(vap, va_nchildren) && vnode_isdir(vp)) {
@@ -322,7 +301,7 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 	 * as well. If in the future ZFS actually supports directory hard links,
 	 * we can return a real value.
 	 */
-	if (VATTR_IS_ACTIVE(vap, va_dirlinkcount) && vnode_isdir(vp)) {
+	if (VATTR_IS_ACTIVE(vap, va_dirlinkcount) /* && vnode_isdir(vp) */) {
 		VATTR_RETURN(vap, va_dirlinkcount, 1);
 	}
 
@@ -522,15 +501,12 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 	}
 #endif /* VNODE_ATTR_va_document_id */
 
-
-#if 0 // Issue #192
-	if (VATTR_IS_ACTIVE(vap, va_uuuid)) {
-		kauth_cred_uid2guid(zp->z_uid, &vap->va_uuuid);
+#ifdef VNODE_ATTR_va_devid
+	if (VATTR_IS_ACTIVE(vap, va_devid)) {
+		VATTR_RETURN(vap, va_devid,
+		    vfs_statfs(zfsvfs->z_vfs)->f_fsid.val[0]);
 	}
-	if (VATTR_IS_ACTIVE(vap, va_guuid)) {
-		kauth_cred_gid2guid(zp->z_gid, &vap->va_guuid);
-	}
-#endif
+#endif /* VNODE_ATTR_va_document_id */
 
 	if (ishardlink) {
 		dprintf("ZFS:getattr(%s,%llu,%llu) parent %llu: cache_parent "
@@ -543,7 +519,40 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 		    vap->va_nlink);
 	}
 
-	vap->va_supported |= ZFS_SUPPORTED_VATTRS;
+	/* A bunch of vattrs are handled inside zfs_getattr() */
+	if (VATTR_IS_ACTIVE(vap, va_mode))
+		VATTR_SET_SUPPORTED(vap, va_mode);
+	if (VATTR_IS_ACTIVE(vap, va_nlink))
+		VATTR_SET_SUPPORTED(vap, va_nlink);
+	if (VATTR_IS_ACTIVE(vap, va_uid))
+		VATTR_SET_SUPPORTED(vap, va_uid);
+	if (VATTR_IS_ACTIVE(vap, va_gid))
+		VATTR_SET_SUPPORTED(vap, va_gid);
+	if (VATTR_IS_ACTIVE(vap, va_fileid))
+		VATTR_SET_SUPPORTED(vap, va_fileid);
+	if (VATTR_IS_ACTIVE(vap, va_data_size))
+		VATTR_SET_SUPPORTED(vap, va_data_size);
+	if (VATTR_IS_ACTIVE(vap, va_total_size))
+		VATTR_SET_SUPPORTED(vap, va_total_size);
+	if (VATTR_IS_ACTIVE(vap, va_rdev))
+		VATTR_SET_SUPPORTED(vap, va_rdev);
+	if (VATTR_IS_ACTIVE(vap, va_gen))
+		VATTR_SET_SUPPORTED(vap, va_gen);
+	if (VATTR_IS_ACTIVE(vap, va_create_time))
+		VATTR_SET_SUPPORTED(vap, va_create_time);
+	if (VATTR_IS_ACTIVE(vap, va_access_time))
+		VATTR_SET_SUPPORTED(vap, va_access_time);
+	if (VATTR_IS_ACTIVE(vap, va_modify_time))
+		VATTR_SET_SUPPORTED(vap, va_modify_time);
+	if (VATTR_IS_ACTIVE(vap, va_change_time))
+		VATTR_SET_SUPPORTED(vap, va_change_time);
+	if (VATTR_IS_ACTIVE(vap, va_backup_time))
+		VATTR_SET_SUPPORTED(vap, va_backup_time);
+	if (VATTR_IS_ACTIVE(vap, va_flags))
+		VATTR_SET_SUPPORTED(vap, va_flags);
+	if (VATTR_IS_ACTIVE(vap, va_parentid))
+		VATTR_SET_SUPPORTED(vap, va_parentid);
+
 	uint64_t missing = 0;
 	missing = (vap->va_active ^ (vap->va_active & vap->va_supported));
 	if (missing != 0) {

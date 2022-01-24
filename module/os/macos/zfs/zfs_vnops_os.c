@@ -2077,7 +2077,12 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 	 * ZFS can handle large timestamps, but 32bit syscalls can't
 	 * handle times greater than 2039.  This check should be removed
 	 * once large timestamps are fully supported.
+	 *
+	 * macOS: Everything is 64bit and if we return OVERFLOW it
+	 * fails to handle O_EXCL correctly, as atime is used to store
+	 * random unique id to verify creation or not. See Issue #104
 	 */
+#if 0
 	if (mask & (ATTR_ATIME | ATTR_MTIME)) {
 		if (((mask & ATTR_ATIME) &&
 		    TIMESPEC_OVERFLOW(&vap->va_atime)) ||
@@ -2087,12 +2092,16 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 			return (SET_ERROR(EOVERFLOW));
 		}
 	}
+#endif
 	if (xoap != NULL && (mask & ATTR_XVATTR)) {
+
+#if 0
 		if (XVA_ISSET_REQ(xvap, XAT_CREATETIME) &&
 		    TIMESPEC_OVERFLOW(&vap->va_create_time)) {
 			ZFS_EXIT(zfsvfs);
 			return (SET_ERROR(EOVERFLOW));
 		}
+#endif
 
 		if (XVA_ISSET_REQ(xvap, XAT_PROJID)) {
 			if (!dmu_objset_projectquota_enabled(os) ||
