@@ -1888,6 +1888,10 @@ zfs_vnop_getattr(struct vnop_getattr_args *ap)
 
 	/* dprintf("+vnop_getattr zp %p vp %p\n", VTOZ(ap->a_vp), ap->a_vp); */
 
+	/* If they want ADDEDTIME, make sure to ask for CRTIME */
+	if (VATTR_IS_ACTIVE(ap->a_vap, va_addedtime))
+		VATTR_WANTED(ap->a_vap, va_create_time);
+
 	error = zfs_getattr(ap->a_vp, ap->a_vap, /* flags */0, cr, ct);
 
 	if (error == 0) {

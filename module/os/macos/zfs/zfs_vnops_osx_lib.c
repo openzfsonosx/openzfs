@@ -233,13 +233,6 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 		return (0);
 	}
 
-#ifdef VNODE_ATTR_va_addedtime
-	if (VATTR_IS_ACTIVE(vap, va_addedtime)) {
-		sa_lookup(zp->z_sa_hdl, SA_ZPL_ADDTIME(zfsvfs),
-		    &addtime, sizeof (addtime));
-	}
-#endif
-
 	/*
 	 * On Mac OS X we always export the root directory id as 2
 	 */
@@ -459,15 +452,16 @@ zfs_getattr_znode_unlocked(struct vnode *vp, vattr_t *vap)
 	 * copy the ADDEDTIME into the structure. See vnop_getxattr
 	 */
 	if (VATTR_IS_ACTIVE(vap, va_addedtime)) {
-		/* Lookup the ADDTIME if it exists, if not, use CRTIME */
-		if ((addtime[0] == 0) && (addtime[1])) {
-			dprintf("ZFS: ADDEDTIME using crtime %llu (error %d)\n",
-			    vap->va_crtime.tv_sec, error);
+		if (sa_lookup(zp->z_sa_hdl, SA_ZPL_ADDTIME(zfsvfs),
+		    &addtime, sizeof (addtime)) != 0) {
+			/*
+			 * Lookup the ADDTIME if it exists, if not, use CRTIME.
+			 * We add CRTIME to WANTED in zfs_vnop_getattr()
+			 * so we know we have the value here.
+			 */
 			vap->va_addedtime.tv_sec  = vap->va_crtime.tv_sec;
 			vap->va_addedtime.tv_nsec = vap->va_crtime.tv_nsec;
 		} else {
-			dprintf("ZFS: ADDEDTIME using addtime %llu\n",
-			    addtime[0]);
 			ZFS_TIME_DECODE(&vap->va_addedtime, addtime);
 		}
 		VATTR_SET_SUPPORTED(vap, va_addedtime);
