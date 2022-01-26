@@ -494,6 +494,20 @@ kstat_handle_raw SYSCTL_HANDLER_ARGS
 	void *(*addr_op)(kstat_t *ksp, loff_t index);
 	int n, has_header, rc = 0;
 
+	/* Check if this RAW has 2 entries, the second for verbose */
+	ekstat_t *e = (ekstat_t *)ksp;
+	if (e->e_num_vals == 2) {
+		sysctl_leaf_t *val = &e->e_vals[1];
+		if (strncmp("verbose", val->l_name, KSTAT_STRLEN) == 0) {
+			int verbose = 0;
+			if (val->l_oid.oid_arg1 != NULL)
+				verbose = *((int *)val->l_oid.oid_arg1);
+			if (verbose == 0)
+				return (0);
+		}
+	}
+
+
 	sb = sbuf_new(NULL, NULL, 0, SBUF_AUTOEXTEND);
 	if (sb == NULL)
 		return (ENOMEM);
@@ -987,9 +1001,10 @@ kstat_install(kstat_t *ksp)
 
 	} else if (ksp->ks_type == KSTAT_TYPE_RAW) {
 
-		e->e_vals = (sysctl_leaf_t *)IOMalloc(sizeof (sysctl_leaf_t));
+		e->e_vals = (sysctl_leaf_t *)
+		    IOMalloc(sizeof (sysctl_leaf_t) * 2);
 		bzero(e->e_vals, sizeof (sysctl_leaf_t));
-		e->e_num_vals = 1;
+		e->e_num_vals = 2;
 		sysctl_leaf_t *val = e->e_vals;
 
 		snprintf(val->l_name, KSTAT_STRLEN, "%s", ksp->ks_name);
@@ -1016,10 +1031,35 @@ kstat_install(kstat_t *ksp)
 			    kstat_handle_raw;
 			val->l_oid.oid_kind = CTLTYPE_OPAQUE |
 			    CTLFLAG_RD | CTLFLAG_OID2;
-			val->l_oid.oid_fmt = "A";
+			val->l_oid.oid_fmt = "";
 			val->l_oid.oid_arg1 = (void *) ksp;
 			sysctl_register_oid(&val->l_oid);
 		}
+		val->l_oid_registered = 1;
+
+		// Add "verbose" leaf to 2nd node
+		val++;
+
+		snprintf(val->l_name, KSTAT_STRLEN, "verbose");
+
+		val->l_oid.oid_parent = &e->e_children;
+		val->l_oid.oid_link.sle_next = 0;
+		val->l_oid.oid_number = OID_AUTO;
+		val->l_oid.oid_arg2 = 0;
+		val->l_oid.oid_name = val->l_name;
+		val->l_oid.oid_descr = "";
+		val->l_oid.oid_version = SYSCTL_OID_VERSION;
+		val->l_oid.oid_refcnt = 0;
+
+		val->l_oid.oid_handler =
+		    sysctl_handle_int;
+		val->l_oid.oid_kind = CTLTYPE_INT |
+		    CTLFLAG_RW | CTLFLAG_OID2;
+		val->l_oid.oid_fmt = "Q";
+		/* Somewhat gross, using arg2 as the variable */
+		val->l_oid.oid_arg1 = &val->l_oid.oid_arg2;
+		sysctl_register_oid(&val->l_oid);
+		val->l_oid_registered = 1;
 
 	} else if (ksp->ks_type == KSTAT_TYPE_IO) {
 
@@ -1046,6 +1086,7 @@ kstat_install(kstat_t *ksp)
 		val->l_oid.oid_fmt = "A";
 		val->l_oid.oid_arg1 = (void *) ksp;
 		sysctl_register_oid(&val->l_oid);
+		val->l_oid_registered = 1;
 	}
 
 	ksp->ks_flags &= ~KSTAT_FLAG_INVALID;
