@@ -1061,12 +1061,12 @@ zvol_add_clones(const char *dsname, list_t *minors_list)
 	if (dsl_dir_hold(dp, dsname, FTAG, &dd, NULL) != 0)
 		goto out;
 
+	if (dsl_dir_phys(dd)->dd_clones == 0)
+		goto out;
+
 	zap_cursor_t *zc = kmem_alloc(sizeof (zap_cursor_t), KM_SLEEP);
 	zap_attribute_t *za = kmem_alloc(sizeof (zap_attribute_t), KM_SLEEP);
 	objset_t *mos = dd->dd_pool->dp_meta_objset;
-
-	if (dsl_dir_phys(dd)->dd_clones == 0)
-		goto out;
 
 	for (zap_cursor_init(zc, mos, dsl_dir_phys(dd)->dd_clones);
 	    zap_cursor_retrieve(zc, za) == 0;
@@ -1079,7 +1079,6 @@ zvol_add_clones(const char *dsname, list_t *minors_list)
 
 			char name[ZFS_MAX_DATASET_NAME_LEN];
 			dsl_dataset_name(clone, name);
-			printf("adding clone '%s'\n", name);
 			char *n = kmem_strdup(name);
 			job = kmem_alloc(sizeof (minors_job_t), KM_SLEEP);
 			job->name = n;
