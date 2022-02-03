@@ -58,7 +58,6 @@
 #include <sys/arc_impl.h>
 #include <sys/trace_zfs.h>
 #include <sys/aggsum.h>
-#include <sys/kstat_osx.h>
 
 extern arc_stats_t arc_stats;
 
@@ -591,99 +590,6 @@ arc_os_fini(void)
 #define	arc_meta_max	ARCSTAT(arcstat_meta_max) /* max size of metadata */
 
 /* So close, they made arc_min_prefetch_ms be static, but no others */
-
-int
-arc_kstat_update_osx(kstat_t *ksp, int rw)
-{
-	osx_kstat_t *ks = ksp->ks_data;
-	boolean_t do_update = B_FALSE;
-
-	if (rw == KSTAT_WRITE) {
-
-		/* Did we change the value ? */
-		if (ks->arc_zfs_arc_max.value.ui64 != zfs_arc_max) {
-			/* Assign new value */
-			zfs_arc_max = ks->arc_zfs_arc_max.value.ui64;
-			do_update = B_TRUE;
-		}
-
-		if (ks->arc_zfs_arc_min.value.ui64 != zfs_arc_min) {
-			zfs_arc_min = ks->arc_zfs_arc_min.value.ui64;
-			do_update = B_TRUE;
-		}
-
-		if (ks->arc_zfs_arc_meta_limit.value.ui64 !=
-		    zfs_arc_meta_limit) {
-			zfs_arc_meta_limit =
-			    ks->arc_zfs_arc_meta_limit.value.ui64;
-			do_update = B_TRUE;
-		}
-
-		if (ks->arc_zfs_arc_meta_min.value.ui64 != zfs_arc_meta_min) {
-			zfs_arc_meta_min  = ks->arc_zfs_arc_meta_min.value.ui64;
-			do_update = B_TRUE;
-		}
-
-		if (zfs_arc_grow_retry !=
-		    ks->arc_zfs_arc_grow_retry.value.ui64) {
-			zfs_arc_grow_retry =
-			    ks->arc_zfs_arc_grow_retry.value.ui64;
-			do_update = B_TRUE;
-		}
-		if (zfs_arc_shrink_shift !=
-		    ks->arc_zfs_arc_shrink_shift.value.ui64) {
-			zfs_arc_shrink_shift =
-			    ks->arc_zfs_arc_shrink_shift.value.ui64;
-			do_update = B_TRUE;
-		}
-		if (zfs_arc_p_min_shift !=
-		    ks->arc_zfs_arc_p_min_shift.value.ui64) {
-			zfs_arc_p_min_shift =
-			    ks->arc_zfs_arc_p_min_shift.value.ui64;
-			do_update = B_TRUE;
-		}
-		if (zfs_arc_average_blocksize !=
-		    ks->arc_zfs_arc_average_blocksize.value.ui64) {
-			zfs_arc_average_blocksize =
-			    ks->arc_zfs_arc_average_blocksize.value.ui64;
-			do_update = B_TRUE;
-		}
-		if (zfs_arc_lotsfree_percent !=
-		    ks->zfs_arc_lotsfree_percent.value.i64) {
-			zfs_arc_lotsfree_percent =
-			    ks->zfs_arc_lotsfree_percent.value.i64;
-			do_update = B_TRUE;
-		}
-		if (zfs_arc_sys_free !=
-		    ks->zfs_arc_sys_free.value.i64) {
-			zfs_arc_sys_free =
-			    ks->zfs_arc_sys_free.value.i64;
-			do_update = B_TRUE;
-		}
-
-		if (do_update)
-			arc_tuning_update(B_TRUE);
-	} else {
-
-		ks->arc_zfs_arc_max.value.ui64 = zfs_arc_max;
-		ks->arc_zfs_arc_min.value.ui64 = zfs_arc_min;
-
-		ks->arc_zfs_arc_meta_limit.value.ui64 = zfs_arc_meta_limit;
-		ks->arc_zfs_arc_meta_min.value.ui64 = zfs_arc_meta_min;
-
-		ks->arc_zfs_arc_grow_retry.value.ui64 =
-		    zfs_arc_grow_retry ? zfs_arc_grow_retry : arc_grow_retry;
-		ks->arc_zfs_arc_shrink_shift.value.ui64 = zfs_arc_shrink_shift;
-		ks->arc_zfs_arc_p_min_shift.value.ui64 = zfs_arc_p_min_shift;
-		ks->arc_zfs_arc_average_blocksize.value.ui64 =
-		    zfs_arc_average_blocksize;
-		ks->zfs_arc_lotsfree_percent.value.i64 =
-		    zfs_arc_lotsfree_percent;
-		ks->zfs_arc_sys_free.value.i64 =
-		    zfs_arc_sys_free;
-	}
-	return (0);
-}
 
 /*
  * Helper function for arc_prune_async() it is responsible for safely

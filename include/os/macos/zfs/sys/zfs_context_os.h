@@ -221,6 +221,9 @@ void spa_deactivate_os(void *spa);
 #define	SEEK_DATA 4
 #endif
 
+void sysctl_os_init(void);
+void sysctl_os_fini(void);
+
 #endif // _KERNEL
 
 #endif

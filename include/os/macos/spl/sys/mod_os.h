@@ -37,9 +37,6 @@ extern "C" {
 #define	ZFS_MODULE_LICENSE(s)
 #define	ZFS_MODULE_VERSION(s)
 
-#define	ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, setfunc, \
-    getfunc, perm, desc)
-
 #define	__init __attribute__((unused))
 #define	__exit __attribute__((unused))
 
@@ -63,11 +60,147 @@ extern "C" {
 #define	ZFS_MODULE_PARAM_ARGS	\
 	struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req
 
-#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
-#define	module_param_call(a, b, c, d, e)
-#define	module_param_named(a, b, c, d)
+#define	ZMOD_RW CTLFLAG_RW
+#define	ZMOD_RD CTLFLAG_RD
+
+/* BEGIN CSTYLED */
+
+/* Handle some FreeBSD sysctl differences */
+#define	SYSCTL_CONST_STRING(parent, nbr, name, access, ptr, descr)		\
+	SYSCTL_STRING(parent, nbr, name, access, ptr, sizeof(ptr), descr)
+#define	SYSCTL_UQUAD(parent, nbr, name, access, ptr, val, descr) \
+	SYSCTL_QUAD(parent, nbr, name, access, ptr, descr)
+
+#define	CTLFLAG_RWTUN CTLFLAG_RW
+#define	CTLFLAG_RDTUN CTLFLAG_RD
+#define	CTLTYPE_UINT CTLTYPE_INT
+#define	CTLTYPE_ULONG CTLTYPE_INT
+#define	CTLTYPE_U64 CTLTYPE_QUAD
+#define	CTLFLAG_MPSAFE 0
+
+/*
+ * Why do all SYSCTL take "val" except for LONG/ULONG ?
+ * Jump through hoops here to handle that.
+ */
+#define	ZSYSCTL_INT SYSCTL_INT
+#define	ZSYSCTL_UINT SYSCTL_UINT
+#define	ZSYSCTL_STRING SYSCTL_STRING
+#define	ZSYSCTL_LONG(parent, nbr, name, access, ptr, val, descr) \
+    SYSCTL_LONG(parent, nbr, name, access, ptr, descr)
+#define	ZSYSCTL_ULONG(parent, nbr, name, access, ptr, val, descr) \
+    SYSCTL_ULONG(parent, nbr, name, access, ptr, descr)
+/*
+ * Appears to be no default for 64bit values in Linux, if
+ * ZOL adds it using STANDARD_PARAM_DEF let us guess
+ * they will go with LLONG/ULLONG
+ */
+#define	ZSYSCTL_LLONG(parent, nbr, name, access, ptr, val, descr) \
+    SYSCTL_QUAD(parent, nbr, name, access, ptr, descr)
+#define	ZSYSCTL_ULLONG(parent, nbr, name, access, ptr, val, descr) \
+    SYSCTL_QUAD(parent, nbr, name, access, ptr, descr)
+
+/* See sysctl_os.c for the constructor work */
+#define	ZFS_MODULE_PARAM(scope_prefix, name_prefix, name, type, perm, desc) \
+    SYSCTL_DECL( _tunable_ ## scope_prefix); \
+    ZSYSCTL_##type( _tunable_ ## scope_prefix, OID_AUTO, name, perm, \
+	    &name_prefix ## name, 0, desc) ; \
+	__attribute__((constructor)) void \
+	    _zcnst_sysctl__tunable_ ## scope_prefix ## _ ## name (void) \
+	{ \
+		sysctl_register_oid(&sysctl__tunable_ ## scope_prefix ## _ ## name ); \
+	} \
+	__attribute__((destructor)) void \
+	    _zdest_sysctl__tunable_ ## scope_prefix ## _ ## name (void) \
+	{ \
+		sysctl_unregister_oid(&sysctl__tunable_ ## scope_prefix ## _ ## name ); \
+	}
+
+/*
+ * Same as above, but direct names; so they can be empty.
+ * Used internally in macOS.
+ */
+#define	ZFS_MODULE_IMPL(scope, variable, name, type, perm, desc) \
+	SYSCTL_DECL( _tunable ## scope);									\
+	ZSYSCTL_##type( _tunable ## scope, OID_AUTO, name, perm,			\
+		&variable, 0, desc) ;											\
+	__attribute__((constructor)) void									\
+	_zcnst_sysctl__tunable ## scope ## _ ## name (void)					\
+	{																	\
+		sysctl_register_oid(&sysctl__tunable ## scope ## _ ## name );	\
+	}																	\
+	__attribute__((destructor)) void									\
+	_zdest_sysctl__tunable ## scope ## _ ## name (void)					\
+	{																	\
+		sysctl_unregister_oid(&sysctl__tunable ## scope ## _ ## name ); \
+	}
+
+/* Function callback sysctls */
+#define	ZFS_MODULE_PARAM_CALL_IMPL(parent, name, perm, args, desc)	\
+    SYSCTL_DECL(parent); \
+    SYSCTL_PROC(parent, OID_AUTO, name, perm | args, desc) \
+	__attribute__((constructor)) void \
+	    _zcnst_sysctl_ ## parent ## _ ## name (void) \
+	{ \
+		sysctl_register_oid(&sysctl_## parent ## _ ## name ); \
+	} \
+	__attribute__((destructor)) void \
+	    _zdest_sysctl_ ## parent ## _ ## name (void) \
+	{ \
+		sysctl_unregister_oid(&sysctl_ ## parent ## _ ## name ); \
+	}
+
+#define	ZFS_MODULE_PARAM_CALL(scope_prefix, name_prefix, name, func, _, perm, desc) \
+    ZFS_MODULE_PARAM_CALL_IMPL(_tunable_ ## scope_prefix, name, perm, func ## _args(name_prefix ## name), desc)
 
 #define	ZFS_MODULE_VIRTUAL_PARAM_CALL ZFS_MODULE_PARAM_CALL
+
+/*
+ * FreeBSD anchor the function name (+ _args) to work out the
+ * CTLTYPE_* to use (and print "LU" etc). To call a wrapper
+ * function in sysctl_os.c, which calls the real function.
+ * We could also map "param_set_charp" to "CTLTYPE_STRING" more
+ * automatically, however, we still need manual update for the
+ * wrapping functions so it would not gain anything.
+ */
+
+#define	param_set_arc_long_args(var)					\
+    CTLTYPE_ULONG, &var, 0, param_set_arc_long, "LU"
+
+#define	param_set_arc_min_args(var) \
+    CTLTYPE_ULONG, &var, 0, param_set_arc_min, "LU"
+
+#define	param_set_arc_max_args(var) \
+    CTLTYPE_ULONG, &var, 0, param_set_arc_max, "LU"
+
+#define	param_set_arc_int_args(var) \
+    CTLTYPE_INT, &var, 0, param_set_arc_int, "I"
+
+#define	param_set_deadman_failmode_args(var) \
+    CTLTYPE_STRING, NULL, 0, param_set_deadman_failmode, "A"
+
+#define	param_set_deadman_synctime_args(var) \
+    CTLTYPE_ULONG, NULL, 0, param_set_deadman_synctime, "LU"
+
+#define	param_set_deadman_ziotime_args(var) \
+    CTLTYPE_ULONG, NULL, 0, param_set_deadman_ziotime, "LU"
+
+#define	param_set_multihost_interval_args(var) \
+    CTLTYPE_ULONG, &var, 0, param_set_multihost_interval, "LU"
+
+#define	param_set_slop_shift_args(var) \
+    CTLTYPE_INT, &var, 0, param_set_slop_shift, "I"
+
+#define	param_set_min_auto_ashift_args(var) \
+    CTLTYPE_U64, &var, 0, param_set_min_auto_ashift, "QU"
+
+#define	param_set_max_auto_ashift_args(var) \
+    CTLTYPE_U64, &var, 0, param_set_max_auto_ashift, "QU"
+
+#define	fletcher_4_param_set_args(var) \
+    CTLTYPE_STRING, NULL, 0, fletcher_4_param, "A"
+
+#define	module_param_call(a, b, c, d, e)
+#define	module_param_named(a, b, c, d)
 #define	module_init_early(fn)	\
 void \
 wrap_ ## fn(void *dummy __unused) \

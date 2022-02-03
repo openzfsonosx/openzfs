@@ -48,7 +48,6 @@
 #include <sys/zfs_ioctl_impl.h>
 #include <sys/zfs_ioctl_compat.h>
 #include <sys/zvol_os.h>
-#include <sys/kstat_osx.h>
 
 int zfs_major			= 0;
 int zfs_bmajor			= 0;
@@ -406,14 +405,15 @@ zfsdev_attach(void)
 
 	tsd_create(&zfsdev_private_tsd, NULL);
 
-	kstat_osx_init();
+	sysctl_os_init();
+
 	return (0);
 }
 
 void
 zfsdev_detach(void)
 {
-	kstat_osx_fini();
+	sysctl_os_fini();
 
 	tsd_destroy(&zfsdev_private_tsd);
 

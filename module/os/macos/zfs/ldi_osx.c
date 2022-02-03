@@ -344,7 +344,6 @@
 #include <sys/zfs_context.h>
 #include <sys/taskq.h>
 #include <sys/kstat.h>
-#include <sys/kstat_osx.h>
 #include <sys/dkio.h>
 
 /*

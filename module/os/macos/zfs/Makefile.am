@@ -167,6 +167,7 @@ zfs_SOURCES = \
 	../../../zfs/spa_stats.c \
 	../../../zfs/space_map.c \
 	../../../zfs/space_reftree.c \
+	sysctl_os.c \
 	../../../zfs/txg.c \
 	../../../zfs/uberblock.c \
 	../../../zfs/unique.c \
@@ -214,7 +215,6 @@ zfs_SOURCES = \
 	zfs_fuid_os.c \
 	../../../zfs/zfs_ioctl.c \
 	zfs_ioctl_os.c \
-	zfs_kstat_osx.c \
 	../../../zfs/zfs_log.c \
 	../../../zfs/zfs_onexit.c \
 	zfs_osx.cpp \

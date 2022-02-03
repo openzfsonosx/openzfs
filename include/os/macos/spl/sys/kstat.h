@@ -220,4 +220,6 @@ extern void sbuf_finish(struct sbuf *s);
 extern struct sbuf *sbuf_new_for_sysctl(struct sbuf *s, char *buf,
     int length,	struct sysctl_req *req);
 
+extern struct sysctl_oid_list *spl_kstat_find_oid(char *, char *);
+
 #endif  /* _SPL_KSTAT_H */
