@@ -407,12 +407,17 @@ zfsdev_attach(void)
 	tsd_create(&zfsdev_private_tsd, NULL);
 
 	kstat_osx_init();
+
+	sysctl_os_init();
+
 	return (0);
 }
 
 void
 zfsdev_detach(void)
 {
+	sysctl_os_fini();
+
 	kstat_osx_fini();
 
 	tsd_destroy(&zfsdev_private_tsd);

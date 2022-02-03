@@ -167,6 +167,7 @@ zfs_SOURCES = \
 	../../../zfs/spa_stats.c \
 	../../../zfs/space_map.c \
 	../../../zfs/space_reftree.c \
+	sysctl_os.c \
 	../../../zfs/txg.c \
 	../../../zfs/uberblock.c \
 	../../../zfs/unique.c \
