@@ -103,6 +103,11 @@
 #include <sys/arc_impl.h>
 #include <sys/dsl_pool.h>
 
+/* Remove this when merged with upstream */
+#ifndef	MIN_ARC_MAX
+#define	MIN_ARC_MAX DMU_MAX_ACCESS
+#endif
+
 /* BEGIN CSTYLED */
 
 /*
@@ -266,7 +271,7 @@ param_set_arc_max(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_arc_max;
 	err = sysctl_handle_long(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (SET_ERROR(err));
 
 	if (val != 0 && (val < MIN_ARC_MAX || val <= arc_c_min ||
@@ -291,7 +296,7 @@ param_set_arc_min(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_arc_min;
 	err = sysctl_handle_quad(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (SET_ERROR(err));
 
 	if (val != 0 && (val < 2ULL << SPA_MAXBLOCKSHIFT || val > arc_c_max))
@@ -373,7 +378,7 @@ sysctl_kstat_zfs_darwin_tunable_arc_no_grow_shift(ZFS_MODULE_PARAM_ARGS)
 
 	val = arc_no_grow_shift;
 	err = sysctl_handle_int(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
         if (val < 0 || val >= arc_shrink_shift)
@@ -394,7 +399,7 @@ param_set_arc_long(ZFS_MODULE_PARAM_ARGS)
 	int err;
 
 	err = sysctl_handle_long(oidp, arg1, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
 	arc_tuning_update(B_TRUE);
@@ -408,7 +413,7 @@ param_set_arc_int(ZFS_MODULE_PARAM_ARGS)
 	int err;
 
 	err = sysctl_handle_int(oidp, arg1, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
 	arc_tuning_update(B_TRUE);
@@ -575,7 +580,7 @@ sysctl_kstat_zfs_darwin_tunable_debug_flags(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_flags;
 	err = sysctl_handle_int(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
 	/*
@@ -603,7 +608,7 @@ param_set_deadman_synctime(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_deadman_synctime_ms;
 	err = sysctl_handle_long(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 	zfs_deadman_synctime_ms = val;
 
@@ -620,7 +625,7 @@ param_set_deadman_ziotime(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_deadman_ziotime_ms;
 	err = sysctl_handle_long(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 	zfs_deadman_ziotime_ms = val;
 
@@ -635,11 +640,11 @@ param_set_deadman_failmode(ZFS_MODULE_PARAM_ARGS)
 	char buf[16];
 	int rc;
 
-	if (req->newptr == NULL)
+	if (req->newptr == (user_addr_t) NULL)
 		strlcpy(buf, zfs_deadman_failmode, sizeof (buf));
 
 	rc = sysctl_handle_string(oidp, buf, sizeof (buf), req);
-	if (rc || req->newptr == NULL)
+	if (rc || req->newptr == (user_addr_t) NULL)
 		return (rc);
 	if (strcmp(buf, zfs_deadman_failmode) == 0)
 		return (0);
@@ -669,7 +674,7 @@ param_set_min_auto_ashift(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_vdev_min_auto_ashift;
 	err = sysctl_handle_quad(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (SET_ERROR(err));
 
 	if (val < ASHIFT_MIN || val > zfs_vdev_max_auto_ashift)
@@ -688,7 +693,7 @@ param_set_max_auto_ashift(ZFS_MODULE_PARAM_ARGS)
 
 	val = zfs_vdev_max_auto_ashift;
 	err = sysctl_handle_quad(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (SET_ERROR(err));
 
 	if (val > ASHIFT_MAX || val < zfs_vdev_min_auto_ashift)
@@ -797,7 +802,7 @@ param_set_slop_shift(ZFS_MODULE_PARAM_ARGS)
 	val = *(int *)arg1;
 
 	err = sysctl_handle_int(oidp, &val, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
 	if (val < 1 || val > 31)
@@ -814,7 +819,7 @@ param_set_multihost_interval(ZFS_MODULE_PARAM_ARGS)
 	int err;
 
 	err = sysctl_handle_long(oidp, arg1, 0, req);
-	if (err != 0 || req->newptr == NULL)
+	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
 	if (spa_mode_global != SPA_MODE_UNINIT)
