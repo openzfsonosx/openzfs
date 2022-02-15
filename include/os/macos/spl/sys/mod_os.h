@@ -63,53 +63,7 @@ extern "C" {
 #define	ZFS_MODULE_PARAM_ARGS	\
 	struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req
 
-#define	ZMOD_RW CTLFLAG_RW
-#define	ZMOD_RD CTLFLAG_RD
-
-/* BEGIN CSTYLED */
-
-/* Handle some FreeBSD sysctl differences */
-#define	SYSCTL_CONST_STRING(parent, nbr, name, access, ptr, descr)		\
-	SYSCTL_STRING(parent, nbr, name, access, ptr, sizeof(ptr), descr)
-#define	SYSCTL_UQUAD(parent, nbr, name, access, ptr, val, descr) \
-	SYSCTL_QUAD(parent, nbr, name, access, ptr, descr)
-
-#define	CTLFLAG_RWTUN CTLFLAG_RW
-#define	CTLFLAG_RDTUN CTLFLAG_RD
-#define	CTLTYPE_UINT CTLTYPE_INT
-#define	CTLTYPE_ULONG CTLTYPE_QUAD
-#define	CTLTYPE_U64 CTLTYPE_QUAD
-#define	CTLFLAG_MPSAFE 0
-
-/*
- * Why do all SYSCTL take "val" except for LONG/ULONG ?
- * Jump through hoops here to handle that.
- */
-#define	ZSYSCTL_INT SYSCTL_INT
-#define	ZSYSCTL_UINT SYSCTL_UINT
-#define	ZSYSCTL_STRING SYSCTL_STRING
-#define	ZSYSCTL_LONG(parent, nbr, name, access, ptr, val, descr) \
-    SYSCTL_LONG(parent, nbr, name, access, ptr, descr)
-#define	ZSYSCTL_ULONG(parent, nbr, name, access, ptr, val, descr) \
-    SYSCTL_ULONG(parent, nbr, name, access, ptr, descr)
-
-/* See sysctl_os.c for the constructor work */
-#define	ZFS_MODULE_PARAM(scope_prefix, name_prefix, name, type, perm, desc) \
-    SYSCTL_DECL( _kstat_zfs_darwin_tunable_ ## scope_prefix); \
-    ZSYSCTL_##type( _kstat_zfs_darwin_tunable_ ## scope_prefix, OID_AUTO, name, perm, \
-	    &name_prefix ## name, 0, desc) ; \
-	__attribute__((constructor)) void \
-	    _zcnst_sysctl__kstat_zfs_darwin_tunable_ ## scope_prefix ## _ ## name (void) \
-	{ \
-		sysctl_register_oid(&sysctl__kstat_zfs_darwin_tunable_ ## scope_prefix ## _ ## name ); \
-	} \
-	__attribute__((destructor)) void \
-	    _zdest_sysctl__kstat_zfs_darwin_tunable_ ## scope_prefix ## _ ## name (void) \
-	{ \
-		sysctl_unregister_oid(&sysctl__kstat_zfs_darwin_tunable_ ## scope_prefix ## _ ## name ); \
-	}
-
-
+#define	ZFS_MODULE_PARAM(A, B, C, D, E, F)
 #define	module_param_call(a, b, c, d, e)
 #define	module_param_named(a, b, c, d)
 

@@ -592,7 +592,6 @@ arc_os_fini(void)
 
 /* So close, they made arc_min_prefetch_ms be static, but no others */
 
-#if 0
 int
 arc_kstat_update_osx(kstat_t *ksp, int rw)
 {
@@ -685,7 +684,6 @@ arc_kstat_update_osx(kstat_t *ksp, int rw)
 	}
 	return (0);
 }
-#endif
 
 /*
  * Helper function for arc_prune_async() it is responsible for safely
