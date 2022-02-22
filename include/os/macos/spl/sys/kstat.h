@@ -216,7 +216,9 @@ void kstat_named_setstr(kstat_named_t *knp, const char *src);
 
 struct sbuf;
 struct sysctl_req;
-extern void sbuf_finish(struct sbuf *s);
+extern int  sbuf_printf(struct sbuf *, const char *, ...) __printflike(2, 3);
+extern void sbuf_finish(struct sbuf *);
+extern void sbuf_delete(struct sbuf *);
 extern struct sbuf *sbuf_new_for_sysctl(struct sbuf *s, char *buf,
     int length,	struct sysctl_req *req);
 

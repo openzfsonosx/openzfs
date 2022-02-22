@@ -120,24 +120,24 @@ extern "C" {
  * Used internally in macOS.
  */
 #define	ZFS_MODULE_IMPL(scope, variable, name, type, perm, desc) \
-	SYSCTL_DECL( _tunable ## scope);									\
-	ZSYSCTL_##type( _tunable ## scope, OID_AUTO, name, perm,			\
-		&variable, 0, desc) ;											\
-	__attribute__((constructor)) void									\
-	_zcnst_sysctl__tunable ## scope ## _ ## name (void)					\
-	{																	\
+	SYSCTL_DECL( _tunable ## scope);		\
+	ZSYSCTL_##type( _tunable ## scope, OID_AUTO, name, perm,	\
+		&variable, 0, desc) ;		\
+	__attribute__((constructor)) void	\
+	_zcnst_sysctl__tunable ## scope ## _ ## name (void)	\
+	{		\
 		sysctl_register_oid(&sysctl__tunable ## scope ## _ ## name );	\
-	}																	\
-	__attribute__((destructor)) void									\
-	_zdest_sysctl__tunable ## scope ## _ ## name (void)					\
-	{																	\
+	}		\
+	__attribute__((destructor)) void		\
+	_zdest_sysctl__tunable ## scope ## _ ## name (void)	\
+	{		\
 		sysctl_unregister_oid(&sysctl__tunable ## scope ## _ ## name ); \
 	}
 
 /* Function callback sysctls */
 #define	ZFS_MODULE_PARAM_CALL_IMPL(parent, name, perm, args, desc)	\
     SYSCTL_DECL(parent); \
-    SYSCTL_PROC(parent, OID_AUTO, name, perm | args, desc) \
+    SYSCTL_PROC(parent, OID_AUTO, name, perm | args, desc) ;	\
 	__attribute__((constructor)) void \
 	    _zcnst_sysctl_ ## parent ## _ ## name (void) \
 	{ \
@@ -163,7 +163,7 @@ extern "C" {
  * wrapping functions so it would not gain anything.
  */
 
-#define	param_set_arc_long_args(var)					\
+#define	param_set_arc_long_args(var) \
     CTLTYPE_ULONG, &var, 0, param_set_arc_long, "LU"
 
 #define	param_set_arc_min_args(var) \
@@ -204,8 +204,8 @@ extern "C" {
 #define	module_init_early(fn)	\
 void \
 wrap_ ## fn(void *dummy __unused) \
-{								 \
-	fn();						 \
+{	\
+	fn();	\
 }
 
 kern_return_t spl_start(kmod_info_t *ki, void *d);
