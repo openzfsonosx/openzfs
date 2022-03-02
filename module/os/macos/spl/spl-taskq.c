@@ -857,7 +857,7 @@ taskq_ent_constructor(void *buf, void *cdrarg, int kmflags)
 {
 	taskq_ent_t *tqe = buf;
 
-	tqe->tqent_thread = NULL;
+	bzero(tqe, sizeof (taskq_ent_t));
 	cv_init(&tqe->tqent_cv, NULL, CV_DEFAULT, NULL);
 #ifdef __APPLE__
 	/* Simulate TS_STOPPED */
