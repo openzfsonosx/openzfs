@@ -190,6 +190,12 @@ zfs_findernotify_callback(mount_t mp, __unused void *arg)
 
 	zfsvfs = vfs_fsprivate(mp);
 
+	/* As set in vfs_fsadd() below */
+	char tname[MFSNAMELEN] = { 0 };
+	vfs_name(mp, tname);
+	if (strncmp(tname, "zfs", MFSNAMELEN) != 0)
+		return (VFS_RETURNED);
+
 	/*
 	 * The first entry in struct zfsvfs is the vfs ptr, so they
 	 * should be equal if it is ZFS
