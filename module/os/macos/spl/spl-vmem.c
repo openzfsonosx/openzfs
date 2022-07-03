@@ -1934,7 +1934,7 @@ vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 		    ddi_get_lbolt() + SEC_TO_TICK(10));
 		if (retval == -1) {
 			if (cb.c_done != B_TRUE) {
-				panic("timed out waiting for"
+				printf("timed out waiting for"
 				    " child callback, inchild: %d",
 				    cb.in_child);
 			} else {
