@@ -15,13 +15,8 @@
 extern int
 clock_gettime(clock_id_t clock_id, struct timespec *tp);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-
-static void
+__attribute__((unused)) static void
 gettime_dummy(void)
 {
 	clock_gettime(0, NULL);
 }
-
-#pragma GCC diagnostic pop
