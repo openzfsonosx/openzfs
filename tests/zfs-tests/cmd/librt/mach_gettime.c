@@ -12,6 +12,8 @@
 #include <mach/clock.h>
 #include <mach/mach_time.h>
 
+void gettime_dummy(void);
+
 extern int
 clock_gettime(clock_id_t clock_id, struct timespec *tp);
 
