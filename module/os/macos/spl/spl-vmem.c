@@ -1744,9 +1744,10 @@ vmem_xfree(vmem_t *vmp, void *vaddr, size_t size)
  * If there is less space on the kernel stack than
  * (dynamically tunable) spl_split_stack_below
  * then perform the vmem_alloc in the thread_call
- * function
+ * function. Don't set it to 16384, because then it
+ * continuously triggers, and we hang.
  */
-unsigned int spl_split_stack_below = 8192;
+unsigned long spl_split_stack_below = 8192;
 
 /* kstat tracking the global minimum free stack space */
 _Atomic unsigned int spl_lowest_alloc_stack_remaining = UINT_MAX;
@@ -1784,24 +1785,12 @@ vmem_alloc(vmem_t *vmp, size_t size, int vmflag)
 		return (wrapped_vmem_alloc(vmp, size, vmflag));
 	}
 
-	if (r < spl_lowest_alloc_stack_remaining ||
-	    r < spl_split_stack_below) {
+	if (r < spl_split_stack_below) {
 		return (vmem_alloc_in_worker_thread(vmp, size, vmflag));
 	}
 
 	return (wrapped_vmem_alloc(vmp, size, vmflag));
 }
-
-/* parameters passed between thread_call threads */
-typedef struct cb_params {
-	boolean_t	in_child;	/* set in worker callback function */
-	boolean_t	already_pending; /* sanity check thread_call_enter1() */
-	vmem_t		*vmp;		/* vmem_alloc() parameters */
-	size_t		size;
-	int		vmflag;
-	void		*r_alloc;	/* vmem_alloc() return value */
-	boolean_t	c_done;		/* flag worker callback is done */
-} cb_params_t;
 
 /*
  * Executes a wrapped_vmem_alloc() in a kernel worker thread, which will start
@@ -1815,27 +1804,22 @@ vmem_alloc_update_lowest_cb(thread_call_param_t param0,
 {
 
 	/* param 0 is a vmp, set in vmem_create() */
-	/* param 1 is the in-params */
 
-	vmem_t *vmp0 = (vmem_t *)param0;
+	vmem_t *vmp = (vmem_t *)param0;
+	cb_params_t *cbp = &vmp->vm_cb;
 
-	cb_params_t *cbp = (cb_params_t *)param1;
 	VERIFY3U(cbp->in_child, ==, B_FALSE);
 
 	/* tell the caller we are live */
 	cbp->in_child = B_TRUE;
 	__atomic_store_n(&cbp->in_child, B_TRUE, __ATOMIC_SEQ_CST);
 
-	/* make sure vmp is sane */
-	vmem_t *vmp = cbp->vmp;
-	VERIFY3P(vmp0, ==, vmp);
-
 	/* are we ever here after pending? */
 	ASSERT0(cbp->already_pending);
 
 	atomic_inc_64(&vmp->vm_kstat.vk_async_stack_calls.value.ui64);
 
-	cbp->r_alloc = wrapped_vmem_alloc(cbp->vmp,
+	cbp->r_alloc = wrapped_vmem_alloc(vmp,
 	    cbp->size, cbp->vmflag);
 
 	ASSERT3P(cbp->r_alloc, !=, NULL);
@@ -1844,9 +1828,9 @@ vmem_alloc_update_lowest_cb(thread_call_param_t param0,
 	__atomic_store_n(&cbp->c_done, B_TRUE, __ATOMIC_SEQ_CST);
 	/* from this point we cannot use param1, vmp, or cbp */
 
-	mutex_enter(&vmp0->vm_stack_lock);
-	cv_signal(&vmp0->vm_stack_cv);
-	mutex_exit(&vmp0->vm_stack_lock);
+	mutex_enter(&vmp->vm_stack_lock);
+	cv_signal(&vmp->vm_stack_cv);
+	mutex_exit(&vmp->vm_stack_lock);
 }
 
 /*
@@ -1857,17 +1841,6 @@ vmem_alloc_update_lowest_cb(thread_call_param_t param0,
 void *
 vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 {
-	cb_params_t cb = { 0 };
-
-	cb.vmp = vmp;
-	cb.size = size;
-	cb.vmflag = vmflag;
-
-	cb.c_done = B_FALSE;
-	cb.r_alloc = NULL;
-	cb.in_child = B_FALSE;
-	cb.already_pending = B_FALSE;
-
 	const vm_offset_t sr = OSKernelStackRemaining();
 
 	if (sr < spl_lowest_alloc_stack_remaining)
@@ -1881,7 +1854,6 @@ vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 	 * the callback registered earlier before the medallist
 	 * has begun running in the callback function.
 	 */
-
 	for (unsigned int i = 1; ; i++) {
 		/*
 		 * if busy == f then busy = true and
@@ -1891,7 +1863,7 @@ vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 		bool f = false;
 		if (!__c11_atomic_compare_exchange_strong(
 		    &vmp->vm_cb_busy, &f, true,
-		    __ATOMIC_SEQ_CST, __ATOMIC_RELAXED)) {
+		    __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
 			/* delay and loop */
 			extern void IODelay(unsigned microseconds);
 			if ((i % 1000) == 0)
@@ -1906,17 +1878,25 @@ vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 	}
 
 	mutex_enter(&vmp->vm_stack_lock);
+	vmp->vm_cb.size = size;
+	vmp->vm_cb.vmflag = vmflag;
+
+	vmp->vm_cb.c_done = B_FALSE;
+	vmp->vm_cb.r_alloc = NULL;
+	vmp->vm_cb.in_child = B_FALSE;
+	vmp->vm_cb.already_pending = B_FALSE;
+
 	/*
 	 * send a pointer to our parameter struct to the worker thread's
 	 * vmem_alloc_update_lowest_cb()'s param1.
 	 */
 	boolean_t tc_already_pending __maybe_unused =
-	    thread_call_enter1(vmp->vm_stack_call_thread, &cb);
+	    thread_call_enter1(vmp->vm_stack_call_thread, NULL);
 
 	/* in DEBUG, bleat if worker thread was already working */
 	ASSERT0(tc_already_pending);
 
-	cb.already_pending = tc_already_pending;
+	vmp->vm_cb.already_pending = tc_already_pending;
 
 	/*
 	 * Wait for a cv_signal from our worker thread.
@@ -1928,36 +1908,39 @@ vmem_alloc_in_worker_thread(vmem_t *vmp, size_t size, int vmflag)
 	 * Less impossibly: if we lost the signal from
 	 * the worker, log that and carry one.
 	 */
-	for (unsigned int i = 0; cb.c_done != B_TRUE; i++) {
+	for (unsigned int i = 0; vmp->vm_cb.c_done != B_TRUE; i++) {
 		int retval = cv_timedwait(&vmp->vm_stack_cv,
 		    &vmp->vm_stack_lock,
 		    ddi_get_lbolt() + SEC_TO_TICK(10));
 		if (retval == -1) {
-			if (cb.c_done != B_TRUE) {
+			if (vmp->vm_cb.c_done != B_TRUE) {
 				printf("timed out waiting for"
-				    " child callback, inchild: %d",
-				    cb.in_child);
+				    " child callback, inchild: %d: '%s'",
+				    vmp->vm_cb.in_child, vmp->vm_name);
 			} else {
 				printf("SPL: %s:%d timedout, lost cv_signal!\n",
 				    __func__, __LINE__);
 				cv_signal(&vmp->vm_stack_cv);
 			}
-		} else if (retval == 1 && cb.c_done != B_TRUE) {
-			ASSERT(cb.in_child);
+		} else if (retval == 1 && vmp->vm_cb.c_done != B_TRUE) {
+			ASSERT(vmp->vm_cb.in_child);
 			/* this was not for us, wake up someone else */
+			printf("SPL: this was not for us, wake up '%s'\n",
+			    vmp->vm_name);
 			cv_signal(&vmp->vm_stack_cv);
 		}
 		VERIFY(mutex_owned(&vmp->vm_stack_lock));
 	}
+
 	mutex_exit(&vmp->vm_stack_lock);
 
 	/* give up busy flag */
 	VERIFY0(!vmp->vm_cb_busy);
 	vmp->vm_cb_busy = false;
 
-	ASSERT3P(cb.r_alloc, !=, NULL);
+	ASSERT3P(vmp->vm_cb.r_alloc, !=, NULL);
 
-	return (cb.r_alloc);
+	return (vmp->vm_cb.r_alloc);
 }
 
 /*

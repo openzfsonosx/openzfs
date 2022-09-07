@@ -124,6 +124,16 @@ typedef struct vmem_kstat {
 /* forward declaration of opaque xnu struct */
 typedef struct thread_call *thread_call_t;
 
+/* parameters passed between thread_call threads */
+typedef struct cb_params {
+	boolean_t	in_child;	/* set in worker callback function */
+	boolean_t	already_pending; /* sanity check thread_call_enter1() */
+	size_t		size;
+	int		vmflag;
+	void		*r_alloc;	/* vmem_alloc() return value */
+	boolean_t	c_done;		/* flag worker callback is done */
+} cb_params_t;
+
 struct vmem {
 	char		vm_name[VMEM_NAMELEN]; /* arena name */
 	kcondvar_t	vm_cv;		/* cv for blocking allocations */
@@ -157,6 +167,7 @@ struct vmem {
 	kmutex_t	vm_stack_lock; /* synchronize with worker thread */
 	kcondvar_t	vm_stack_cv;
 	_Atomic bool	vm_cb_busy; /* gateway before thread_call_enter1() */
+	cb_params_t vm_cb; /* maybe used in vmem_alloc_in_worker_thread */
 };
 
 #ifdef	__cplusplus
