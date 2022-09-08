@@ -34,8 +34,8 @@ libspl_la_LDFLAGS= \
 	-lcc_kext
 
 if TARGET_CPU_AARCH64
-libspl_la_CPPFLAGS+=-arch arm64e
-libspl_la_LDFLAGS+=-arch arm64e
+libspl_la_CPPFLAGS+=-arch arm64e -arch x86_64
+libspl_la_LDFLAGS+=-arch arm64e -arch x86_64
 endif
 
 libspl_la_LIBS = -lnone

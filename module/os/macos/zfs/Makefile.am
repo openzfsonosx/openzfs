@@ -48,8 +48,8 @@ zfs_LDFLAGS = \
 	-lcc_kext
 
 if TARGET_CPU_AARCH64
-zfs_CPPFLAGS+=-arch arm64e
-zfs_LDFLAGS+=-arch arm64e
+zfs_CPPFLAGS+=-arch arm64e -arch x86_64
+zfs_LDFLAGS+=-arch arm64e -arch x86_64
 endif
 
 zfs_LDADD = \
