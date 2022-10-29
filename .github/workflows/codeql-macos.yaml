@@ -46,7 +46,7 @@ jobs:
           ./configure CPPFLAGS="-I/usr/local/opt/gettext/include -I/usr/local/opt/openssl@1.1/include" LDFLAGS="-L/usr/local/opt/gettext/lib/ -L/usr/local/opt/openssl@1.1/lib"
       - name: build
         run: |
-          make -j 2
+          make -j$(sysctl -n hw.ncpu)
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
