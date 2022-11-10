@@ -6,7 +6,7 @@
  * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
- * or http://www.opensolaris.org/os/licensing.
+ * or https://opensource.org/licenses/CDDL-1.0.
  * See the License for the specific language governing permissions
  * and limitations under the License.
  *
@@ -23,10 +23,27 @@
  * Copyright (c) 1992, 2010, Oracle and/or its affiliates. All rights reserved.
  */
 
-#if defined(__APPLE__)
+#ifdef _WIN32
+
+#define	ENTRY(x) \
+	.text; \
+	.align	8; \
+	.globl	x; \
+x:
+#define	SET_SIZE(x)
+
+#elif defined(__APPLE__)
+
 #define _ASM
 #include <osx/asm_linkage.h>
+
 #else
+
+#if defined(__linux__) && defined(_KERNEL)
+#include <linux/linkage.h>
+#endif
+
+#undef ENTRY
 #define	ENTRY(x) \
 	.text; \
 	.align	8; \
@@ -36,6 +53,12 @@ x:
 
 #define	SET_SIZE(x) \
 	.size	x, [.-x]
+
+#endif
+
+
+#ifndef RET
+#define	RET	ret
 #endif
 
 /*
@@ -55,7 +78,7 @@ x:
 	movq	0(%rsp), %rdx		/* return address */
 	movq	%rdx, 56(%rdi)		/* rip */
 	xorl	%eax, %eax		/* return 0 */
-	ret
+	RET
 	SET_SIZE(setjmp)
 
 	ENTRY(longjmp)
@@ -70,7 +93,7 @@ x:
 	movq	%rdx, 0(%rsp)
 	xorl	%eax, %eax
 	incl	%eax			/* return 1 */
-	ret
+	RET
 	SET_SIZE(longjmp)
 
 #ifdef __ELF__
