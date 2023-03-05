@@ -258,7 +258,7 @@ param_set_arc_max(ZFS_MODULE_PARAM_ARGS)
 	int err;
 
 	val = zfs_arc_max;
-	err = sysctl_handle_long(oidp, &val, 0, req);
+	err = sysctl_handle_quad(oidp, &val, 0, req);
 	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (SET_ERROR(err));
 
@@ -386,7 +386,7 @@ param_set_arc_long(ZFS_MODULE_PARAM_ARGS)
 {
 	int err;
 
-	err = sysctl_handle_long(oidp, arg1, 0, req);
+	err = sysctl_handle_quad(oidp, arg1, 0, req);
 	if (err != 0 || req->newptr == (user_addr_t) NULL)
 		return (err);
 
