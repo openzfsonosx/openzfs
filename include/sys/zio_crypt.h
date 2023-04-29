@@ -148,7 +148,7 @@ int zio_crypt_do_hmac(zio_crypt_key_t *key, uint8_t *data, uint_t datalen,
     uint8_t *digestbuf, uint_t digestlen);
 int zio_crypt_do_objset_hmacs(zio_crypt_key_t *key, void *data, uint_t datalen,
     boolean_t byteswap, uint8_t *portable_mac, uint8_t *local_mac);
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(_KERNEL)
 int zio_crypt_do_objset_hmacs_errata1(zio_crypt_key_t *key, void *data,
     uint_t datalen, boolean_t should_bswap, uint8_t *portable_mac,
     uint8_t *local_mac);
