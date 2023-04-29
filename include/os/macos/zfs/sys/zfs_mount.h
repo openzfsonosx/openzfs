@@ -54,6 +54,8 @@ struct zfs_mount_args {
 #define	MS_DETACH MNT_DETACH
 #define	MS_OVERLAY MNT_UNION
 #define	MS_CRYPT MNT_CPROTECT
+#define	MS_NOATIME MNT_NOATIME
+#define	MS_STRICTATIME MNT_STRICTATIME
 #endif
 
 #endif	/* _SYS_ZFS_IOCTL_H */

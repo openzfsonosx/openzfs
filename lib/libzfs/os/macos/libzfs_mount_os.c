@@ -262,8 +262,12 @@ static const option_map_t option_map[] = {
 #endif
 	/* Custom zfs options */
 	{ MNTOPT_XATTR,		MS_COMMENT,	ZS_COMMENT	},
-	{ MNTOPT_NOXATTR,	MS_COMMENT,	ZS_COMMENT	},
+	{ MNTOPT_NOXATTR,	MNT_NOUSERXATTR,	ZS_COMMENT	},
 	{ MNTOPT_ZFSUTIL,	MS_COMMENT,	ZS_ZFSUTIL	},
+	{ MNTOPT_BROWSE,	MS_COMMENT,	ZS_COMMENT	},
+	{ MNTOPT_NOBROWSE,	MNT_DONTBROWSE,	ZS_COMMENT	},
+	{ MNTOPT_OWNERS,	MS_COMMENT,	ZS_COMMENT	},
+	{ MNTOPT_NOOWNERS,	MNT_IGNORE_OWNERSHIP,	ZS_COMMENT	},
 	{ NULL,			0,		0		} };
 
 /*
@@ -502,16 +506,20 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 		}
 	}
 
-	// We don't pass flags to XNU, we use optstr
-	mflag = 0;
+	char badopt[MNT_LINE_MAX] = {0};
+	unsigned long mntflags = mflag, zfsflags;
+	char myopts[MNT_LINE_MAX] = {0};
 
-	// Some arguments need to be told to XNU
-	if (strstr(optptr, "remount") != NULL)
-		mflag |= MNT_UPDATE;
+	if (zfs_parse_mount_options(optptr, &mntflags,
+	    &zfsflags, 0, badopt, NULL)) {
+		return (EINVAL);
+	}
+	strlcat(myopts, optptr, MNT_LINE_MAX);
+	zfs_adjust_mount_options(zhp, dir, myopts, NULL);
 
-	mnt_args.mflag = mflag;
-	mnt_args.optptr = optptr;
-	mnt_args.optlen = optlen;
+	mnt_args.mflag = mntflags;
+	mnt_args.optptr = myopts;
+	mnt_args.optlen = MNT_LINE_MAX;
 	mnt_args.struct_size = sizeof (mnt_args);
 
 	/*
@@ -523,13 +531,13 @@ do_mount(zfs_handle_t *zhp, const char *dir, char *optptr, int mflag)
 	rpath = realpath(dir, NULL);
 
 #ifdef ZFS_DEBUG
-	printf("%s calling mount with fstype %s, %s %s, fspec %s, mflag %d,"
+	printf("%s calling mount with fstype %s, %s %s, fspec %s, mntflags %lu,"
 	    " optptr %s, optlen %d, devdisk %d, ispool %d\n",
 	    __func__, fstype, (rpath ? "rpath" : "dir"),
-	    (rpath ? rpath : dir), mnt_args.fspec, mflag, optptr, optlen,
+	    (rpath ? rpath : dir), mnt_args.fspec, mntflags, optptr, optlen,
 	    devdisk, ispool);
 #endif
-	rv = mount(fstype, rpath ? rpath : dir, mflag, &mnt_args);
+	rv = mount(fstype, rpath ? rpath : dir, mntflags, &mnt_args);
 
 	/* Check if we need to create/update icon */
 	if (rv == 0)
