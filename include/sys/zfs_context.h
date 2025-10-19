@@ -124,12 +124,6 @@ extern "C" {
 typedef off_t loff_t;
 #endif
 
-/*
- * Kernel modules
- */
-#define	__init
-#define	__exit
-
 #endif  /* _KERNEL || _STANDALONE */
 
 #ifdef __cplusplus

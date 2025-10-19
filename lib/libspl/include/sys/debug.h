@@ -49,4 +49,10 @@
 #define	unlikely(x)	__builtin_expect((x), 0)
 #endif
 
+/*
+ * Kernel modules
+ */
+#define		__init
+#define		__exit
+
 #endif
