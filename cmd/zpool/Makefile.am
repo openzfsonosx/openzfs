@@ -162,6 +162,7 @@ dist_zpoolcompat_DATA = \
 	%D%/compatibility.d/openzfsonosx-1.7.0 \
 	%D%/compatibility.d/openzfsonosx-1.8.1 \
 	%D%/compatibility.d/openzfsonosx-1.9.3 \
+	%D%/compatibility.d/openzfsonosx-2.1.6 \
 	%D%/compatibility.d/zol-0.6.1 \
 	%D%/compatibility.d/zol-0.6.4 \
 	%D%/compatibility.d/zol-0.6.5 \
