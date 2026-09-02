@@ -155,10 +155,19 @@ ZetaWatch_bin_OBJCXXFLAGS = -std=c++17 -fobjc-arc -Wall -Wextra -Wno-missing-fie
 ZetaWatch_bin_LDFLAGS = $(ZETAWATCH_APP_FRAMEWORKS)
 ZetaWatch_bin_LDADD = libzfs.la
 
-# Nib compilation - ibtool can compile each xib standalone.
-ZetaWatch.app/Contents/Resources/Base.lproj/%.nib: $(srcdir)/%D%/ZetaWatch/Base.lproj/%.xib
+# Nib compilation - ibtool can compile each xib standalone. ibtool ships
+# only with full Xcode.app, never the standalone Command Line Tools; on a
+# CLT-only machine (no $(IBTOOL)) fall back to the pre-compiled .nib
+# committed alongside the source .xib - editing the UI still needs full
+# Xcode, but plain building doesn't.
+ZetaWatch.app/Contents/Resources/Base.lproj/%.nib: $(srcdir)/%D%/ZetaWatch/Base.lproj/%.xib \
+		$(srcdir)/%D%/ZetaWatch/Base.lproj/%.nib
 	$(AM_V_GEN)$(MKDIR_P) ZetaWatch.app/Contents/Resources/Base.lproj
-	$(AM_V_at)ibtool --compile $@ $<
+	$(AM_V_at)if test -n "$(IBTOOL)"; then \
+		$(IBTOOL) --compile $@ $< ; \
+	else \
+		cp -f $(srcdir)/%D%/ZetaWatch/Base.lproj/$*.nib $@ ; \
+	fi
 
 ZETAWATCH_NIBS = \
 	ZetaWatch.app/Contents/Resources/Base.lproj/MainMenu.nib \
@@ -167,23 +176,33 @@ ZETAWATCH_NIBS = \
 
 dist_noinst_DATA += \
 	%D%/ZetaWatch/Base.lproj/MainMenu.xib \
+	%D%/ZetaWatch/Base.lproj/MainMenu.nib \
 	%D%/ZetaWatch/Base.lproj/NewFS.xib \
+	%D%/ZetaWatch/Base.lproj/NewFS.nib \
 	%D%/ZetaWatch/Base.lproj/NewVol.xib \
+	%D%/ZetaWatch/Base.lproj/NewVol.nib \
 	%D%/ZetaWatch/Base.lproj/Localizable.strings \
+	%D%/ZetaWatch/Assets.car \
 	%D%/ZetaWatch/Info.plist \
 	%D%/ZetaWatch/ZetaWatch.entitlements \
 	%D%/ZetaAuthorizationHelper/Info.plist \
 	%D%/ZetaAuthorizationHelper/Launchd.plist \
 	%D%/ZetaLoginItemHelper/Info.plist
 
-# Icon asset catalog.
-ZetaWatch.app/Contents/Resources/Assets.car: $(srcdir)/%D%/ZetaWatch/Assets.xcassets
+# Icon asset catalog. actool has the same Xcode-only availability as
+# ibtool above; fall back to the committed pre-compiled Assets.car.
+ZetaWatch.app/Contents/Resources/Assets.car: $(srcdir)/%D%/ZetaWatch/Assets.xcassets \
+		$(srcdir)/%D%/ZetaWatch/Assets.car
 	$(AM_V_GEN)$(MKDIR_P) ZetaWatch.app/Contents/Resources
-	$(AM_V_at)xcrun actool --output-format human-readable-text --notices --warnings \
-		--platform macosx --minimum-deployment-target 11.0 \
-		--app-icon AppIcon --output-partial-info-plist /dev/null \
-		--compile ZetaWatch.app/Contents/Resources \
-		$(srcdir)/%D%/ZetaWatch/Assets.xcassets > /dev/null
+	$(AM_V_at)if test -n "$(ACTOOL)"; then \
+		$(ACTOOL) --output-format human-readable-text --notices --warnings \
+			--platform macosx --minimum-deployment-target 11.0 \
+			--app-icon AppIcon --output-partial-info-plist /dev/null \
+			--compile ZetaWatch.app/Contents/Resources \
+			$(srcdir)/%D%/ZetaWatch/Assets.xcassets > /dev/null ; \
+	else \
+		cp -f $(srcdir)/%D%/ZetaWatch/Assets.car $@ ; \
+	fi
 
 # Assemble the app bundle: embeds the privileged helper at
 # Contents/Library/LaunchServices and the login item at
