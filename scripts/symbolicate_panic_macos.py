@@ -16,6 +16,7 @@
 #
 
 import argparse, os, re, sys, json, glob, shlex, subprocess, tempfile, atexit, shutil
+from collections import Counter
 from typing import Optional
 
 _TMP_DIRS = []
@@ -29,6 +30,10 @@ def _cleanup_tmp():
         shutil.rmtree(d, ignore_errors=True)
 
 HEX = r'0x[0-9a-fA-F]+'
+
+def norm_uuid(u: str) -> str:
+    """Strip dashes/case so UUIDs from otool, panic text, and binaryImages compare equal."""
+    return re.sub(r'[^0-9A-Fa-f]', '', u or '').upper()
 
 def run(cmd: str):
     return subprocess.run(cmd, shell=True, check=False,
@@ -100,6 +105,31 @@ def zfs_binaries_from_pkg(pkg: str, leaf: str = 'zfs'):
                            recursive=True):
             found.append(((macho_uuid(z) or '').upper(), z))
     return found
+
+def kext_from_pkgs_by_image_uuids(pkg_args, image_by_uuid: dict, leaf: str = 'zfs'):
+    """Like kext_from_pkgs, but matches against the compact stackshot's
+       binaryImages UUID set instead of a classic '<bundle>[UUID]@base->end'
+       table. Newer paniclogs (paniclog version 16+, macOS 26/27) drop that
+       table entirely and only carry binaryImages: [[uuid, base, flag], ...]
+       with no bundle-id column, so we can't pick a UUID up front -- instead
+       we check each candidate zfs binary's own UUID against every image in
+       the stackshot and take whichever one is actually present.
+       Returns (path, uuid) or (None, None)."""
+    cand = []
+    for pkg in iter_pkg_paths(pkg_args):
+        for uuid, path in zfs_binaries_from_pkg(pkg, leaf):
+            cand.append((uuid, path, pkg))
+    if not cand:
+        print("[pkg] no zfs binaries found in the given pkg(s).")
+        return None, None
+    for uuid, path, pkg in cand:
+        if norm_uuid(uuid) in image_by_uuid:
+            print(f"[pkg] UUID match {uuid}  <-  {os.path.basename(pkg)}  (via binaryImages)")
+            return path, uuid
+    print("[pkg] no candidate binary's UUID appears in this panic's binaryImages; candidates were:")
+    for uuid, path, pkg in cand:
+        print(f"[pkg]   {uuid}  ({os.path.basename(pkg)})")
+    return None, None
 
 def kext_from_pkgs(pkg_args, want_uuid: str, leaf: str = 'zfs'):
     """Pick the zfs binary whose UUID matches the panic from the given pkg(s)/dir(s).
@@ -226,6 +256,8 @@ def parse_panic(path: str, bundle: str):
     # .ips JSON?
     # Some panic files contain two JSON objects: a one-line header followed by
     # the main object.  json.loads() rejects that, so try stripping the header.
+    full_json = None
+    image_by_uuid = {}
     if raw.lstrip().startswith('{') and '"panicString"' in raw:
         j = None
         for candidate in [raw, raw.split('\n', 1)[-1]]:
@@ -235,10 +267,26 @@ def parse_panic(path: str, bundle: str):
             except Exception:
                 pass
         if j:
+            full_json = j
             txt = j.get('panicString', '') or raw
             osv = j.get('os_version') or ''
             m = re.search(r'Build\s+([0-9A-Za-z]+)', osv)
             if m: build = m.group(1)
+            # Newer paniclogs (version 16+) drop the classic per-kext
+            # '<bundle>[UUID]@base->end' table and instead carry a compact
+            # stackshot: binaryImages is [[uuid, base, flag], ...] with no
+            # name column, and processByPid[*].threadById[*].kernelFrames
+            # references it by index. Index it here so main() can match a
+            # candidate zfs binary's own UUID against it later.
+            bi = j.get('binaryImages')
+            if isinstance(bi, list):
+                for idx, entry in enumerate(bi):
+                    try:
+                        uuid_s, base = entry[0], entry[1]
+                    except Exception:
+                        continue
+                    image_by_uuid.setdefault(norm_uuid(uuid_s), []).append(
+                        (idx, int(base) & 0xFFFFFFFFFFFFFFFF))
 
     if not build:
         m_build = re.search(r'OS version:\s*([0-9A-Za-z]+)', txt)
@@ -303,8 +351,10 @@ def parse_panic(path: str, bundle: str):
         'ordered': ordered,
         'addrs': addrs,
         'is_release': is_release,
-        'esr': esr, 
-        'far': far
+        'esr': esr,
+        'far': far,
+        'full_json': full_json,
+        'image_by_uuid': image_by_uuid,
     }
 
 def choose_mapping_for_kext(dwarf_obj: str, arch: str,
@@ -363,15 +413,21 @@ def main():
     # Panic parse first: its kext UUID is what lets --pkg pick the right binary.
     pi = parse_panic(args.panic, args.bundle) if args.panic else {
         'build':'','kern_text_exec_base':None,'kern_text_base':None,'kernel_uuid':'',
-        'kext_base':None,'kext_end':None,'kext_uuid':'','soc_hint':None,'ordered':[],'addrs':[]
+        'kext_base':None,'kext_end':None,'kext_uuid':'','soc_hint':None,'ordered':[],'addrs':[],
+        'full_json':None,'image_by_uuid':{}
     }
 
     # KEXT setup: explicit -k, else extract the UUID-matching binary from --pkg.
     kext = args.kext
     if not kext and args.pkg:
-        if not pi.get('kext_uuid'):
-            sys.exit("--pkg needs a panic (-p) carrying the kext UUID to match against.")
-        kext = kext_from_pkgs(args.pkg, pi['kext_uuid'])
+        if not args.panic:
+            sys.exit("--pkg needs a panic (-p) to match a UUID against.")
+        if pi.get('kext_uuid'):
+            kext = kext_from_pkgs(args.pkg, pi['kext_uuid'])
+        if not kext and pi.get('image_by_uuid'):
+            kext, matched_uuid = kext_from_pkgs_by_image_uuids(args.pkg, pi['image_by_uuid'])
+            if kext and not pi.get('kext_uuid'):
+                pi['kext_uuid'] = matched_uuid
         if not kext:
             sys.exit(" No matching binary in --pkg; supply the right pkg or pass -k explicitly.")
     if not kext:
@@ -381,9 +437,68 @@ def main():
     arch  = macho_arch(kext)
     text_vm, exec_vm, exec_size = macho_text_info(kext)
 
+    # Compact-stackshot image index for this kext binary, if this panic's
+    # binaryImages carries its UUID (newer paniclogs -- see parse_panic()).
+    # Used both as a base-address fallback and to scan processByPid for
+    # threads actually executing in this kext.
+    kext_image_index = None
+    kext_image_base = None
+    image_entries = pi.get('image_by_uuid', {}).get(norm_uuid(macho_uuid(kext)))
+    if image_entries:
+        kext_image_index, kext_image_base = image_entries[0]
+
+    # Every thread (any pid, incl. kernel_task) with a frame inside this kext
+    # image -- the only place a hang like a busy-timeout/watchdog panic shows
+    # *our* code, since the panicking thread there belongs to watchdogd, not
+    # zfs. Gathered before the base checks below so it can still be reported
+    # even when the base turns out to be unusable.
+    kext_thread_hits = []
+    if pi.get('full_json') and kext_image_index is not None:
+        pbp = pi['full_json'].get('processByPid', {}) or {}
+        for pidstr, proc in pbp.items():
+            for tid, th in (proc.get('threadById') or {}).items():
+                kf = th.get('kernelFrames') or th.get('userFrames')
+                if not kf:
+                    continue
+                if any(isinstance(f, (list, tuple)) and len(f) >= 2 and f[0] == kext_image_index
+                       for f in kf):
+                    kext_thread_hits.append((pidstr, proc.get('procname'), tid, th, kf))
+
     base_hex = args.base or (pi['kext_base'] and hex(pi['kext_base']))
+    if not base_hex and image_entries and kext_image_base:
+        base_hex = hex(kext_image_base)
+        print(f"[binaryImages] no classic kext table in this panic; resolved base "
+              f"{base_hex} from the compact stackshot (image #{kext_image_index})")
+
     if not base_hex:
-        sys.exit("No kext base provided (-b) and not found in panic.")
+        # A "T"-flagged image with base 0x0 in this compact schema is what a
+        # 3rd-party/AuxKC kext looks like: unlike the boot kernelcache and
+        # built-in kexts, its runtime slide isn't recorded here, so every
+        # frame naming it also comes through as offset 0 -- there's no real
+        # location to symbolicate, only "some thread was somewhere in this
+        # kext". Report that plainly (grouped, deduped) instead of either
+        # silently computing garbage from address 0, or calling atos once per
+        # matching thread (which is what turned this into a multi-minute
+        # subprocess-spawning loop against ~2000 threads).
+        if kext_thread_hits:
+            if image_entries:
+                print(f"[binaryImages] {args.bundle} is image #{kext_image_index} in this "
+                      f"panic's compact stackshot, but its recorded base is 0x0 -- no real "
+                      f"load address, so per-thread offsets can't be symbolicated. This is "
+                      f"expected for 3rd-party/AuxKC kexts in this stackshot format.")
+            distinct_shapes = len({tuple(map(tuple, kf)) for *_, kf in kext_thread_hits})
+            names = Counter(th.get('name') for _, _, _, th, _ in kext_thread_hits)
+            print(f"\n=== {len(kext_thread_hits)} thread(s) reference {args.bundle} "
+                  f"image #{kext_image_index} (no usable offsets, {distinct_shapes} "
+                  f"distinct stack shapes) ===")
+            print(" Top thread names (not evidence of a hang by itself -- with base 0x0 "
+                  "every frame naming this image reads the same regardless of thread, and "
+                  "in a panic this size that can mean most of the system's threads match):")
+            for name, cnt in names.most_common(25):
+                print(f"  {cnt:5d}x  {name!r}")
+            print("\n Pass -b <real base hex> if you have it from another source (e.g. "
+                  "`kextstat`/`kmutil` output taken close to the panic) to get real symbols.")
+        sys.exit("No usable kext base address (-b, classic table, and binaryImages all empty/zero).")
 
     # Candidate addresses (for mapping decision); ordered list for final output
     addrs = []
@@ -395,9 +510,18 @@ def main():
         addrs = pi['addrs']
     ordered = [depac(a) for a in pi.get('ordered', [])] or addrs
 
+    # Stackshot frames known to be in this kext image make good probes for
+    # picking __TEXT vs __TEXT_EXEC mapping too -- the classic text-derived
+    # addrs/ordered lists are empty/irrelevant for this schema (they come
+    # from the panicking thread, which is watchdogd/kernel here, not zfs).
+    stackshot_addrs = sorted({int(base_hex, 16) + off
+                               for _, _, _, _, kf in kext_thread_hits
+                               for imgidx, off in kf if imgidx == kext_image_index})
+
     # Choose kext mapping
     text_load_hex, kexec_load, kdelta = choose_mapping_for_kext(
-        dwarf, arch, base_hex, text_vm, exec_vm, exec_size, addrs or ordered
+        dwarf, arch, base_hex, text_vm, exec_vm, exec_size,
+        (addrs or ordered) + stackshot_addrs
     )
 
     # Verify the -k binary actually matches the kext that panicked.
@@ -531,8 +655,44 @@ def main():
     for line in reversed(lines):
         print(line)
 
-    # (optional) Also keep your old per-image sections if you like:
-    # ...but the merged output above is what you asked for.
+    # ---- Threads executing inside [zfs] per the compact stackshot ----
+    # For a watchdog/busy-timeout style panic, the *panicking* thread above
+    # belongs to watchdogd/launchd, not zfs -- whatever's actually stuck in
+    # our kext only shows up here, as some other thread's kernelFrames.
+    if pi.get('full_json') and kext_image_index is not None:
+        print(f"\n=== Threads with a frame in [zfs] image #{kext_image_index} (compact stackshot) ===")
+        if not kext_thread_hits:
+            print(" (none -- nothing was executing in this kext at snapshot time)")
+        else:
+            # Idle worker threads (taskq, condvar waits, ...) tend to share the
+            # exact same frame tuple by the hundreds/thousands -- symbolicate
+            # each distinct tuple once, not once per thread. That's what turned
+            # this into a multi-minute atos-spawning loop before.
+            sym_cache = {}
+            def sym_for(imgidx, off):
+                key = (imgidx, off)
+                if key not in sym_cache:
+                    if imgidx == kext_image_index:
+                        addr = int(base_hex, 16) + off
+                        sym_cache[key] = f"[zfs]      +{hex(off)}  {symbolicate(dwarf, arch, text_load_hex, addr)}"
+                    else:
+                        sym_cache[key] = f"[image #{imgidx}] +{hex(off)}"
+                return sym_cache[key]
+
+            by_frames = {}
+            for pidstr, procname, tid, th, kf in kext_thread_hits:
+                key = tuple(map(tuple, kf))
+                by_frames.setdefault(key, []).append((pidstr, procname, tid, th))
+
+            print(f" {len(kext_thread_hits)} thread(s), {len(by_frames)} distinct stack shape(s)")
+            for kf, threads in sorted(by_frames.items(), key=lambda kv: -len(kv[1])):
+                names = Counter(th.get('name') for _, _, _, th in threads)
+                summary = ", ".join(f"{n!r}x{c}" if c > 1 else repr(n) for n, c in names.most_common(6))
+                if len(names) > 6:
+                    summary += ", ..."
+                print(f"\n -- {len(threads)} thread(s): {summary}")
+                for imgidx, off in kf:
+                    print(f"   {sym_for(imgidx, off)}")
 
 if __name__ == "__main__":
     main()
