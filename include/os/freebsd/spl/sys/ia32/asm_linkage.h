@@ -161,8 +161,10 @@ y:
 
 /*
  * LOCAL_LABEL defines a label which should not appear in the symbol table.
+ * GNU as treats a ".L"-prefixed symbol as local, so keep the dot.
  */
 #define	LOCAL_LABEL(x) .L##x
+
 
 #endif /* _ASM */
 
