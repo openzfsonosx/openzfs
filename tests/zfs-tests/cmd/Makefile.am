@@ -165,5 +165,8 @@ if BUILD_MACOS
 include $(srcdir)/%D%/librt/Makefile.am
 endif
 
+scripts_zfs_tests_bin_PROGRAMS += %D%/file_uncached
+%C%_file_uncached_SOURCES  = %D%/file/file_uncached.c
+
 scripts_zfs_tests_bin_PROGRAMS += %D%/file_unlink_fh
 %C%_file_unlink_fh_SOURCES  = %D%/file/file_unlink_fh.c
