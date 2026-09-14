@@ -3,15 +3,16 @@ include Kbuild
 INSTALL_MOD_DIR ?= extra
 INSTALL_MOD_PATH ?= $(DESTDIR)
 
-all: modules
+all: modules gitrev
 distclean maintainer-clean: clean
 install: modules_install data_install
 uninstall: modules_uninstall data_uninstall
 check:
 
-.PHONY: all distclean maintainer-clean install uninstall check distdir \
-	modules modules-Linux modules-FreeBSD modules-macOS modules-unknown \
-	clean clean-Linux clean-FreeBSD clean-macOS \
+.PHONY: all distclean maintainer-clean install uninstall check distdir gitrev \
+	modules modules-Linux modules-FreeBSD modules-unknown \
+	clean clean-Linux clean-FreeBSD \
+	modules-macOS clean-macOS \
 	modules_install modules_install-Linux modules_install-FreeBSD \
 	modules_install-macOS data_install data_install-Linux \
 	data_install-FreeBSD data_install-macOS \
@@ -52,6 +53,9 @@ FMAKEFLAGS += MAKEOBJDIR=@abs_builddir@
 endif
 
 FMAKE = env -u MAKEFLAGS make $(FMAKEFLAGS)
+
+gitrev:
+	$(MAKE) -C "@abs_top_builddir@" gitrev
 
 modules-Linux:
 	mkdir -p $(sort $(dir $(spl-objs) $(spl-)))
