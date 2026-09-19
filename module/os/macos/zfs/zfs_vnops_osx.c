@@ -3050,6 +3050,8 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		dprintf("ZPO2: vm_upl_map_range failed error=%d vaddr=%p\n",
 		    error, (void *)vaddr);
 		error = EINVAL;
+		dmu_tx_commit(tx);
+		tx = NULL;
 		goto out;
 	}
 	// already points at the start of the mapped range
@@ -3062,6 +3064,8 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		dprintf("ZPO2: vm_upl_map_range failed error=%d vaddr=%p\n",
 		    error, (void *)vaddr);
 		error = EINVAL;
+		dmu_tx_commit(tx);
+		tx = NULL;
 		goto out;
 	}
 
@@ -3150,8 +3154,14 @@ zfs_vnop_pageoutv2(struct vnop_pageout_args *ap)
 		    &zp->z_pflags, 8);
 
 		zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime);
+		/*
+		 * When we will zil_commit() below, ask for WR_COPIED so the
+		 * data is copied into the log record now, instead of being
+		 * fetched later through zfs_get_data() and the rangelock.
+		 */
 		zfs_log_write(zfsvfs->z_log, tx, TX_WRITE, zp, ap->a_f_offset,
-		    a_size, 0, B_FALSE, NULL, NULL);
+		    a_size, (a_flags & UPL_IOSYNC) ? B_TRUE : B_FALSE, B_FALSE,
+		    NULL, NULL);
 	}
 	dmu_tx_commit(tx);
 	tx = NULL;
@@ -3177,9 +3187,12 @@ out:
 	zfs_rangelock_exit(lr);
 	lr = NULL;
 
-	if (a_flags & UPL_IOSYNC)
-		error = zil_commit(zfsvfs->z_log, zp->z_id);
-
+	/*
+	 * The data is in the DMU tx and logged, so release the pages before
+	 * waiting on the ZIL. If zil_commit() needs the rangelock (via
+	 * zfs_get_data()) while a zfs_write() holding it is blocked in
+	 * ubc_create_upl() on these still-busy pages, we deadlock.
+	 */
 	if (error)
 		ubc_upl_abort(upl, (UPL_ABORT_ERROR | UPL_ABORT_FREE_ON_EMPTY));
 	else
@@ -3188,6 +3201,9 @@ out:
 	dprintf("ZPO2: abort/commit err=%d upl=%p size=0x%lx\n", error,
 	    upl, (unsigned long)a_size);
 	upl = NULL;
+
+	if (error == 0 && (a_flags & UPL_IOSYNC))
+		error = zil_commit(zfsvfs->z_log, zp->z_id);
 
 pageout_done:
 	if (lr != NULL) {
