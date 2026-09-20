@@ -1559,6 +1559,14 @@ spa_taskq_param_set(zio_type_t t, char *cfg)
 	return (0);
 }
 
+/*
+ * Upper bound for the module parameter string built below. Only the macOS
+ * SPL defines it; Linux and FreeBSD hand us a page sized buffer.
+ */
+#ifndef	LINUX_MAX_MODULE_PARAM_LEN
+#define	LINUX_MAX_MODULE_PARAM_LEN	1024
+#endif
+
 static int
 spa_taskq_param_get(zio_type_t t, char *buf, boolean_t add_newline)
 {
