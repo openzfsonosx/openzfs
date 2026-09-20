@@ -29,16 +29,7 @@ typedef struct vdev_file {
 
 extern void vdev_file_init(void);
 extern void vdev_file_fini(void);
-#ifdef	__APPLE__
-extern int vdev_file_os_io_start(zio_t *);
-#else
-/* Only macOS needs an OS hook before file vdev I/O. */
-static inline int
-vdev_file_os_io_start(zio_t *zio __maybe_unused)
-{
-	return (0);
-}
-#endif
+extern int vdev_file_os_io_start(zio_t *zio);
 
 #ifdef	__cplusplus
 }

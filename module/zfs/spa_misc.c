@@ -2668,7 +2668,7 @@ spa_init(spa_mode_t mode)
 	vdev_mirror_stat_init();
 	vdev_raidz_math_init();
 	vdev_file_init();
-#if defined(_KERNEL) && defined(__APPLE__)
+#ifdef _KERNEL
 	vdev_disk_init();
 #endif
 	zfs_prop_init();
@@ -2687,7 +2687,7 @@ spa_fini(void)
 {
 	spa_evict_all();
 
-#if defined(_KERNEL) && defined(__APPLE__)
+#ifdef _KERNEL
 	vdev_disk_fini();
 #endif
 	vdev_file_fini();
