@@ -109,6 +109,16 @@ my $tagged_patterns = q(
 	tests/zfs-tests/tests/functional/inheritance/README.config
 	tests/zfs-tests/tests/functional/inheritance/README.state
 	cmd/zed/zed.d/statechange-notify.sh
+
+	# OpenZFS on OS X: C++ sources that already carry a license tag.
+	module/os/macos/zfs/ZFSDataset.cpp
+	module/os/macos/zfs/ZFSDatasetProxy.cpp
+	module/os/macos/zfs/ZFSDatasetScheme.cpp
+	module/os/macos/zfs/ZFSPool.cpp
+	module/os/macos/zfs/ldi_iokit.cpp
+	module/os/macos/zfs/zfs_boot.cpp
+	module/os/macos/zfs/zfs_osx.cpp
+	module/os/macos/zfs/zvolIO.cpp
 );
 
 my $untagged_patterns = q(
@@ -162,6 +172,87 @@ my $untagged_patterns = q(
 	tests/zfs-tests/include/tunables.cfg
 	tests/zfs-tests/include/zpool_script.shlib
 	tests/zfs-tests/tests/functional/mv_files/random_creation.ksh
+
+	# OpenZFS on OS X: macOS port files that do not carry a license tag yet.
+	# Remove an entry once the file gains a tag.
+	cmd/os/macos/InvariantDisks/InvariantDisks/git-version.h
+	cmd/os/macos/InvariantDisks/InvariantDisks/Makefile.am
+	cmd/os/macos/InvariantDisks/Makefile.am
+	cmd/os/macos/Makefile.am
+	cmd/os/macos/mount_zfs/Makefile.am
+	cmd/os/macos/zconfigd/Makefile.am
+	cmd/os/macos/zconfigd/zconfigd.c
+	cmd/os/macos/ZetaWatch/CommonAuthorization/CommonAuthorization.h
+	cmd/os/macos/ZetaWatch/Makefile.am
+	cmd/os/macos/ZetaWatch/uninstall-helper.sh
+	cmd/os/macos/ZetaWatch/ZetaAuthorizationHelper/ZetaAuthorizationHelper.h
+	cmd/os/macos/ZetaWatch/ZetaAuthorizationHelper/ZetaAuthorizationHelperProtocol.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaAuthorization.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaAutoImporter.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaBookmarkMenu.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaCommanderBase.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaConfirmDialog.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaDictQueryDialog.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaFileSystemPropertyMenu.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaImportMenu.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaKeyLoader.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaMainMenu.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaNotificationCenter.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaPoolPropertyMenu.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaPoolWatcher.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaQueryDialog.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaSnapshotMenu.h
+	cmd/os/macos/ZetaWatch/ZetaWatch/ZetaWatchDelegate.h
+	cmd/os/macos/zfs_util/Makefile.am
+	cmd/os/macos/zfs_util/zfs_util.c
+	cmd/os/macos/zsysctl/Makefile.am
+	cmd/os/macos/zsysctl/zsysctl.c
+	cmd/os/Makefile.am
+	config/kernel-macos-headers.m4
+	config/macos.m4
+	contrib/macOS/Makefile.am
+	contrib/macOS/product-scripts/poolcheck.sh
+	contrib/macOS/product-scripts/zevocheck.sh
+	contrib/macOS/uninstall-openzfsonosx.sh
+	etc/launchd.d/Makefile.am
+	etc/launchd/daemons/Makefile.am
+	etc/launchd/Makefile.am
+	etc/paths.d/Makefile.am
+	include/os/macos/Makefile.am
+	include/os/macos/spl/Makefile.am
+	include/os/macos/spl/rpc/Makefile.am
+	include/os/macos/spl/sys/debug.h
+	include/os/macos/spl/sys/Makefile.am
+	include/os/macos/spl/sys/priv.h
+	include/os/macos/spl/sys/simd.h
+	include/os/macos/spl/sys/zmod.h
+	include/os/macos/zfs/Makefile.am
+	include/os/macos/zfs/sys/finderinfo.h
+	include/os/macos/zfs/sys/hfs_internal.h
+	include/os/macos/zfs/sys/Makefile.am
+	lib/libspl/include/os/macos/mach/Makefile.am
+	lib/libspl/include/os/macos/Makefile.am
+	lib/libspl/include/os/macos/rpc/Makefile.am
+	lib/libspl/include/os/macos/sys/Makefile.am
+	lib/libzfs/os/macos/libzfs_dataset_os.c
+	lib/libzfs/os/macos/libzfs_share_nfs.c
+	lib/os/macos/libdiskmgt/Makefile.am
+	man/man7/zfsprops-macos.7
+	module/icp/asm-aarch64/aes/aesv8-armx.S
+	module/icp/asm-aarch64/aes/ghashv8-armx.S
+	module/os/macos/Makefile.am
+	module/os/macos/spl/spl-qsort.c
+	module/os/macos/spl/spl-zlib.c
+	module/os/macos/zfs/sysctl_os.c
+	scripts/kpi_check.py
+	scripts/load_macos.sh
+	scripts/pkg_macos.sh
+	scripts/symbolicate_panic_macos.py
+	tests/runfiles/large.run
+	tests/runfiles/macOS-CI.run
+	tests/zfs-tests/cmd/librt/mach_gettime.c
+	tests/zfs-tests/cmd/librt/Makefile.am
+	tests/zfs-tests/include/tunables-macos.cfg
 );
 
 # For files expected to have a license tags, these are the acceptable tags by
