@@ -44,12 +44,15 @@ nodist_libicp_la_SOURCES = \
 
 if TARGET_CPU_AARCH64
 nodist_libicp_la_SOURCES += \
-	module/icp/asm-aarch64/aes/aesv8-armx.S \
-	module/icp/asm-aarch64/aes/ghashv8-armx.S \
 	module/icp/asm-aarch64/blake3/b3_aarch64_sse2.S \
 	module/icp/asm-aarch64/blake3/b3_aarch64_sse41.S \
 	module/icp/asm-aarch64/sha2/sha256-armv8.S \
 	module/icp/asm-aarch64/sha2/sha512-armv8.S
+if BUILD_MACOS
+nodist_libicp_la_SOURCES += \
+	module/icp/asm-aarch64/aes/aesv8-armx.S \
+	module/icp/asm-aarch64/aes/ghashv8-armx.S
+endif
 endif
 
 if TARGET_CPU_ARM
