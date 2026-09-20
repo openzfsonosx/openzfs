@@ -322,6 +322,12 @@ function do_prune
 
     pushd "${WORKDIR}" || fail "Unable to cd to ${WORKDIR}"
 
+    # macos_mount_zfs is only the source of the mount_zfs copies. It is a
+    # bin_PROGRAMS target, so it is installed in bindir, which is the
+    # directory pruned above only when sbindir == bindir. Otherwise it
+    # would ship unsigned and fail notarization.
+    find . -type f -name macos_mount_zfs -exec rm -f {} +
+
     # Using relative paths here for safety
     rm -rf \
 "./${prefix}/share/zfs-macos/runfiles" \
