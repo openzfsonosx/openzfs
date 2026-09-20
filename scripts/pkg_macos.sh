@@ -125,6 +125,12 @@ if [ -z "$NOTARYTOOL" ]; then
     fi
 fi
 
+function fail
+{
+    echo "$@"
+    exit 1
+}
+
 echo "Version is $version"
 echo "Prefix set to $prefix"
 echo "RC, if set: $RC"
@@ -225,12 +231,6 @@ ${WORKDIR}/Applications/ZetaWatch.app/Contents/MacOS/ZetaWatch
 fi
 
 codesign_all="$codesign_files $codesign_dirs"
-
-function fail
-{
-    echo "$@"
-    exit 1
-}
 
 function do_unlock
 {
