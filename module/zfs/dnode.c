@@ -1178,8 +1178,8 @@ dnode_move(void *buf, void *newbuf, size_t size, void *arg)
 		rw_exit(&odn->dn_struct_rwlock);
 		zrl_exit(&odn->dn_handle->dnh_zrlock);
 		mutex_exit(&os->os_lock);
-		printf("ZFS: %s:%s:%d: could not obtain dn_mtx mutex\n",
-		    __FILE__, __func__, __LINE__);
+		dprintf("%s:%d: could not obtain dn_mtx mutex\n",
+		    __func__, __LINE__);
 		DNODE_STAT_BUMP(dnode_move_race);
 		return (KMEM_CBRC_LATER);
 	} else {
