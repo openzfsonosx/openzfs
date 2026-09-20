@@ -57,7 +57,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <libgen.h>
 #include <libintl.h>
 #include <libnvpair.h>
 #include <libzutil.h>
@@ -264,9 +263,6 @@ static nvlist_t *
 make_leaf_vdev(const char *arg, boolean_t is_primary, uint64_t ashift)
 {
 	char path[MAXPATHLEN];
-	char *d, *b;
-	char *dpath;
-	const char *bname;
 	struct stat64 statbuf;
 	nvlist_t *vdev = NULL;
 	const char *type = NULL;
