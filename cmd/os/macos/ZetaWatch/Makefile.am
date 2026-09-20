@@ -85,9 +85,7 @@ ZetaLoginItemHelper_bin_SOURCES = \
 ZetaLoginItemHelper_bin_OBJCFLAGS = -fobjc-arc -Wall -Wextra
 ZetaLoginItemHelper_bin_LDFLAGS = -static -framework Cocoa -framework Foundation
 
-bin_PROGRAMS += noinst_ZetaLoginItemHelper.app
-
-noinst_ZetaLoginItemHelper.app$(EXEEXT): ZetaLoginItemHelper_bin
+noinst_ZetaLoginItemHelper.app: ZetaLoginItemHelper_bin
 	$(AM_V_GEN)$(MKDIR_P) ZetaLoginItemHelper.app/Contents/MacOS
 	$(AM_V_at)cp -f $(srcdir)/%D%/ZetaLoginItemHelper/Info.plist ZetaLoginItemHelper.app/Contents/Info.plist
 	$(AM_V_at)cp -f ZetaLoginItemHelper_bin ZetaLoginItemHelper.app/Contents/MacOS/ZetaLoginItemHelper
@@ -208,9 +206,12 @@ ZetaWatch.app/Contents/Resources/Assets.car: $(srcdir)/%D%/ZetaWatch/Assets.xcas
 # Contents/Library/LaunchServices and the login item at
 # Contents/Library/LoginItems, per SMJobBless()/SMLoginItemSetEnabled()
 # convention.
-bin_PROGRAMS += noinst_ZetaWatch.app
+# Built from "all" via ALL_LOCAL rather than bin_PROGRAMS: listing these in
+# a PROGRAMS variable makes automake emit its own link rule for the same
+# target, which then collides with the recipe below.
+ALL_LOCAL += noinst_ZetaWatch.app
 
-noinst_ZetaWatch.app$(EXEEXT): ZetaWatch_bin ZetaAuthorizationHelper noinst_ZetaLoginItemHelper.app \
+noinst_ZetaWatch.app: ZetaWatch_bin ZetaAuthorizationHelper noinst_ZetaLoginItemHelper.app \
 		$(ZETAWATCH_NIBS) ZetaWatch.app/Contents/Resources/Assets.car
 	$(AM_V_GEN)$(MKDIR_P) ZetaWatch.app/Contents/MacOS
 	$(AM_V_at)$(MKDIR_P) ZetaWatch.app/Contents/Library/LaunchServices
