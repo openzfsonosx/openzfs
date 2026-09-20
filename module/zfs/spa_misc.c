@@ -684,11 +684,17 @@ retry:
 	/*
 	 * Avoid racing with import/export, which don't hold the namespace
 	 * lock for their entire duration.
+	 *
+	 * spa_export_common() waits for the pool's zvol taskq to drain, so a
+	 * task running on that taskq must not wait for the export to finish
+	 * (macOS posts a zvol symlink event from there).
 	 */
 	if ((spa->spa_load_thread != NULL &&
 	    spa->spa_load_thread != curthread) ||
 	    (spa->spa_export_thread != NULL &&
-	    spa->spa_export_thread != curthread)) {
+	    spa->spa_export_thread != curthread &&
+	    (spa->spa_zvol_taskq == NULL ||
+	    !taskq_member(spa->spa_zvol_taskq, curthread)))) {
 		spa_namespace_wait();
 		goto retry;
 	}
