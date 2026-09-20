@@ -1,11 +1,10 @@
 pathsddir = $(sysconfdir)/paths.d
 pathsd_DATA = %D%/zfs-path
 
-paths_ddir = $(sysconfdir)/paths.d/
-dist_paths_d_DATA = \
-	%D%/zfs-path
-
-SUBSTFILES += $(dist_paths_d_DATA)
+# zfs-path is generated from zfs-path.in, so it must not be a dist_ file:
+# automake distributes those even from inside "if BUILD_MACOS", and nothing
+# generates the file on other platforms ("No rule to make target ...").
+SUBSTFILES += $(pathsd_DATA)
 
 CLEANFILES += $(pathsd_DATA)
 CLEANFILES += %D%/zfs-path
