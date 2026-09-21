@@ -416,6 +416,4 @@ crypto_mech2id(const char *mechname)
 	return (CRYPTO_MECH_INVALID);
 }
 
-#if defined(_KERNEL)
 EXPORT_SYMBOL(crypto_mech2id);
-#endif
