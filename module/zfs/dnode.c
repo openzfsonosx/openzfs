@@ -2818,7 +2818,6 @@ out:
 	return (error);
 }
 
-#if defined(_KERNEL)
 EXPORT_SYMBOL(dnode_hold);
 EXPORT_SYMBOL(dnode_rele);
 EXPORT_SYMBOL(dnode_set_nlevels);
@@ -2826,7 +2825,6 @@ EXPORT_SYMBOL(dnode_set_blksz);
 EXPORT_SYMBOL(dnode_free_range);
 EXPORT_SYMBOL(dnode_evict_dbufs);
 EXPORT_SYMBOL(dnode_evict_bonus);
-#endif
 
 ZFS_MODULE_PARAM(zfs, zfs_, default_bs, INT, ZMOD_RW,
 	"Default dnode block shift");
