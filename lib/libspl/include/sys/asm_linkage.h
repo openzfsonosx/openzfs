@@ -26,13 +26,9 @@
 #endif
 #endif
 
-#if defined(_KERNEL) && defined(HAVE_KERNEL_OBJTOOL)
-
-#include <asm/frame.h>
-
-#else /* userspace */
 #define	FRAME_BEGIN
 #define	FRAME_END
+
 #endif
 
 
