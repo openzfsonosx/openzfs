@@ -194,6 +194,16 @@ nfs_init_tmpfile(void)
 		free(tmpfile);
 		return (NULL);
 	}
+	/*
+	 * mkstemp(3) creates the file mode 0600. /etc/exports is
+	 * traditionally world-readable (mountd, showmount(8) and other
+	 * non-root tools read it), and this temporary file is renamed
+	 * onto it, so fix the mode up before it replaces the real file.
+	 */
+	if (fchmod(fd, 0644) == -1) {
+		fprintf(stderr, "Unable to chmod temporary file %s: %s\n",
+		    tmpfile, strerror(errno));
+	}
 	close(fd);
 	return (tmpfile);
 }
