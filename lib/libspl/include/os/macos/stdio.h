@@ -21,4 +21,17 @@
 #include_next <stdio.h>
 #undef dprintf
 #define	dprintf printf
+
+#include <Availability.h>
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+/*
+ * fmemopen() first appeared in macOS 10.13, and older SDKs do not declare
+ * it. When targeting anything older, redirect it to zfs_fmemopen(), a
+ * funopen(3)-based emulation in lib/libzfs/os/macos/libzfs_util_os.c.
+ */
+extern FILE *zfs_fmemopen(void *buf, size_t size, const char *mode);
+#define	fmemopen	zfs_fmemopen
+#endif
+
 #endif

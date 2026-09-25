@@ -37,6 +37,131 @@
 
 #define	ZDIFF_SHARESDIR		"/.zfs/shares/"
 
+#include <Availability.h>
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+/*
+ * fmemopen() first appeared in macOS 10.13, and older SDKs do not declare
+ * it. lib/libzfs/libzfs_crypto.c's get_key_material_https() needs one to
+ * open an "r+" stream over a zeroed stack buffer, written once by curl and
+ * then rewound and read back, so when targeting anything older, emulate
+ * it with funopen(3), which has been on Darwin since 10.0. This is not a
+ * general fmemopen() replacement: mode is ignored, and the readable/
+ * EOF-bounded length tracks only the high-water mark of what has been
+ * written, not the full buffer capacity, which is exactly what that call
+ * site needs. lib/libspl/include/os/macos/stdio.h redirects fmemopen()
+ * to this function for old SDKs.
+ */
+typedef struct {
+	char	*buf;
+	size_t	size;	/* buffer capacity */
+	size_t	len;	/* high-water mark of bytes written so far */
+	size_t	pos;	/* current stream position */
+} zfs_fmemopen_cookie_t;
+
+static int
+zfs_fmemopen_read(void *cookie, char *buf, int nbytes)
+{
+	zfs_fmemopen_cookie_t *c = cookie;
+	size_t n;
+
+	if (c->pos >= c->len)
+		return (0);
+	n = c->len - c->pos;
+	if ((size_t)nbytes < n)
+		n = (size_t)nbytes;
+	memcpy(buf, c->buf + c->pos, n);
+	c->pos += n;
+	return ((int)n);
+}
+
+static int
+zfs_fmemopen_write(void *cookie, const char *buf, int nbytes)
+{
+	zfs_fmemopen_cookie_t *c = cookie;
+	size_t n;
+
+	if (c->pos >= c->size) {
+		errno = ENOSPC;
+		return (-1);
+	}
+	n = c->size - c->pos;
+	if ((size_t)nbytes < n)
+		n = (size_t)nbytes;
+	memcpy(c->buf + c->pos, buf, n);
+	c->pos += n;
+	if (c->pos > c->len)
+		c->len = c->pos;
+	if (n < (size_t)nbytes) {
+		/* wrote all that would fit; report the truncation as ENOSPC */
+		errno = ENOSPC;
+		return (n > 0 ? (int)n : -1);
+	}
+	return ((int)n);
+}
+
+static fpos_t
+zfs_fmemopen_seek(void *cookie, fpos_t offset, int whence)
+{
+	zfs_fmemopen_cookie_t *c = cookie;
+	size_t newpos;
+
+	switch (whence) {
+	case SEEK_SET:
+		newpos = (size_t)offset;
+		break;
+	case SEEK_CUR:
+		newpos = c->pos + (size_t)offset;
+		break;
+	case SEEK_END:
+		newpos = c->len + (size_t)offset;
+		break;
+	default:
+		errno = EINVAL;
+		return (-1);
+	}
+	if (newpos > c->size) {
+		errno = EINVAL;
+		return (-1);
+	}
+	c->pos = newpos;
+	return ((fpos_t)newpos);
+}
+
+static int
+zfs_fmemopen_close(void *cookie)
+{
+	free(cookie);
+	return (0);
+}
+
+FILE *
+zfs_fmemopen(void *buf, size_t size, const char *mode)
+{
+	(void) mode;
+	zfs_fmemopen_cookie_t *c;
+	FILE *fp;
+
+	if ((c = malloc(sizeof (*c))) == NULL) {
+		errno = ENOMEM;
+		return (NULL);
+	}
+	c->buf = buf;
+	c->size = size;
+	c->len = 0;
+	c->pos = 0;
+
+	fp = funopen(c, zfs_fmemopen_read, zfs_fmemopen_write,
+	    zfs_fmemopen_seek, zfs_fmemopen_close);
+	if (fp == NULL) {
+		int e = errno;
+		free(c);
+		errno = e;
+	}
+	return (fp);
+}
+#endif /* __MAC_OS_X_VERSION_MIN_REQUIRED < 101300 */
+
 const char *
 libzfs_error_init(int error)
 {
