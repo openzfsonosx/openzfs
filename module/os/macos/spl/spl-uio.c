@@ -26,7 +26,7 @@ struct iovec empty_iov = { 0 };
 static int
 zfs_uiomove_iov(void *p, size_t n, zfs_uio_rw_t rw, zfs_uio_t *uio)
 {
-	const struct iovec *iov = uio->uio_iov;
+	struct iovec *iov = uio->uio_iov;
 	size_t skip = uio->uio_skip;
 	int cnt;
 

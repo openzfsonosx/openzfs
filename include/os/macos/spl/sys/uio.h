@@ -92,8 +92,14 @@ typedef struct {
 typedef struct zfs_uio {
 	/* Type A: XNU uio. */
 	struct uio		*uio_xnu;
+	/*
+	 * Type A only: uio_getiov() copies out rather than exposing the
+	 * XNU iovec, so zfs_uio_iovbase()/zfs_uio_iovlen() refresh this
+	 * shadow copy of the requested iovec and point at it.
+	 */
+	struct iovec		uio_xnu_iov;
 	/* Type B: Internal uio */
-	const struct iovec	*uio_iov;
+	struct iovec		*uio_iov;
 	int			uio_iovcnt;
 	off_t			uio_loffset;
 	off_t			uio_soffset;
@@ -127,28 +133,67 @@ extern struct iovec empty_iov;
 		(U)->uio_iov = &empty_iov; \
 	}
 
-static inline zfs_uio_seg_t
-zfs_uio_segflg(zfs_uio_t *uio)
+/*
+ * zfs_uio_iov(), zfs_uio_iovcnt(), zfs_uio_segflg(), zfs_uio_iovbase() and
+ * zfs_uio_iovlen() are plain field macros on every other platform, and the
+ * shared zio_crypt.c / zio_crypt_os_icp.c assign through them:
+ *
+ *	zfs_uio_iov(u) = kmem_zalloc(...);
+ *	zfs_uio_iovcnt(u) = n;  zfs_uio_segflg(u) = UIO_SYSSPACE;
+ *	zfs_uio_iovbase(u, i) = p;  zfs_uio_iovlen(u, i) = len;
+ *
+ * Only Type B (internal) uios are ever assigned through; Type A (XNU) uios
+ * are only read. So each accessor dereferences a pointer-returning helper:
+ * for Type B it points at the real field (assignable), for Type A it
+ * refreshes a shadow of the value from the XNU uio and points at that
+ * (readable; a write would just be lost).
+ */
+#define	zfs_uio_iov(u)		((u)->uio_iov)
+
+static inline zfs_uio_seg_t *
+zfs_uio_segflg_p(zfs_uio_t *uio)
 {
 	if (uio->uio_iov == NULL)
-		return (uio_isuserspace(uio->uio_xnu) ?
-		    UIO_USERSPACE : UIO_SYSSPACE);
-	return (uio->uio_segflg);
+		uio->uio_segflg = uio_isuserspace(uio->uio_xnu) ?
+		    UIO_USERSPACE : UIO_SYSSPACE;
+	return (&uio->uio_segflg);
 }
+#define	zfs_uio_segflg(u)	(*zfs_uio_segflg_p(u))
+
+static inline int *
+zfs_uio_iovcnt_p(zfs_uio_t *uio)
+{
+	if (uio->uio_iov == NULL)
+		uio->uio_iovcnt = uio_iovcnt(uio->uio_xnu);
+	return (&uio->uio_iovcnt);
+}
+#define	zfs_uio_iovcnt(u)	(*zfs_uio_iovcnt_p(u))
+
+static inline struct iovec *
+zfs_uio_iovec_p(zfs_uio_t *uio, unsigned int idx)
+{
+	if (uio->uio_iov == NULL) {
+		user_addr_t base = 0;
+		user_size_t len = 0;
+		if (uio_getiov(uio->uio_xnu, idx, &base, &len) < 0) {
+			base = 0;
+			len = 0;
+		}
+		uio->uio_xnu_iov.iov_base = (void *)base;
+		uio->uio_xnu_iov.iov_len = len;
+		return (&uio->uio_xnu_iov);
+	}
+	return (&uio->uio_iov[idx]);
+}
+/* zfs_uio_iovlen(uio, 0) = uio_curriovlen() */
+#define	zfs_uio_iovlen(u, idx)	(zfs_uio_iovec_p((u), (idx))->iov_len)
+#define	zfs_uio_iovbase(u, idx)	(zfs_uio_iovec_p((u), (idx))->iov_base)
 
 static inline void
 zfs_uio_setrw(zfs_uio_t *uio, zfs_uio_rw_t inout)
 {
 	if (uio->uio_iov == NULL)
 		uio_setrw(uio->uio_xnu, inout);
-}
-
-static inline int
-zfs_uio_iovcnt(zfs_uio_t *uio)
-{
-	if (uio->uio_iov == NULL)
-		return (uio_iovcnt(uio->uio_xnu));
-	return (uio->uio_iovcnt);
 }
 
 static inline off_t
@@ -200,33 +245,8 @@ zfs_uio_advance(zfs_uio_t *uio, size_t size)
 	}
 }
 
-/* zfs_uio_iovlen(uio, 0) = uio_curriovlen() */
-static inline uint64_t
-zfs_uio_iovlen(zfs_uio_t *uio, unsigned int idx)
-{
-	if (uio->uio_iov == NULL) {
-		user_size_t iov_len;
-		if (uio_getiov(uio->uio_xnu, idx, NULL, &iov_len) < 0)
-			return (0ULL);
-		return (iov_len);
-	}
-	return (uio->uio_iov[idx].iov_len);
-}
-
-static inline void *
-zfs_uio_iovbase(zfs_uio_t *uio, unsigned int idx)
-{
-	if (uio->uio_iov == NULL) {
-		user_addr_t iov_base;
-		if (uio_getiov(uio->uio_xnu, idx, &iov_base, NULL) < 0)
-			return (NULL);
-		return ((void *)iov_base);
-	}
-	return (uio->uio_iov[(idx)].iov_base);
-}
-
 static inline void
-zfs_uio_iovec_init(zfs_uio_t *uio, const struct iovec *iov,
+zfs_uio_iovec_init(zfs_uio_t *uio, struct iovec *iov,
     unsigned long nr_segs, off_t offset, zfs_uio_seg_t seg, ssize_t resid,
     size_t skip)
 {
@@ -243,7 +263,7 @@ zfs_uio_iovec_init(zfs_uio_t *uio, const struct iovec *iov,
 }
 
 static inline void
-zfs_uio_iovec_func_init(zfs_uio_t *uio, const struct iovec *iov,
+zfs_uio_iovec_func_init(zfs_uio_t *uio, struct iovec *iov,
     unsigned long nr_segs, off_t offset, zfs_uio_seg_t seg, ssize_t resid,
     size_t skip, zfs_uio_func func)
 {
