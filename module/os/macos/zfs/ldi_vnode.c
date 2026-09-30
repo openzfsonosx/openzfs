@@ -517,6 +517,15 @@ ldi_vnode_io_intr(buf_t bp, void *arg)
 	/* Teardown */
 	buf_free(bp);
 
+	/*
+	 * Release the hold ldi_strategy() took on this handle for the
+	 * duration of the now-completing async IO.
+	 */
+	if (lbp->b_ldi_handle != NULL) {
+		handle_release((struct ldi_handle *)lbp->b_ldi_handle);
+		lbp->b_ldi_handle = NULL;
+	}
+
 	/* Call original completion function */
 	if (lbp->b_iodone) {
 		lbp->b_iodone(lbp);

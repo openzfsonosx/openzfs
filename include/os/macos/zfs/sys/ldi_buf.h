@@ -49,6 +49,7 @@ typedef struct ldi_buf {
 	int		b_flags;	/* Read or write, options */
 	int		b_error;	/* IO error code */
 	void	*b_private; /* caller own ptr */
+	void	*b_ldi_handle;	/* ldi_handle_t held across async IO, or NULL */
 	struct opaque_iocompletion b_completion;
 } ldi_buf_t;				/* XXX Currently 64b */
 

@@ -2251,6 +2251,23 @@ ldi_strategy(ldi_handle_t lh, ldi_buf_t *lbp)
 		return (ENODEV);
 	}
 
+	/*
+	 * For asynchronous IO (a completion callback is set), the buf
+	 * strategy call below returns before the IO actually completes,
+	 * so a concurrent close/teardown of this handle (e.g. via the LDI
+	 * offline-notify path) can otherwise free it out from under the
+	 * eventual completion callback. Hold the handle across that gap;
+	 * it is released exactly once, either immediately below if
+	 * dispatch fails synchronously (in which case the completion
+	 * callback will never run), or in ldi_iokit_io_intr()/
+	 * ldi_vnode_io_intr() right before they invoke it.
+	 */
+	boolean_t async_io = (lbp->b_iodone != NULL);
+	if (async_io) {
+		handle_hold(handlep);
+		lbp->b_ldi_handle = handlep;
+	}
+
 	/* IOMedia or vnode */
 	/* Issue type-specific buf_strategy, preserve error */
 	switch (handlep->lh_type) {
@@ -2262,7 +2279,14 @@ ldi_strategy(ldi_handle_t lh, ldi_buf_t *lbp)
 		break;
 	default:
 		dprintf("%s invalid lh_type %d\n", __func__, handlep->lh_type);
-		return (EINVAL);
+		error = EINVAL;
+		break;
+	}
+
+	if (async_io && error != 0) {
+		/* Never went async - the completion callback won't run. */
+		lbp->b_ldi_handle = NULL;
+		handle_release(handlep);
 	}
 
 	return (error);
@@ -2316,6 +2340,7 @@ ldi_bioinit(ldi_buf_t *lbp)
 	lbp->b_resid = 0;
 	lbp->b_error = 0;
 	lbp->b_private = NULL;
+	lbp->b_ldi_handle = NULL;
 }
 
 /*

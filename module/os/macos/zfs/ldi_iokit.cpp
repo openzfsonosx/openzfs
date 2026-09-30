@@ -1273,6 +1273,15 @@ ldi_iokit_io_intr(void *target, void *parameter,
 		lbp->b_error = EIO;
 	}
 
+	/*
+	 * Release the hold ldi_strategy() took on this handle for the
+	 * duration of the now-completing async IO.
+	 */
+	if (lbp->b_ldi_handle != NULL) {
+		handle_release((struct ldi_handle *)lbp->b_ldi_handle);
+		lbp->b_ldi_handle = NULL;
+	}
+
 	/* Call original completion function */
 	if (lbp->b_iodone) {
 		(void) lbp->b_iodone(lbp);
