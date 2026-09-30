@@ -42,7 +42,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
-#include <sys/priv.h>
 
 #include <sys/zfs_context.h>
 #include <libzfs.h>
