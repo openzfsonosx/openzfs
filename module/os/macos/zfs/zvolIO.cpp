@@ -589,20 +589,38 @@ org_openzfsonosx_zfs_zvol_device::doAsyncReadWrite(
 	zfs_uio_iovec_func_init(&uio, &iov, 1, block*(ZVOL_BSIZE),
 	    (zfs_uio_seg_t)UIO_FUNCSPACE, actualByteCount, 0, zvolIO_strategy);
 
+	int error;
 	if (direction == kIODirectionIn) {
-	    zvol_os_read_zv(zv, &uio);
+		error = zvol_os_read_zv(zv, &uio);
 	} else {
-		zvol_os_write_zv(zv, &uio);
+		error = zvol_os_write_zv(zv, &uio);
 	}
 
-	if (zfs_uio_resid(&uio) != 0)
-		printf("Read/Write operation failed\n");
+	/*
+	 * zfs_uio_resid() is the number of bytes NOT transferred; report
+	 * what was actually moved, and a real failure status, instead of
+	 * unconditionally claiming the full request succeeded. Silently
+	 * reporting success here means a caller (a filesystem on top,
+	 * diskutil, dd) is told the I/O fully completed when it may have
+	 * lost data on write or read back garbage.
+	 */
+	IOByteCount transferred = actualByteCount - zfs_uio_resid(&uio);
+	IOReturn status = kIOReturnSuccess;
+
+	if (error != 0 || zfs_uio_resid(&uio) != 0) {
+		printf("%s operation failed (error %d, "
+		    "%llu of %llu bytes transferred)\n",
+		    direction == kIODirectionIn ? "Read" : "Write",
+		    error, (unsigned long long)transferred,
+		    (unsigned long long)actualByteCount);
+		status = kIOReturnIOError;
+	}
 
 	// Call the completion function.
 	(completion->action)(completion->target, completion->parameter,
-	    kIOReturnSuccess, actualByteCount);
+	    status, transferred);
 
-	return (kIOReturnSuccess);
+	return (status);
 }
 
 IOReturn
