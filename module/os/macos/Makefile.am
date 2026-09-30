@@ -268,6 +268,8 @@ zfs_common_SRCS = \
 	%D%/../../zfs/zio.c \
 	%D%/../../zfs/zio_checksum.c \
 	%D%/../../zfs/zio_compress.c \
+	%D%/../../zfs/zio_crypt.c \
+	%D%/../../zfs/zio_crypt_os_icp.c \
 	%D%/../../zfs/zio_inject.c \
 	%D%/../../zfs/zle.c \
 	%D%/../../zfs/zrlock.c \
@@ -301,7 +303,6 @@ zfs_os_SRCS = \
 	%D%/zfs/zfs_vnops_osx_lib.c \
 	%D%/zfs/zfs_vnops_osx_xattr.c \
 	%D%/zfs/zfs_znode_os.c \
-	%D%/zfs/zio_crypt.c \
 	%D%/zfs/zvol_os.c \
 	%D%/zfs/zvolIO.cpp \
 	%D%/zfs/ZFSDatasetProxy.cpp \
