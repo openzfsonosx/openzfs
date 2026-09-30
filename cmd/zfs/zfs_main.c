@@ -820,7 +820,7 @@ zfs_mount_and_share(libzfs_handle_t *hdl, const char *dataset, zfs_type_t type)
 		} else if (zfs_share(zhp, NULL) != 0) {
 			(void) fprintf(stderr, gettext("filesystem "
 			    "successfully created, but not shared\n"));
-			ret = 0;
+			ret = 1;
 		}
 		zfs_commit_shares(NULL);
 	}
