@@ -687,6 +687,22 @@ top:
 				waited = B_TRUE;
 				dmu_tx_wait(tx);
 				dmu_tx_abort(tx);
+				/*
+				 * Drop the teardown lock before looping back:
+				 * holding it across the whole ERESTART retry
+				 * sequence blocks unmount outright, which on
+				 * macOS wedges vfs_shutdown() and trips the
+				 * hardware watchdog. Re-entering re-checks
+				 * z_unmounted so a racing unmount wins and we
+				 * fail with EIO rather than retry forever.
+				 */
+				zfs_exit(zfsvfs, FTAG);
+				if ((error = zfs_enter_verify_zp(zfsvfs, dzp,
+				    FTAG)) != 0) {
+					if (have_acl)
+						zfs_acl_ids_free(&acl_ids);
+					return (error);
+				}
 				goto top;
 			}
 			zfs_acl_ids_free(&acl_ids);
@@ -1191,6 +1207,21 @@ top:
 			waited = B_TRUE;
 			dmu_tx_wait(tx);
 			dmu_tx_abort(tx);
+			/*
+			 * Drop the teardown lock before looping back:
+			 * holding it across the whole ERESTART retry
+			 * sequence blocks unmount outright, which on
+			 * macOS wedges vfs_shutdown() and trips the
+			 * hardware watchdog. Re-entering re-checks
+			 * z_unmounted so a racing unmount wins and we
+			 * fail with EIO rather than retry forever.
+			 */
+			zfs_exit(zfsvfs, FTAG);
+			if ((error = zfs_enter_verify_zp(zfsvfs, dzp,
+			    FTAG)) != 0) {
+				zfs_acl_ids_free(&acl_ids);
+				return (error);
+			}
 			goto top;
 		}
 		zfs_acl_ids_free(&acl_ids);
@@ -1342,6 +1373,19 @@ top:
 			dmu_tx_wait(tx);
 			dmu_tx_abort(tx);
 			zrele(zp);
+			/*
+			 * Drop the teardown lock before looping back:
+			 * holding it across the whole ERESTART retry
+			 * sequence blocks unmount outright, which on
+			 * macOS wedges vfs_shutdown() and trips the
+			 * hardware watchdog. Re-entering re-checks
+			 * z_unmounted so a racing unmount wins and we
+			 * fail with EIO rather than retry forever.
+			 */
+			zfs_exit(zfsvfs, FTAG);
+			if ((error = zfs_enter_verify_zp(zfsvfs, dzp,
+			    FTAG)) != 0)
+				return (error);
 			goto top;
 		}
 		dmu_tx_abort(tx);
@@ -3187,6 +3231,19 @@ top:
 			zrele(szp);
 			if (tzp)
 				zrele(tzp);
+			/*
+			 * Drop the teardown lock before looping back:
+			 * holding it across the whole ERESTART retry
+			 * sequence blocks unmount outright, which on
+			 * macOS wedges vfs_shutdown() and trips the
+			 * hardware watchdog. Re-entering re-checks
+			 * z_unmounted so a racing unmount wins and we
+			 * fail with EIO rather than retry forever.
+			 */
+			zfs_exit(zfsvfs, FTAG);
+			if ((error = zfs_enter_verify_zp(zfsvfs, sdzp,
+			    FTAG)) != 0)
+				return (error);
 			goto top;
 		}
 		dmu_tx_abort(tx);
@@ -3411,6 +3468,21 @@ top:
 			waited = B_TRUE;
 			dmu_tx_wait(tx);
 			dmu_tx_abort(tx);
+			/*
+			 * Drop the teardown lock before looping back:
+			 * holding it across the whole ERESTART retry
+			 * sequence blocks unmount outright, which on
+			 * macOS wedges vfs_shutdown() and trips the
+			 * hardware watchdog. Re-entering re-checks
+			 * z_unmounted so a racing unmount wins and we
+			 * fail with EIO rather than retry forever.
+			 */
+			zfs_exit(zfsvfs, FTAG);
+			if ((error = zfs_enter_verify_zp(zfsvfs, dzp,
+			    FTAG)) != 0) {
+				zfs_acl_ids_free(&acl_ids);
+				return (error);
+			}
 			goto top;
 		}
 		zfs_acl_ids_free(&acl_ids);
@@ -3658,6 +3730,19 @@ top:
 			waited = B_TRUE;
 			dmu_tx_wait(tx);
 			dmu_tx_abort(tx);
+			/*
+			 * Drop the teardown lock before looping back:
+			 * holding it across the whole ERESTART retry
+			 * sequence blocks unmount outright, which on
+			 * macOS wedges vfs_shutdown() and trips the
+			 * hardware watchdog. Re-entering re-checks
+			 * z_unmounted so a racing unmount wins and we
+			 * fail with EIO rather than retry forever.
+			 */
+			zfs_exit(zfsvfs, FTAG);
+			if ((error = zfs_enter_verify_zp(zfsvfs, tdzp,
+			    FTAG)) != 0)
+				return (error);
 			goto top;
 		}
 		dmu_tx_abort(tx);
