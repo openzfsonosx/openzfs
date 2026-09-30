@@ -754,6 +754,16 @@ vdev_disk_io_done(zio_t *zio)
 		vdev_disk_t *dvd = vd->vdev_tsd;
 		int state = DKIO_NONE;
 
+		/*
+		 * vd->vdev_tsd can be cleared out from under us by
+		 * vdev_disk_free() (via the async LDI offline-notify path,
+		 * vdev_disk_off_notify()) while a zio dispatched earlier is
+		 * still completing here. Match the NULL check every other
+		 * caller of dvd already makes.
+		 */
+		if (dvd == NULL || dvd->vd_lh == NULL)
+			return;
+
 		if (ldi_ioctl(dvd->vd_lh, DKIOCSTATE, (intptr_t)&state,
 		    FKIOCTL, kcred, NULL) == 0 && state != DKIO_INSERTED) {
 			/*
