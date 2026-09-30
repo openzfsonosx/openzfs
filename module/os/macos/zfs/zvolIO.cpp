@@ -499,7 +499,7 @@ org_openzfsonosx_zfs_zvol_device::handleOpen(IOService *client,
 	 * used.
 	 */
 
-	if (zvol_os_open_zv(zv, zv->zv_zso->zvo_openflags, 0, NULL) == 0) {
+	if (zvol_os_open_zv(zv, openflags, 0, NULL) == 0) {
 		ret = true;
 	}
 
