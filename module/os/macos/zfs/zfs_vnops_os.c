@@ -1241,6 +1241,17 @@ top:
 	error = zfs_link_create(dl, zp, tx, ZNEW);
 	if (error != 0) {
 		zfs_znode_delete(zp, tx);
+		/*
+		 * The vnode is only attached below, on success, so if
+		 * one was never attached here, free the znode directly
+		 * rather than falling through to zfs_znode_getvnode()/
+		 * zrele() below on a znode whose SA handle was just
+		 * destroyed by zfs_znode_delete().
+		 */
+		if (ZTOV(zp) == NULL) {
+			zfs_znode_free(zp);
+			zp = NULL;
+		}
 		goto out;
 	}
 
@@ -1262,12 +1273,14 @@ out:
 	/*
 	 * OS X - attach the vnode _after_ committing the transaction
 	 */
-	zfs_znode_getvnode(zp, zfsvfs);
+	if (zp != NULL)
+		zfs_znode_getvnode(zp, zfsvfs);
 
 	zfs_dirent_unlock(dl);
 
 	if (error != 0) {
-		zrele(zp);
+		if (zp != NULL)
+			zrele(zp);
 	} else {
 	}
 
@@ -3517,6 +3530,17 @@ top:
 	error = zfs_link_create(dl, zp, tx, ZNEW);
 	if (error != 0) {
 		zfs_znode_delete(zp, tx);
+		/*
+		 * The vnode is only attached below, so if one was never
+		 * attached here, free the znode directly rather than
+		 * falling through to zfs_znode_getvnode()/zrele() below
+		 * on a znode whose SA handle was just destroyed by
+		 * zfs_znode_delete().
+		 */
+		if (ZTOV(zp) == NULL) {
+			zfs_znode_free(zp);
+			zp = NULL;
+		}
 	} else {
 		if (flags & FIGNORECASE)
 			txtype |= TX_CI;
@@ -3532,7 +3556,8 @@ top:
 	/*
 	 * OS X - attach the vnode _after_ committing the transaction
 	 */
-	zfs_znode_getvnode(zp, zfsvfs);
+	if (zp != NULL)
+		zfs_znode_getvnode(zp, zfsvfs);
 
 	if (error == 0) {
 		*zpp = zp;
@@ -3540,7 +3565,8 @@ top:
 		if (zfsvfs->z_os->os_sync == ZFS_SYNC_ALWAYS)
 			error = zil_commit(zilog, 0);
 	} else {
-		zrele(zp);
+		if (zp != NULL)
+			zrele(zp);
 	}
 
 	zfs_exit(zfsvfs, FTAG);
