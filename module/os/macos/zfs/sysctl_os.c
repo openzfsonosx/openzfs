@@ -156,6 +156,7 @@ SYSCTL_NODE(_tunable, OID_AUTO, zfs_vol, CTLFLAG_RW, 0, "ZFS VOLUME");
 SYSCTL_NODE(_tunable, OID_AUTO, zfs_zevent, CTLFLAG_RW, 0, "ZFS event");
 SYSCTL_NODE(_tunable, OID_AUTO, zfs_zil, CTLFLAG_RW, 0, "ZFS ZIL");
 SYSCTL_NODE(_tunable, OID_AUTO, zfs_zio, CTLFLAG_RW, 0, "ZFS ZIO");
+SYSCTL_NODE(_tunable, OID_AUTO, zfetch, CTLFLAG_RW, 0, "ZFS ZFETCH (LEGACY)");
 
 SYSCTL_NODE(_tunable_zfs_livelist, OID_AUTO, condense, CTLFLAG_RW, 0,
     "ZFS livelist condense");
@@ -175,6 +176,7 @@ void sysctl_os_init(void)
 
 	sysctl_register_oid(&sysctl__tunable);
 	sysctl_register_oid(&sysctl__tunable_zfs);
+	sysctl_register_oid(&sysctl__tunable_zfetch);
 
 	sysctl_register_oid(&sysctl__tunable_zfs_arc);
 	sysctl_register_oid(&sysctl__tunable_zfs_brt);
@@ -240,6 +242,7 @@ void sysctl_os_fini(void)
 	sysctl_unregister_oid(&sysctl__tunable_zfs_condense);
 	sysctl_unregister_oid(&sysctl__tunable_zfs_brt);
 	sysctl_unregister_oid(&sysctl__tunable_zfs_arc);
+	sysctl_unregister_oid(&sysctl__tunable_zfetch);
 	sysctl_unregister_oid(&sysctl__tunable_zfs);
 	sysctl_unregister_oid(&sysctl__tunable);
 }
@@ -503,7 +506,6 @@ SYSCTL_PROC(_tunable, OID_AUTO, arc_max,
 /* dmu.c */
 
 /* dmu_zfetch.c */
-SYSCTL_NODE(_tunable, OID_AUTO, zfetch, CTLFLAG_RW, 0, "ZFS ZFETCH (LEGACY)");
 
 /* dsl_pool.c */
 
