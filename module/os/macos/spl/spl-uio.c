@@ -144,12 +144,14 @@ zfs_uio_prefaultpages(ssize_t n, zfs_uio_t *uio)
 boolean_t
 zfs_uio_page_aligned(zfs_uio_t *uio)
 {
-	for (int i = zfs_uio_iovcnt(uio); i > 0; i--) {
-		uintptr_t addr = (uintptr_t)zfs_uio_iovbase(uio, i);
-		size_t size = zfs_uio_iovlen(uio, i);
-		if ((addr & (PAGE_SIZE - 1)) || (size & (PAGE_SIZE - 1))) {
-				return (B_FALSE);
-		}
+	size_t skip = uio->uio_skip;
+
+	for (int i = 0; i < zfs_uio_iovcnt(uio); i++) {
+		uintptr_t addr = (uintptr_t)zfs_uio_iovbase(uio, i) + skip;
+		size_t size = zfs_uio_iovlen(uio, i) - skip;
+		if ((addr & (PAGE_SIZE - 1)) || (size & (PAGE_SIZE - 1)))
+			return (B_FALSE);
+		skip = 0;
 	}
 
 	return (B_TRUE);
