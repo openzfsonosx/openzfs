@@ -404,6 +404,13 @@ membar_consumer(void)
 #define	spl_data_barrier()	do {} while (0)
 #endif
 
+static inline __attribute__((always_inline)) void
+membar_sync(void)
+{
+	__c11_atomic_thread_fence(__ATOMIC_SEQ_CST);
+}
+
+
 #ifdef	__cplusplus
 }
 #endif
