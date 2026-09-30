@@ -42,7 +42,17 @@ extern "C" {
 /*
  * uio_extflg: extended flags
  */
-#define	UIO_DIRECT	0x0001	/* Direct I/O request */
+#define	UIO_DIRECT		(1ULL << 0) /* Direct I/O request */
+#define	UIO_UNCACHED	(1ULL << 1) /* Caller will not reuse data */
+/*
+ * UIO_DIO_DENY: the zpl caller declines Direct I/O for this request (e.g. a
+ * file handle that already hit a benign DIO read verify failure).
+ * UIO_DIO_CKSUM_RETRIED: set by zfs_read when a DIO read verify failed but
+ * the buffered re-read succeeded -- a recycled O_DIRECT buffer, not an
+ * on-disk error.
+ */
+#define	UIO_DIO_DENY	(1ULL << 2)
+#define	UIO_DIO_CKSUM_RETRIED (1ULL << 3)
 
 typedef struct iovec iovec_t;
 
