@@ -408,6 +408,8 @@ zfs_dirlook(znode_t *dzp, char *name, znode_t **zpp, int flags,
 			*zpp = zp;
 		rw_exit(&dzp->z_parent_lock);
 	} else if (zfs_has_ctldir(dzp) && strcmp(name, ZFS_CTLDIR_NAME) == 0) {
+		if (ZTOZSB(dzp)->z_show_ctldir == ZFS_SNAPDIR_DISABLED)
+			return (SET_ERROR(ENOENT));
 		vp = zfsctl_root(dzp);
 		if (vp != NULL)
 			*zpp = VTOZ(vp);
