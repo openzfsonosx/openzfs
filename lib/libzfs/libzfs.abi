@@ -2401,7 +2401,9 @@
       <enumerator name='ZFS_PROP_LASTUNMOUNT' value='110'/>
       <enumerator name='ZFS_PROP_MIMIC' value='111'/>
       <enumerator name='ZFS_PROP_DEVDISK' value='112'/>
-      <enumerator name='ZFS_NUM_PROPS' value='113'/>
+      <enumerator name='ZFS_PROP_OWNERUID' value='113'/>
+      <enumerator name='ZFS_PROP_OWNERGID' value='114'/>
+      <enumerator name='ZFS_NUM_PROPS' value='115'/>
     </enum-decl>
     <typedef-decl name='zfs_prop_t' type-id='4b000d60' id='58603c44'/>
     <enum-decl name='zprop_source_t' naming-typedef-id='a2256d42' id='5903f80e'>

@@ -200,6 +200,8 @@ typedef enum {
 	ZFS_PROP_LASTUNMOUNT,	/* macOS: Spotlight required */
 	ZFS_PROP_MIMIC,			/* macOS: mimic=hfs|apfs */
 	ZFS_PROP_DEVDISK,		/* macOS: create IOkit virtual disk */
+	ZFS_PROP_OWNERUID,		/* macOS: owner of new files */
+	ZFS_PROP_OWNERGID,		/* macOS: group of new files */
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 
