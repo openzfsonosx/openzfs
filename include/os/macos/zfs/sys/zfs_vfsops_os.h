@@ -98,6 +98,8 @@ struct zfsvfs {
 	boolean_t	z_use_sa;	/* version allow system attributes */
 	boolean_t	z_xattr_sa;	/* allow xattrs to be stores as SA */
 	boolean_t	z_longname;	/* Dataset supports long names */
+	uint64_t	z_owneruid;	/* com.apple.owneruid, 0 = creator */
+	uint64_t	z_ownergid;	/* com.apple.ownergid, 0 = inherit */
 	uint64_t	z_version;
 	uint64_t	z_shares_dir;	/* hidden shares dir */
 	dataset_kstats_t	z_kstat;	/* fs kstats */

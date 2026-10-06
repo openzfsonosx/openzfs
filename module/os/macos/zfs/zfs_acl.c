@@ -1624,6 +1624,23 @@ zfs_acl_ids_create(znode_t *dzp, int flag, vattr_t *vap, cred_t *cr,
 				    acl_ids->z_fgid, ZFS_GROUP);
 			}
 		}
+		/*
+		 * Ownership ignored (com.apple.ignoreowner=on) with an owner
+		 * set (com.apple.owneruid, com.apple.ownergid): new files get
+		 * that owner, so a pool used on several machines keeps one
+		 * owner on disk whoever creates the file.
+		 */
+		if (zfsvfs->z_owneruid != 0 &&
+		    zfsvfs->z_owneruid <= UINT32_MAX &&
+		    zfsvfs->z_vfs != NULL &&
+		    (vfs_flags(zfsvfs->z_vfs) & MNT_IGNORE_OWNERSHIP)) {
+			acl_ids->z_fuid = zfsvfs->z_owneruid;
+			if (zfsvfs->z_ownergid != 0 &&
+			    zfsvfs->z_ownergid <= UINT32_MAX) {
+				acl_ids->z_fgid = zfsvfs->z_ownergid;
+				gid = (gid_t)zfsvfs->z_ownergid;
+			}
+		}
 	}
 
 	/*

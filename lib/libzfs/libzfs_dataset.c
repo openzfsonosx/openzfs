@@ -1084,6 +1084,17 @@ zfs_valid_proplist(libzfs_handle_t *hdl, zfs_type_t type, nvlist_t *nvl,
 			break;
 		}
 
+		case ZFS_PROP_OWNERUID:
+		case ZFS_PROP_OWNERGID:
+			if (intval > UINT32_MAX) {
+				zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+				    "invalid '%s' property: must be between "
+				    "0 and %u"), propname, UINT32_MAX);
+				(void) zfs_error(hdl, EZFS_BADPROP, errbuf);
+				goto error;
+			}
+			break;
+
 		case ZFS_PROP_MLSLABEL:
 		{
 #ifdef HAVE_MLSLABEL
@@ -2784,6 +2795,8 @@ zfs_prop_get(zfs_handle_t *zhp, zfs_prop_t prop, char *propbuf, size_t proplen,
 	case ZFS_PROP_CREATETXG:
 	case ZFS_PROP_OBJSETID:
 	case ZFS_PROP_PBKDF2_ITERS:
+	case ZFS_PROP_OWNERUID:
+	case ZFS_PROP_OWNERGID:
 		/*
 		 * These properties are stored as numbers, but they are
 		 * identifiers or counters.

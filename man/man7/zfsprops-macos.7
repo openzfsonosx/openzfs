@@ -63,6 +63,32 @@ Equivalent to mount option
 Ignore the ownership field for the entire volume.
 The default value is
 .Sy off .
+.It Sy com.apple.owneruid Ns = Ns Ar uid
+.It Sy com.apple.ownergid Ns = Ns Ar gid
+The owner and group that new files, directories and symbolic links get
+while
+.Sy com.apple.ignoreowner
+is
+.Sy on ,
+whoever creates them.
+macOS shows every file on such a volume as the current user's, so a pool
+that moves between machines and users keeps a single owner on disk, which
+another system can map, for example with an idmapped mount on Linux.
+This is what macOS does for its own volumes mounted with
+.Sy noowners .
+The default value is
+.Sy 0 :
+new files are owned by the user that creates them, and take the group of
+their parent directory.
+A
+.Sy com.apple.ownergid
+of
+.Sy 0
+keeps the parent directory's group.
+Valid values are
+.Sy 0
+to
+.Sy 4294967295 .
 .It Xo
 .Sy com.apple.mimic Ns = Ns Sy hfs Ns | Ns Sy off
 .Xc

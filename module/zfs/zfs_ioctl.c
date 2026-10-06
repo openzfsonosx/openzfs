@@ -5551,6 +5551,14 @@ zfs_check_settable(const char *dsname, nvpair_t *pair, cred_t *cr)
 		break;
 	}
 
+	case ZFS_PROP_OWNERUID:
+	case ZFS_PROP_OWNERGID:
+		/* Must be a plain 32-bit id, not an ephemeral FUID. */
+		if (nvpair_value_uint64(pair, &intval) == 0 &&
+		    intval > UINT32_MAX)
+			return (SET_ERROR(EINVAL));
+		break;
+
 	default:
 		break;
 	}

@@ -401,6 +401,28 @@ finderbrowse_changed_cb(void *arg, uint64_t newval)
 		vfs_clearflags(zfsvfs->z_vfs, (uint64_t)MNT_DONTBROWSE);
 	}
 }
+/*
+ * com.apple.owneruid / com.apple.ownergid: the owner and group new files get
+ * while the mount ignores ownership (com.apple.ignoreowner=on). macOS's own
+ * filesystems give such files one fixed owner (_unknown, uid 99) through
+ * vfs_setowner(), which is private KPI, and ZFS takes a new file's owner from
+ * the credential, not from the vattr; zfs_acl_ids_create() applies these.
+ * 0 keeps the default: the creating user, and the parent folder's group.
+ */
+static void
+owneruid_changed_cb(void *arg, uint64_t newval)
+{
+	zfsvfs_t *zfsvfs = arg;
+	zfsvfs->z_owneruid = newval;
+}
+
+static void
+ownergid_changed_cb(void *arg, uint64_t newval)
+{
+	zfsvfs_t *zfsvfs = arg;
+	zfsvfs->z_ownergid = newval;
+}
+
 static void
 ignoreowner_changed_cb(void *arg, uint64_t newval)
 {
@@ -578,6 +600,10 @@ zfs_register_callbacks(struct mount *vfsp)
 	error = error ? error : dsl_prop_register(ds,
 	    zfs_prop_to_name(ZFS_PROP_IGNOREOWNER),
 	    ignoreowner_changed_cb, zfsvfs);
+	error = error ? error : dsl_prop_register(ds,
+	    zfs_prop_to_name(ZFS_PROP_OWNERUID), owneruid_changed_cb, zfsvfs);
+	error = error ? error : dsl_prop_register(ds,
+	    zfs_prop_to_name(ZFS_PROP_OWNERGID), ownergid_changed_cb, zfsvfs);
 	error = error ? error : dsl_prop_register(ds,
 	    zfs_prop_to_name(ZFS_PROP_MIMIC), mimic_changed_cb, zfsvfs);
 

@@ -654,6 +654,12 @@ zfs_prop_init(void)
 	zprop_register_index(ZFS_PROP_DEVDISK, "com.apple.devdisk", 0,
 	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "poolonly | on | off",
 	    "COM.APPLE.DEVDISK", devdisk_table, sfeatures);
+	zprop_register_number(ZFS_PROP_OWNERUID, "com.apple.owneruid", 0,
+	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "<uid>", "COM.APPLE.OWNERUID",
+	    B_FALSE, sfeatures);
+	zprop_register_number(ZFS_PROP_OWNERGID, "com.apple.ownergid", 0,
+	    PROP_INHERIT, ZFS_TYPE_FILESYSTEM, "<gid>", "COM.APPLE.OWNERGID",
+	    B_FALSE, sfeatures);
 	/* __APPLE__ */
 
 	/* readonly number properties */
