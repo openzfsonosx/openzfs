@@ -2535,7 +2535,12 @@ zfs_send_cb_impl(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 		 * there was some error, because it might not be totally
 		 * failed.
 		 */
-		int err2 = send_conclusion_record(outfd, NULL);
+		/*
+		 * Through sdd.outfd: on macOS the kernel's records went to a
+		 * relay (libzfs_macos_wrapfd) that may still be copying them;
+		 * written to outfd itself, this record could land before them.
+		 */
+		int err2 = send_conclusion_record(sdd.outfd, NULL);
 		if (err2 != 0)
 			return (zfs_standard_error(zhp->zfs_hdl, err2, errbuf));
 	}
